@@ -30,11 +30,12 @@ ExperimentSpec -> controller -> RangeRuntime -> isolated range
 ## First deliverable and dependencies
 
 Milestone 0 provides contracts, event persistence, docs, CLI validation, migrations, and CI.
-Milestone 1 supplies a contained hello range and functional gateway. Milestone 2 builds the
-first security property pair; Milestone 3 proves it with a scripted solver and evaluator before
+Milestone 1 supplies a contained hello range and functional gateway. Milestone 2 adds the
+first SaaS security-property pairs; Milestone 3 proves them with a scripted solver and evaluator before
 LLM-based experiments.
 
 The concrete Milestone 1 runtime design is in [runtime.md](runtime.md).
+The first SaaS range design is in [saas-range.md](saas-range.md).
 
 Python 3.12 is the baseline. Pydantic validates versioned external input; Typer supplies a
 discoverable CLI; SQLAlchemy with asyncpg persists events; Alembic versions the schema;

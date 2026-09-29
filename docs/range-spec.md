@@ -3,13 +3,16 @@
 `RangeSpec` is a versioned declarative input. The v1 foundation includes `family`,
 `scenario`, nonnegative `seed`, `patched`, a service topology, identity counts, and
 vulnerability descriptors (`family`, `component`, `variant`). Unknown fields fail
-validation. The [hello example](../ranges/hello/hello-range.yaml) exercises the schema.
+validation. The [hello example](../examples/hello-range.yaml) and
+[SaaS pair](../examples/saas-range.yaml) exercise the schema.
 
-The compiler will eventually produce a Compose definition, fixtures, account identities,
-hidden ground-truth manifest, oracle tests, attack graph, and network policy. A seed fixes
-scenario structure and public object identifiers. A separate run nonce generates ephemeral
-credentials. Matched vulnerable/patched builds share the same scenario seed and visible
-fixture structure; only the relevant security predicate differs.
+The SaaS compiler produces a Compose definition, seeded fixture, public identity roster,
+hidden ground-truth manifest, and attack graph. The oracle tests live in the range test
+suite. A seed fixes scenario structure and public object identifiers. A separate instance
+nonce derives ephemeral credentials. Matched vulnerable/patched builds share the same
+scenario seed, fixture, identity IDs, and pair ID; only the five security predicates differ.
 
-Future schema versions will add structural mutation rules and explicit pair identifiers.
+Future schema versions will add structural mutation rules and an explicit pair field in
+the input spec. The compiler currently derives a stable pair ID from the SaaS spec without
+the `patched` flag.
 Changes in v1 meaning require a migration rather than silent reinterpretation.

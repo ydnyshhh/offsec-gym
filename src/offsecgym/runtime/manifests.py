@@ -22,6 +22,7 @@ class BuildManifest(StrictModel):
     template_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
     image_name: str
     spec: RangeSpec
+    pair_id: UUID | None = None
 
 
 class InstanceManifest(StrictModel):
