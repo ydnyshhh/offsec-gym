@@ -6,8 +6,8 @@ models and orchestration strategies are interchangeable subjects of study.
 
 Licensed under Apache-2.0; see [LICENSE](LICENSE).
 
-Milestone 0 establishes versioned contracts, an append-only event store, a CLI skeleton,
-architecture documentation, and tests. It does not start a range or call a model.
+Milestone 1 adds a contained Docker Compose hello range, lifecycle commands, and an
+audited HTTP action gateway. The platform does not yet call a model or evaluate findings.
 
 ## Development
 
@@ -20,8 +20,24 @@ uv run pytest -q
 uv run ruff check .
 ```
 
-Validate a versioned YAML spec with `offsecgym spec validate PATH`. The range lifecycle
-commands arrive in Milestone 1 and currently return an explicit unavailable error.
+Validate and run the first synthetic range with Docker running:
+
+```sh
+uv run offsecgym spec validate examples/hello-range.yaml
+uv run offsecgym range build examples/hello-range.yaml
+uv run offsecgym range start examples/hello-range.yaml
+uv run offsecgym range status RANGE_ID
+uv run offsecgym range metadata RANGE_ID
+uv run offsecgym range stop RANGE_ID
+uv run offsecgym range start RANGE_ID
+uv run offsecgym range reset RANGE_ID
+uv run offsecgym range destroy RANGE_ID
+```
+
+`range start` prints `RANGE_ID`. Builds, instance manifests, and local evidence are kept in
+`.offsecgym/`; set `OFFSECGYM_STATE_DIR` to use a different directory. Only the
+`hello/health_check` spec is supported in this milestone. See [runtime](docs/runtime.md)
+for the containment and gateway behavior.
 
 PostgreSQL integration tests require `OFFSECGYM_TEST_DATABASE_URL` to point to an
 isolated, disposable database. Apply `alembic upgrade head` before running them.
