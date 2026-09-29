@@ -74,14 +74,15 @@ async def test_hello_lifecycle_containment_and_gateway(tmp_path: Path) -> None:
     instances: list[UUID] = []
     engine = None
     try:
-        first = await runtime.start(build_id)
-        instances.append(first.range_id)
-        second = await runtime.start(build_id)
-        instances.append(second.range_id)
+        first = await runtime.start_instance(await runtime.create_instance(build_id))
+        instances.append(first.instance_id)
+        second = await runtime.start_instance(await runtime.create_instance(build_id))
+        instances.append(second.instance_id)
         assert first.state == second.state == "healthy"
-        assert first.range_id != second.range_id
-        first_manifest = runtime.state.load_instance(first.range_id)
-        second_manifest = runtime.state.load_instance(second.range_id)
+        assert first.instance_id != second.instance_id
+        assert first.generation == second.generation == 0
+        first_manifest = runtime.state.load_instance(first.instance_id)
+        second_manifest = runtime.state.load_instance(second.instance_id)
         assert first_manifest.nonce != second_manifest.nonce
         assert first_manifest.project_name != second_manifest.project_name
 
@@ -151,7 +152,8 @@ async def test_hello_lifecycle_containment_and_gateway(tmp_path: Path) -> None:
         gateway = ComposeActionGateway(runtime, events, min_interval_seconds=0)
         context = ExperimentContext(
             run_id=run_id,
-            range_id=first.range_id,
+            range_instance_id=first.instance_id,
+            range_generation=0,
             budget=Budget(max_actions=20, max_http_requests=2),
         )
         action = ActionRequest(
@@ -161,11 +163,15 @@ async def test_hello_lifecycle_containment_and_gateway(tmp_path: Path) -> None:
         assert result.status == "completed" and result.http_status == 200
         assert json.loads(result.body_text or "{}")["seed"] == 42
         evidence = (
-            runtime.state.instance_dir(first.range_id)
+            runtime.state.instance_dir(first.instance_id)
             / "evidence"
             / f"{result.evidence_id.hex}.json"
         )
         assert evidence.is_file() and evidence.stat().st_mode & 0o777 == 0o600
+        first_evidence = json.loads(evidence.read_text(encoding="utf-8"))
+        assert first_evidence["range_instance_id"] == str(first.instance_id)
+        assert first_evidence["range_generation"] == 0
+        assert first_evidence["action_id"] == str(action.action_id)
 
         redirect = await gateway.execute(
             action.model_copy(update={"action_id": uuid4(), "path": "/redirect-out"}), context
@@ -176,17 +182,51 @@ async def test_hello_lifecycle_containment_and_gateway(tmp_path: Path) -> None:
             action.model_copy(update={"action_id": uuid4(), "destination": "outside"}), context
         )
         assert blocked.status == "blocked" and blocked.reason_code == "destination_out_of_scope"
+        secret = "never-store-this-token"
+        secret_attempt = await gateway.execute(
+            action.model_copy(
+                update={
+                    "action_id": uuid4(),
+                    "destination": "outside",
+                    "path": f"/hello?token={secret}",
+                }
+            ),
+            context,
+        )
+        assert secret_attempt.status == "blocked"
         exhausted = await gateway.execute(action.model_copy(update={"action_id": uuid4()}), context)
         assert exhausted.status == "blocked" and exhausted.reason_code == "http_budget_exhausted"
         trace = await events.read_run(run_id)
         assert [event.sequence_number for event in trace] == list(range(1, len(trace) + 1))
-        assert sum(isinstance(event, ActionRequested) for event in trace) == 4
+        requests = [event for event in trace if isinstance(event, ActionRequested)]
+        assert len(requests) == 5
         assert sum(isinstance(event, ActionCompleted) for event in trace) == 2
-        assert sum(isinstance(event, ActionBlocked) for event in trace) == 2
+        assert sum(isinstance(event, ActionBlocked) for event in trace) == 3
+        for requested in requests:
+            assert requested.range_instance_id == first.instance_id
+            assert requested.range_generation == 0
+            assert requested.request_artifact_id is not None
+            artifact = (
+                runtime.state.instance_dir(first.instance_id)
+                / "requests"
+                / f"{requested.request_artifact_id.hex}.json"
+            )
+            assert artifact.is_file() and artifact.stat().st_mode & 0o777 == 0o600
+            payload = json.loads(artifact.read_text(encoding="utf-8"))
+            assert payload["range_instance_id"] == str(first.instance_id)
+            assert payload["range_generation"] == 0
+            assert payload["action_id"] == str(requested.action_id)
+            if requested.action_id == secret_attempt.action_id:
+                assert secret not in artifact.read_text(encoding="utf-8")
+                assert "token=" in payload["path"]
+        assert secret not in json.dumps([event.model_dump(mode="json") for event in trace])
 
         rate_run_id = uuid4()
         rate_context = ExperimentContext(
-            run_id=rate_run_id, range_id=first.range_id, budget=Budget(max_actions=3)
+            run_id=rate_run_id,
+            range_instance_id=first.instance_id,
+            range_generation=0,
+            budget=Budget(max_actions=3),
         )
         rate_gateway = ComposeActionGateway(runtime, events, min_interval_seconds=60)
         rate_action = action.model_copy(update={"run_id": rate_run_id, "action_id": uuid4()})
@@ -196,15 +236,41 @@ async def test_hello_lifecycle_containment_and_gateway(tmp_path: Path) -> None:
         )
         assert rate_blocked.status == "blocked" and rate_blocked.reason_code == "rate_limited"
 
-        assert (await runtime.stop(first.range_id)).state == "stopped"
-        assert (await runtime.stop(first.range_id)).state == "stopped"
-        assert (await runtime.start(first.range_id)).state == "healthy"
-        assert (await runtime.reset(first.range_id)).state == "healthy"
-        assert (await runtime.destroy(first.range_id)).state == "destroyed"
-        assert (await runtime.destroy(first.range_id)).state == "destroyed"
-        assert (await runtime.status(second.range_id)).state == "healthy"
+        assert (await runtime.stop_instance(first.instance_id)).state == "stopped"
+        assert (await runtime.stop_instance(first.instance_id)).state == "stopped"
+        restarted = await runtime.start_instance(first.instance_id)
+        assert restarted.state == "healthy" and restarted.generation == 0
+        reset = await runtime.reset_instance(first.instance_id)
+        assert reset.state == "healthy" and reset.generation == 1
+        stale = await gateway.execute(action.model_copy(update={"action_id": uuid4()}), context)
+        assert stale.status == "blocked" and stale.reason_code == "range_generation_mismatch"
+        new_run_id = uuid4()
+        new_context = ExperimentContext(
+            run_id=new_run_id,
+            range_instance_id=first.instance_id,
+            range_generation=1,
+            budget=Budget(max_actions=1),
+        )
+        fresh = await gateway.execute(
+            action.model_copy(update={"run_id": new_run_id, "action_id": uuid4()}),
+            new_context,
+        )
+        assert fresh.status == "completed"
+        fresh_evidence_path = (
+            runtime.state.instance_dir(first.instance_id)
+            / "evidence"
+            / f"{fresh.evidence_id.hex}.json"
+        )
+        fresh_evidence = json.loads(fresh_evidence_path.read_text(encoding="utf-8"))
+        assert fresh_evidence_path.stat().st_mode & 0o777 == 0o600
+        assert fresh_evidence["range_instance_id"] == str(first.instance_id)
+        assert fresh_evidence["range_generation"] == 1
+        assert first_evidence["range_generation"] == 0
+        assert (await runtime.destroy_instance(first.instance_id)).state == "destroyed"
+        assert (await runtime.destroy_instance(first.instance_id)).state == "destroyed"
+        assert (await runtime.instance_status(second.instance_id)).state == "healthy"
     finally:
         for instance_id in instances:
-            await runtime.destroy(instance_id)
+            await runtime.destroy_instance(instance_id)
         if engine is not None:
             await engine.dispose()

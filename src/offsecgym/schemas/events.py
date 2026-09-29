@@ -6,7 +6,7 @@ from datetime import UTC, datetime
 from typing import Annotated, Literal
 from uuid import UUID
 
-from pydantic import Field, TypeAdapter, field_validator
+from pydantic import Field, TypeAdapter, field_validator, model_validator
 
 from offsecgym.schemas.common import StrictModel, new_id
 
@@ -40,14 +40,36 @@ class RangeStarted(TraceEvent):
 
 
 class ActionRequested(TraceEvent):
+    schema_version: Literal["1", "2"] = "1"
     type: Literal["action_requested"] = "action_requested"
     action_id: UUID
     action_type: str = Field(min_length=1)
     destination: str = Field(min_length=1)
     method: str | None = None
     path_sha256: str | None = Field(default=None, pattern=r"^[0-9a-f]{64}$")
+    worker_id: UUID | None = None
     identity_id: UUID | None = None
     body_sha256: str | None = Field(default=None, pattern=r"^[0-9a-f]{64}$")
+    range_instance_id: UUID | None = None
+    range_generation: int | None = Field(default=None, ge=0)
+    request_artifact_id: UUID | None = None
+
+    @model_validator(mode="after")
+    def require_v2_provenance(self) -> ActionRequested:
+        if self.schema_version == "2" and (
+            self.range_instance_id is None
+            or self.range_generation is None
+            or self.request_artifact_id is None
+        ):
+            raise ValueError(
+                "v2 action request requires instance, generation, and request artifact"
+            )
+        if self.schema_version == "1" and any(
+            item is not None
+            for item in (self.range_instance_id, self.range_generation, self.request_artifact_id)
+        ):
+            raise ValueError("v1 action request cannot include v2 provenance")
+        return self
 
 
 class ActionBlocked(TraceEvent):

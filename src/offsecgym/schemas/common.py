@@ -2,12 +2,13 @@
 
 from __future__ import annotations
 
-from typing import Annotated
 from uuid import UUID, uuid4, uuid5
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict
 
-SchemaVersion = Annotated[str, Field(pattern=r"^1$")]
+# JSON object roots are required at the action boundary. This recursive value type is
+# shared by action requests and redacted request artifacts.
+type JsonValue = str | int | float | bool | None | list[JsonValue] | dict[str, JsonValue]
 
 
 class StrictModel(BaseModel):

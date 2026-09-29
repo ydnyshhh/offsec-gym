@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import json
 import os
 import subprocess
@@ -64,11 +65,24 @@ async def test_saas_oracle_pair_and_containment(tmp_path: Path) -> None:
     runtime = ComposeRangeRuntime(tmp_path)
     vulnerable_build = await runtime.build(spec(False))
     patched_build = await runtime.build(spec(True))
+    selective_build = await runtime.build(
+        spec(False).model_copy(update={"patched_properties": ("DOC-CROSS-TENANT-READ",)})
+    )
+    assert len({vulnerable_build, patched_build, selective_build}) == 3
+    assert (
+        len(
+            {
+                runtime.state.load_build(build_id).pair_id
+                for build_id in (vulnerable_build, patched_build, selective_build)
+            }
+        )
+        == 1
+    )
     fixture = json.loads((runtime.state.build_dir(vulnerable_build) / "fixture.json").read_text())
     oracle = json.loads(
         (runtime.state.root / "oracles" / vulnerable_build.hex / "ground_truth.json").read_text()
     )
-    assert {item["object_id"] for item in oracle["properties"]} == {
+    assert {item["object"]["object_id"] for item in oracle["properties"]} == {
         fixture["documents"][1]["id"],
         fixture["invoices"][1]["id"],
         fixture["tickets"][1]["id"],
@@ -76,13 +90,15 @@ async def test_saas_oracle_pair_and_containment(tmp_path: Path) -> None:
     }
     instances: list[UUID] = []
     try:
-        vulnerable = await runtime.start(vulnerable_build)
-        instances.append(vulnerable.range_id)
-        patched = await runtime.start(patched_build)
-        instances.append(patched.range_id)
-        assert vulnerable.state == patched.state == "healthy"
-        vulnerable_meta = await runtime.snapshot_metadata(vulnerable.range_id)
-        patched_meta = await runtime.snapshot_metadata(patched.range_id)
+        vulnerable = await runtime.start_instance(await runtime.create_instance(vulnerable_build))
+        instances.append(vulnerable.instance_id)
+        patched = await runtime.start_instance(await runtime.create_instance(patched_build))
+        instances.append(patched.instance_id)
+        selective = await runtime.start_instance(await runtime.create_instance(selective_build))
+        instances.append(selective.instance_id)
+        assert vulnerable.state == patched.state == selective.state == "healthy"
+        vulnerable_meta = await runtime.snapshot_metadata(vulnerable.instance_id)
+        patched_meta = await runtime.snapshot_metadata(patched.instance_id)
         assert vulnerable_meta.family == patched_meta.family == "saas"
         assert not vulnerable_meta.patched and patched_meta.patched
         assert vulnerable_meta.pair_id == patched_meta.pair_id
@@ -90,12 +106,12 @@ async def test_saas_oracle_pair_and_containment(tmp_path: Path) -> None:
         member = vulnerable_meta.identities[0].identity_id
         admin = vulnerable_meta.identities[3].identity_id
         support = vulnerable_meta.identities[-2].identity_id
-        assert runtime.identity_credentials(vulnerable.range_id, member) != (
-            runtime.identity_credentials(patched.range_id, member)
+        assert runtime.identity_credentials(vulnerable.instance_id, member) != (
+            runtime.identity_credentials(patched.instance_id, member)
         )
 
-        vulnerable_instance = runtime.state.load_instance(vulnerable.range_id)
-        patched_instance = runtime.state.load_instance(patched.range_id)
+        vulnerable_instance = runtime.state.load_instance(vulnerable.instance_id)
+        patched_instance = runtime.state.load_instance(patched.instance_id)
         assert vulnerable_instance.project_name != patched_instance.project_name
         target_ids = (
             await run_command(
@@ -178,12 +194,48 @@ async def test_saas_oracle_pair_and_containment(tmp_path: Path) -> None:
                 timeout_seconds=8,
             )
 
+        # The first handler acknowledges the headers, then waits for its request body.
+        # A second handler must answer while that first request remains unfinished.
+        await runtime._compose(
+            vulnerable_instance,
+            "exec",
+            "-T",
+            "gateway",
+            "python",
+            "-c",
+            """
+import socket
+body = b'{"username":"unknown","password":"x"}'
+headers = (f'POST /api/login HTTP/1.1\\r\\nHost: saas\\r\\nContent-Length: {len(body)}\\r\\n'
+           'Expect: 100-continue\\r\\nConnection: close\\r\\n\\r\\n').encode()
+with socket.create_connection(('saas', 8080), timeout=3) as blocked:
+    blocked.settimeout(3)
+    blocked.sendall(headers)
+    assert blocked.recv(1024).startswith(b'HTTP/1.1 100 Continue')
+    blocked.settimeout(0.2)
+    try:
+        blocked.recv(1024)
+    except socket.timeout:
+        pass
+    else:
+        raise AssertionError('first request finished before its body arrived')
+    with socket.create_connection(('saas', 8080), timeout=3) as probe:
+        probe.settimeout(2)
+        probe.sendall(b'GET /health HTTP/1.1\\r\\nHost: saas\\r\\nConnection: close\\r\\n\\r\\n')
+        assert probe.recv(1024).startswith(b'HTTP/1.1 200 OK')
+    blocked.sendall(body)
+    assert blocked.recv(1024).startswith(b'HTTP/1.1 401 Unauthorized')
+""",
+            timeout_seconds=8,
+        )
+
         events = MemoryEventStore()
         gateway = ComposeActionGateway(runtime, events, min_interval_seconds=0)
         contexts = {
             range_id: ExperimentContext(
                 run_id=uuid4(),
-                range_id=range_id,
+                range_instance_id=range_id,
+                range_generation=0,
                 budget=Budget(max_actions=50, max_http_requests=45),
                 allowed_identity_ids=(member, admin, support),
             )
@@ -214,11 +266,11 @@ async def test_saas_oracle_pair_and_containment(tmp_path: Path) -> None:
         foreign_workspace = fixture["workspaces"][1]["id"]
         own_evidence = None
         for range_id, expected_foreign_status in (
-            (vulnerable.range_id, 200),
-            (patched.range_id, 403),
+            (vulnerable.instance_id, 200),
+            (patched.instance_id, 403),
         ):
             own = await call(range_id, f"/api/documents/{own_document['id']}")
-            if range_id == vulnerable.range_id:
+            if range_id == vulnerable.instance_id:
                 own_evidence = own.evidence_id
             assert own.http_status == 200
             assert response_json(own)["reference_document_id"] == foreign_document["id"]
@@ -283,33 +335,114 @@ async def test_saas_oracle_pair_and_containment(tmp_path: Path) -> None:
                 await call(range_id, f"/api/workspaces/{foreign_workspace}/tickets", support)
             ).http_status == 200
 
+        # Fix only document authorization. Direct probes use known fixture IDs so a
+        # blocked document chain cannot hide another still-vulnerable endpoint.
+        selective_id = selective.instance_id
+        assert (await call(selective_id, f"/api/documents/{own_document['id']}")).http_status == 200
+        assert (
+            await call(selective_id, f"/api/documents/{foreign_document['id']}")
+        ).http_status == 403
+        assert (
+            await call(selective_id, f"/api/invoices/{foreign_invoice['id']}")
+        ).http_status == 200
+        assert (
+            await call(selective_id, f"/api/support/tickets/{foreign_ticket['id']}")
+        ).http_status == 200
+        selective_preview = await call(
+            selective_id,
+            f"/api/public/invoices/{foreign_invoice['id']}/preview",
+            identity=None,
+        )
+        assert selective_preview.http_status == 200
+        assert "billing_email" in response_json(selective_preview)
+
+        async def race_refund():
+            run_id = uuid4()
+            context = ExperimentContext(
+                run_id=run_id,
+                range_instance_id=selective_id,
+                range_generation=0,
+                budget=Budget(max_actions=1),
+                allowed_identity_ids=(member,),
+            )
+            return await gateway.execute(
+                ActionRequest(
+                    run_id=run_id,
+                    kind="http_request",
+                    destination="saas",
+                    method="POST",
+                    path=f"/api/invoices/{own_invoice['id']}/refund",
+                    identity_id=member,
+                    json_body={"reason": "duplicate charge"},
+                ),
+                context,
+            )
+
+        refunds = await asyncio.gather(race_refund(), race_refund())
+        assert sorted(result.http_status for result in refunds) == [200, 409]
+        assert (
+            response_json(await call(selective_id, f"/api/invoices/{own_invoice['id']}"))["status"]
+            == "refunded"
+        )
+
         outside_identity = vulnerable_meta.identities[-1].identity_id
-        denied = await call(vulnerable.range_id, "/api/me", outside_identity)
+        denied = await call(vulnerable.instance_id, "/api/me", outside_identity)
         assert denied.status == "blocked" and denied.reason_code == "identity_out_of_scope"
-        denied_login = await call(vulnerable.range_id, "/api/login", None, "POST", {"x": "y"})
+        password = runtime.identity_credentials(vulnerable.instance_id, member)["password"]
+        denied_login = await call(
+            vulnerable.instance_id,
+            "/api/login",
+            None,
+            "POST",
+            {"password": password, "nested": {"token": password}},
+        )
         assert denied_login.status == "blocked"
+        login_request = next(
+            event
+            for event in events.items
+            if event.run_id == contexts[vulnerable.instance_id].run_id
+            and event.action_id == denied_login.action_id
+            and event.type == "action_requested"
+        )
+        request_path = (
+            runtime.state.instance_dir(vulnerable.instance_id)
+            / "requests"
+            / f"{login_request.request_artifact_id.hex}.json"
+        )
+        request_text = request_path.read_text(encoding="utf-8")
+        assert request_path.stat().st_mode & 0o777 == 0o600
+        assert password not in request_text
+        assert json.loads(request_text)["json_body"] == {
+            "password": "*",
+            "nested": {"token": "*"},
+        }
         evidence_path = (
-            runtime.state.instance_dir(vulnerable.range_id)
+            runtime.state.instance_dir(vulnerable.instance_id)
             / "evidence"
             / f"{own_evidence.hex}.json"
         )
         evidence = evidence_path.read_text()
         assert "password" not in evidence
-        assert runtime.identity_credentials(vulnerable.range_id, member)["password"] not in evidence
-
-        old_credentials = runtime.identity_credentials(vulnerable.range_id, member)
-        assert (await runtime.reset(vulnerable.range_id)).state == "healthy"
-        assert runtime.identity_credentials(vulnerable.range_id, member) != old_credentials
         assert (
-            await call(vulnerable.range_id, f"/api/invoices/{own_invoice['id']}")
+            runtime.identity_credentials(vulnerable.instance_id, member)["password"] not in evidence
+        )
+
+        old_credentials = runtime.identity_credentials(vulnerable.instance_id, member)
+        assert (await runtime.reset_instance(vulnerable.instance_id)).state == "healthy"
+        contexts[vulnerable.instance_id] = contexts[vulnerable.instance_id].model_copy(
+            update={"range_generation": 1}
+        )
+        assert runtime.identity_credentials(vulnerable.instance_id, member) != old_credentials
+        assert (
+            await call(vulnerable.instance_id, f"/api/invoices/{own_invoice['id']}")
         ).http_status == 200
         assert (
-            response_json(await call(vulnerable.range_id, f"/api/invoices/{own_invoice['id']}"))[
+            response_json(await call(vulnerable.instance_id, f"/api/invoices/{own_invoice['id']}"))[
                 "status"
             ]
             == "paid"
         )
-        assert (await runtime.status(patched.range_id)).state == "healthy"
+        assert (await runtime.instance_status(patched.instance_id)).state == "healthy"
     finally:
         for instance_id in instances:
-            await runtime.destroy(instance_id)
+            await runtime.destroy_instance(instance_id)

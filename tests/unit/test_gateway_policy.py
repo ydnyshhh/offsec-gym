@@ -21,7 +21,12 @@ def test_path_policy_rejects_external_and_ambiguous_forms() -> None:
 
 def test_scope_policy_binds_run_service_and_method() -> None:
     run_id = uuid4()
-    context = ExperimentContext(run_id=run_id, range_id=uuid4(), budget=Budget(max_actions=10))
+    context = ExperimentContext(
+        run_id=run_id,
+        range_instance_id=uuid4(),
+        range_generation=0,
+        budget=Budget(max_actions=10),
+    )
     allowed = ActionRequest(
         run_id=run_id, kind="http_request", destination="hello", method="GET", path="/hello"
     )
@@ -41,7 +46,8 @@ def test_saas_policy_blocks_direct_login_and_unassigned_identity() -> None:
     assigned = uuid4()
     context = ExperimentContext(
         run_id=run_id,
-        range_id=uuid4(),
+        range_instance_id=uuid4(),
+        range_generation=0,
         budget=Budget(max_actions=10),
         allowed_identity_ids=(assigned,),
     )

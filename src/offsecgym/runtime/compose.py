@@ -13,7 +13,11 @@ from uuid import UUID, uuid4
 from offsecgym.runtime.compiler import HelloRangeCompiler
 from offsecgym.runtime.manifests import InstanceManifest, StateStore, utc_now
 from offsecgym.runtime.saas import SaasRangeCompiler
-from offsecgym.schemas.domain import RangeIdentity, RangeMetadata, RangeStatus
+from offsecgym.schemas.domain import (
+    RangeControllerMetadata,
+    RangeIdentity,
+    RangeInstanceStatus,
+)
 from offsecgym.schemas.specs import RangeSpec
 
 
@@ -59,6 +63,12 @@ class ComposeRangeRuntime:
         self.state = StateStore(state_dir)
         self.compiler = HelloRangeCompiler(self.state)
         self.saas_compiler = SaasRangeCompiler(self.state)
+        self._instance_locks: dict[UUID, asyncio.Lock] = {}
+
+    def get_instance_guard(self, instance_id: UUID) -> asyncio.Lock:
+        """Serialize an instance action with reset/teardown in this controller process."""
+
+        return self._instance_locks.setdefault(instance_id, asyncio.Lock())
 
     async def build(self, spec: RangeSpec) -> UUID:
         if spec.family == "hello":
@@ -162,8 +172,8 @@ class ComposeRangeRuntime:
         await self._assert_owned(instance)
         await self._compose(instance, "down", "--volumes")
 
-    def _new_instance(self, build_id: UUID) -> InstanceManifest:
-        self.state.load_build(build_id)
+    async def create_instance(self, build_id: UUID) -> UUID:
+        self.state.verify_build_integrity(build_id)
         instance_id = uuid4()
         now = utc_now()
         instance = InstanceManifest(
@@ -171,12 +181,12 @@ class ComposeRangeRuntime:
             build_id=build_id,
             project_name=f"offsecgym_{instance_id.hex}",
             nonce=uuid4(),
-            state="starting",
+            state="stopped",
             created_at=now,
             updated_at=now,
         )
         self.state.save_instance(instance)
-        return instance
+        return instance_id
 
     def _save_state(
         self, instance: InstanceManifest, state: str, **updates: object
@@ -185,21 +195,23 @@ class ComposeRangeRuntime:
         self.state.save_instance(changed)
         return changed
 
-    async def start(self, range_id: UUID) -> RangeStatus:
-        try:
-            instance = self.state.load_instance(range_id)
-        except ValueError:
-            instance = self._new_instance(range_id)
+    async def start_instance(self, instance_id: UUID) -> RangeInstanceStatus:
+        async with self.get_instance_guard(instance_id):
+            return await self._start_instance_unlocked(instance_id)
+
+    async def _start_instance_unlocked(self, instance_id: UUID) -> RangeInstanceStatus:
+        instance = self.state.load_instance(instance_id)
+        self.state.verify_build_integrity(instance.build_id)
         if instance.state == "destroyed":
             raise ValueError("destroyed range instances cannot be restarted")
-        current = await self.status(instance.instance_id)
+        current = await self.instance_status(instance.instance_id)
         if current.state == "healthy":
             return current
         instance = self._save_state(instance, "starting")
         try:
             await self._assert_owned(instance)
             await self._compose(instance, "up", "--build", "--wait", "--wait-timeout", "90")
-            build = self.state.load_build(instance.build_id)
+            build = self.state.verify_build_integrity(instance.build_id)
             image_id = (
                 await run_command(
                     ["docker", "image", "inspect", build.image_name, "--format", "{{.Id}}"],
@@ -207,7 +219,7 @@ class ComposeRangeRuntime:
                 )
             ).strip()
             instance = self._save_state(instance, "healthy", image_id=image_id)
-            status = await self.status(instance.instance_id)
+            status = await self.instance_status(instance.instance_id)
             if status.state != "healthy":
                 raise DockerCommandError("range did not become healthy")
             return status
@@ -219,20 +231,16 @@ class ComposeRangeRuntime:
                 self._save_state(instance, "unhealthy")
             raise
 
-    async def status(self, range_id: UUID) -> RangeStatus:
-        try:
-            instance = self.state.load_instance(range_id)
-        except ValueError:
-            self.state.load_build(range_id)
-            return RangeStatus(range_id=range_id, state="built", checked_at=utc_now())
+    async def instance_status(self, instance_id: UUID) -> RangeInstanceStatus:
+        instance = self.state.load_instance(instance_id)
         if instance.state == "destroyed":
-            return RangeStatus(range_id=range_id, state="destroyed", checked_at=utc_now())
+            return self._status(instance, "destroyed")
+        build = self.state.verify_build_integrity(instance.build_id)
         output = await self._compose(
             instance, "ps", "--all", "--format", "json", timeout_seconds=20
         )
         records = _parse_compose_ps(output)
         services = {record.get("Service"): record for record in records}
-        build = self.state.load_build(instance.build_id)
         target = services.get("hello" if build.spec.family == "hello" else "saas", {})
         gateway = services.get("gateway", {})
         if (
@@ -246,23 +254,33 @@ class ComposeRangeRuntime:
         else:
             state = "stopped"
         if state != instance.state:
-            self._save_state(instance, state)
-        return RangeStatus(range_id=range_id, state=state, checked_at=utc_now())
+            instance = self._save_state(instance, state)
+        return self._status(instance, state)
 
-    async def wait_until_healthy(self, range_id: UUID) -> RangeStatus:
+    @staticmethod
+    def _status(instance: InstanceManifest, state: str) -> RangeInstanceStatus:
+        return RangeInstanceStatus(
+            instance_id=instance.instance_id,
+            build_id=instance.build_id,
+            generation=instance.generation,
+            state=state,
+            checked_at=utc_now(),
+        )
+
+    async def wait_until_healthy(self, instance_id: UUID) -> RangeInstanceStatus:
         deadline = asyncio.get_running_loop().time() + 90
         while asyncio.get_running_loop().time() < deadline:
-            status = await self.status(range_id)
+            status = await self.instance_status(instance_id)
             if status.state == "healthy":
                 return status
             await asyncio.sleep(1)
         raise TimeoutError("range health check timed out")
 
-    async def snapshot_metadata(self, range_id: UUID) -> RangeMetadata:
-        instance = self.state.load_instance(range_id)
-        build = self.state.load_build(instance.build_id)
-        status = await self.status(range_id)
-        return RangeMetadata(
+    async def snapshot_metadata(self, instance_id: UUID) -> RangeControllerMetadata:
+        instance = self.state.load_instance(instance_id)
+        build = self.state.verify_build_integrity(instance.build_id)
+        status = await self.instance_status(instance_id)
+        return RangeControllerMetadata(
             instance_id=instance.instance_id,
             build_id=instance.build_id,
             project_name=instance.project_name,
@@ -270,6 +288,7 @@ class ComposeRangeRuntime:
             seed=build.spec.seed,
             image_id=instance.image_id,
             state=status.state,
+            generation=instance.generation,
             family=build.spec.family,
             patched=build.spec.patched,
             pair_id=build.pair_id,
@@ -285,7 +304,7 @@ class ComposeRangeRuntime:
         )
 
     def _public_accounts(self, build_id: UUID) -> list[dict[str, str | None]]:
-        build = self.state.load_build(build_id)
+        build = self.state.verify_build_integrity(build_id)
         if build.spec.family != "saas":
             return []
         fixture = json.loads(
@@ -293,8 +312,8 @@ class ComposeRangeRuntime:
         )
         return fixture["accounts"]
 
-    def identity_credentials(self, range_id: UUID, identity_id: UUID) -> dict[str, str]:
-        instance = self.state.load_instance(range_id)
+    def identity_credentials(self, instance_id: UUID, identity_id: UUID) -> dict[str, str]:
+        instance = self.state.load_instance(instance_id)
         for account in self._public_accounts(instance.build_id):
             if account["id"] == str(identity_id):
                 username = account["username"]
@@ -306,33 +325,39 @@ class ComposeRangeRuntime:
                 }
         raise ValueError("unknown range identity")
 
-    async def reset(self, range_id: UUID) -> RangeStatus:
-        instance = self.state.load_instance(range_id)
-        if instance.state == "destroyed":
-            raise ValueError("destroyed range instances cannot be reset")
-        await self._down(instance)
-        self._save_state(instance, "stopped", nonce=uuid4())
-        return await self.start(range_id)
-
-    async def stop(self, range_id: UUID) -> RangeStatus:
-        instance = self.state.load_instance(range_id)
-        if instance.state == "destroyed":
-            return RangeStatus(range_id=range_id, state="destroyed", checked_at=utc_now())
-        await self._assert_owned(instance)
-        await self._compose(instance, "stop", timeout_seconds=40)
-        self._save_state(instance, "stopped")
-        return await self.status(range_id)
-
-    async def destroy(self, range_id: UUID) -> RangeStatus:
-        instance = self.state.load_instance(range_id)
-        if instance.state != "destroyed":
+    async def reset_instance(self, instance_id: UUID) -> RangeInstanceStatus:
+        async with self.get_instance_guard(instance_id):
+            instance = self.state.load_instance(instance_id)
+            self.state.verify_build_integrity(instance.build_id)
+            if instance.state == "destroyed":
+                raise ValueError("destroyed range instances cannot be reset")
             await self._down(instance)
-            self._save_state(instance, "destroyed")
-        return RangeStatus(range_id=range_id, state="destroyed", checked_at=utc_now())
+            self._save_state(instance, "stopped", nonce=uuid4(), generation=instance.generation + 1)
+            return await self._start_instance_unlocked(instance_id)
+
+    async def stop_instance(self, instance_id: UUID) -> RangeInstanceStatus:
+        async with self.get_instance_guard(instance_id):
+            instance = self.state.load_instance(instance_id)
+            if instance.state == "destroyed":
+                return self._status(instance, "destroyed")
+            self.state.verify_build_integrity(instance.build_id)
+            await self._assert_owned(instance)
+            await self._compose(instance, "stop", timeout_seconds=40)
+            self._save_state(instance, "stopped")
+            return await self.instance_status(instance_id)
+
+    async def destroy_instance(self, instance_id: UUID) -> RangeInstanceStatus:
+        async with self.get_instance_guard(instance_id):
+            instance = self.state.load_instance(instance_id)
+            if instance.state != "destroyed":
+                self.state.verify_build_integrity(instance.build_id)
+                await self._down(instance)
+                instance = self._save_state(instance, "destroyed")
+            return self._status(instance, "destroyed")
 
     async def execute_hello_http(self, range_id: UUID, path: str) -> dict[str, object]:
         instance = self.state.load_instance(range_id)
-        if (await self.status(range_id)).state != "healthy":
+        if (await self.instance_status(range_id)).state != "healthy":
             raise DockerCommandError("range is not healthy")
         result = await self._compose(
             instance,
@@ -355,10 +380,10 @@ class ComposeRangeRuntime:
         identity_id: UUID | None,
     ) -> dict[str, object]:
         instance = self.state.load_instance(range_id)
-        build = self.state.load_build(instance.build_id)
+        build = self.state.verify_build_integrity(instance.build_id)
         if build.spec.family != "saas":
             raise ValueError("range is not a SaaS build")
-        if (await self.status(range_id)).state != "healthy":
+        if (await self.instance_status(range_id)).state != "healthy":
             raise DockerCommandError("range is not healthy")
         identity = self.identity_credentials(range_id, identity_id) if identity_id else None
         result = await self._compose(

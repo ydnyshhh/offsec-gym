@@ -13,7 +13,13 @@ from uuid import UUID, uuid5
 
 import yaml
 
-from offsecgym.runtime.manifests import BuildManifest, StateStore, write_json_atomic
+from offsecgym.runtime.manifests import (
+    BuildIntegrityError,
+    BuildManifest,
+    StateStore,
+    artifact_digest,
+    write_json_atomic,
+)
 from offsecgym.schemas.specs import RangeSpec
 
 BUILD_NAMESPACE = UUID("935933a5-2f8b-4b33-8d68-b4a54ba2327d")
@@ -105,17 +111,27 @@ class HelloRangeCompiler:
             + compose_template
         ).hexdigest()
         build_id = uuid5(BUILD_NAMESPACE, f"1:{spec_hash}:{template_hash}")
+        image_name = f"offsecgym-hello:{build_id.hex[:16]}"
+        compose_bytes = yaml.safe_dump(_compose_config(spec, image_name), sort_keys=True).encode(
+            "utf-8"
+        )
         manifest = BuildManifest(
             build_id=build_id,
             spec_sha256=spec_hash,
             template_sha256=template_hash,
-            image_name=f"offsecgym-hello:{build_id.hex[:16]}",
+            image_name=image_name,
             spec=spec,
+            artifact_digests={
+                **{name: artifact_digest(content) for name, content in templates.items()},
+                "compose.yaml": artifact_digest(compose_bytes),
+            },
         )
         destination = self.state.build_dir(build_id)
         if destination.exists():
-            if self.state.load_build(build_id) != manifest:
-                raise ValueError("existing range build does not match deterministic manifest")
+            if self.state.verify_build_integrity(build_id) != manifest:
+                raise BuildIntegrityError(
+                    "existing range build does not match deterministic manifest"
+                )
             return manifest
         builds = destination.parent
         builds.mkdir(parents=True, exist_ok=True)
@@ -123,15 +139,18 @@ class HelloRangeCompiler:
         try:
             for name, content in templates.items():
                 (temporary / name).write_bytes(content)
-            compose = yaml.safe_dump(_compose_config(spec, manifest.image_name), sort_keys=True)
-            (temporary / "compose.yaml").write_text(compose, encoding="utf-8")
+            (temporary / "compose.yaml").write_bytes(compose_bytes)
             write_json_atomic(temporary / "manifest.json", manifest.model_dump(mode="json"))
             try:
                 os.replace(temporary, destination)
             except OSError:
-                if not destination.exists() or self.state.load_build(build_id) != manifest:
+                if (
+                    not destination.exists()
+                    or self.state.verify_build_integrity(build_id) != manifest
+                ):
                     raise
         finally:
             if temporary.exists():
                 shutil.rmtree(temporary)
+        self.state.verify_build_integrity(build_id)
         return manifest

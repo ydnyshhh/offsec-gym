@@ -6,8 +6,10 @@ from pathlib import Path
 import pytest
 import yaml
 
-from offsecgym.runtime.manifests import StateStore
+from offsecgym.runtime.manifests import BuildIntegrityError, StateStore
 from offsecgym.runtime.saas import SaasRangeCompiler, fixture_for_seed
+from offsecgym.schemas.attack_graph import AttackGraphManifest
+from offsecgym.schemas.ground_truth import GroundTruthManifest
 from offsecgym.schemas.specs import RangeSpec
 
 
@@ -36,13 +38,20 @@ def test_saas_paired_builds_share_fixture_and_hide_oracle(tmp_path: Path) -> Non
         assert not (bundle / "ground_truth.json").exists()
         assert not (bundle / "attack_graph.json").exists()
         assert (oracle_dir / "ground_truth.json").stat().st_mode & 0o777 == 0o600
-        ground_truth = json.loads((oracle_dir / "ground_truth.json").read_text())
-        assert len(ground_truth["properties"]) == 5
-        assert len(ground_truth["active_property_ids"]) == (0 if manifest.spec.patched else 5)
-        graph = json.loads((oracle_dir / "attack_graph.json").read_text())
-        assert len(graph["edges"]) >= 5
-        assert {item["id"] for item in ground_truth["properties"]} <= {
-            edge["property_id"] for edge in graph["edges"]
+        ground_truth = GroundTruthManifest.model_validate_json(
+            (oracle_dir / "ground_truth.json").read_bytes()
+        )
+        assert len(ground_truth.properties) == 5
+        assert sum(item.active for item in ground_truth.properties) == (
+            0 if manifest.spec.patched else 5
+        )
+        graph = AttackGraphManifest.model_validate_json(
+            (oracle_dir / "attack_graph.json").read_bytes()
+        )
+        graph.validate_against_ground_truth(ground_truth)
+        assert len(graph.edges) >= 10
+        assert {item.property_id for item in ground_truth.properties} <= {
+            edge.property_id for edge in graph.edges
         }
 
 
@@ -52,3 +61,33 @@ def test_saas_compiler_rejects_unsupported_surface(tmp_path: Path) -> None:
         compiler.build(load_spec().model_copy(update={"topology": {"saas": True, "redis": True}}))
     with pytest.raises(ValueError, match="five declared"):
         compiler.build(load_spec().model_copy(update={"vulnerabilities": ()}))
+
+
+@pytest.mark.parametrize(
+    "relative_path",
+    (
+        "builds/fixture.json",
+        "builds/compose.yaml",
+        "oracles/ground_truth.json",
+        "oracles/attack_graph.json",
+    ),
+)
+def test_saas_reuse_fails_closed_on_modified_artifact(tmp_path: Path, relative_path: str) -> None:
+    state = StateStore(tmp_path)
+    compiler = SaasRangeCompiler(state)
+    spec = load_spec()
+    manifest = compiler.build(spec)
+    category, name = relative_path.split("/")
+    directory = (
+        state.build_dir(manifest.build_id)
+        if category == "builds"
+        else (tmp_path / "oracles" / manifest.build_id.hex)
+    )
+    artifact = directory / name
+    tampered = artifact.read_bytes() + b"\n"
+    artifact.write_bytes(tampered)
+    with pytest.raises(BuildIntegrityError, match="digest mismatch"):
+        state.verify_build_integrity(manifest.build_id)
+    with pytest.raises(BuildIntegrityError, match="digest mismatch"):
+        compiler.build(spec)
+    assert artifact.read_bytes() == tampered

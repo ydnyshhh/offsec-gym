@@ -16,6 +16,15 @@ def test_hello_build_is_reproducible_and_unpublished(tmp_path: Path) -> None:
     first = compiler.build(spec)
     second = compiler.build(spec)
     assert first == second
+    assert compiler.state.verify_build_integrity(first.build_id) == first
+    assert set(first.artifact_digests) == {
+        "Dockerfile",
+        "compose.yaml",
+        "gateway_idle.py",
+        "hello_service.py",
+        "http_worker.py",
+    }
+    assert first.oracle_artifact_digests == {}
     bundle = tmp_path / "builds" / first.build_id.hex
     compose = yaml.safe_load((bundle / "compose.yaml").read_text(encoding="utf-8"))
     assert compose["networks"]["range"]["internal"] is True

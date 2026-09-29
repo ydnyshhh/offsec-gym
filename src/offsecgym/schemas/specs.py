@@ -43,6 +43,7 @@ class RangeSpec(StrictModel):
     scenario: str = Field(min_length=1)
     seed: int = Field(ge=0)
     patched: bool = False
+    patched_properties: tuple[str, ...] = ()
     topology: dict[str, bool] = Field(default_factory=dict)
     identities: dict[str, int] = Field(default_factory=dict)
     vulnerabilities: tuple[VulnerabilitySpec, ...] = ()
@@ -51,6 +52,10 @@ class RangeSpec(StrictModel):
     def validate_counts(self) -> RangeSpec:
         if any(count < 0 for count in self.identities.values()):
             raise ValueError("identity counts cannot be negative")
+        if len(set(self.patched_properties)) != len(self.patched_properties):
+            raise ValueError("patched property slugs must be unique")
+        if self.patched and self.patched_properties:
+            raise ValueError("patched=true cannot be combined with patched_properties")
         return self
 
 

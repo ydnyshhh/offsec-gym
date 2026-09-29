@@ -80,7 +80,7 @@ def range_build(
 def range_start(
     source: str, seed: int | None = typer.Option(None, min=0, help="Override a spec seed")
 ) -> None:
-    """Start a new range from a spec/build ID, or resume an instance ID."""
+    """Start a new range from a spec, or resume an instance ID."""
 
     try:
         path = Path(source)
@@ -88,13 +88,15 @@ def range_start(
             spec = _load_spec(path, RangeSpec)
             if seed is not None:
                 spec = RangeSpec.model_validate({**spec.model_dump(mode="python"), "seed": seed})
-            build_id = asyncio.run(_runtime().build(spec))
-            source_id = build_id
+            runtime = _runtime()
+            build_id = asyncio.run(runtime.build(spec))
+            instance_id = asyncio.run(runtime.create_instance(build_id))
         else:
             if seed is not None:
                 raise ValueError("--seed applies only when starting from a spec file")
-            source_id = UUID(source)
-        status = asyncio.run(_runtime().start(source_id))
+            instance_id = UUID(source)
+            runtime = _runtime()
+        status = asyncio.run(runtime.start_instance(instance_id))
     except (
         OSError,
         yaml.YAMLError,
@@ -104,62 +106,94 @@ def range_start(
         TimeoutError,
     ) as exc:
         _fail(exc)
-    typer.echo(f"range_id={status.range_id} state={status.state}")
+    typer.echo(
+        f"instance_id={status.instance_id} generation={status.generation} state={status.state}"
+    )
+
+
+@range_app.command("create")
+def range_create(build_id: str) -> None:
+    """Create a stopped instance from an existing build ID."""
+
+    try:
+        instance_id = asyncio.run(_runtime().create_instance(UUID(build_id)))
+    except (OSError, ValueError) as exc:
+        _fail(exc)
+    typer.echo(f"instance_id={instance_id} generation=0 state=stopped")
+
+
+@range_app.command("inspect-build")
+def range_inspect_build(build_id: str) -> None:
+    """Verify and print a build manifest."""
+
+    try:
+        manifest = _runtime().state.verify_build_integrity(UUID(build_id))
+    except (OSError, ValueError) as exc:
+        _fail(exc)
+    typer.echo(manifest.model_dump_json(indent=2))
 
 
 @range_app.command("status")
-def range_status(range_id: str) -> None:
-    """Inspect a build or range instance."""
+def range_status(instance_id: str) -> None:
+    """Inspect a range instance."""
 
     try:
-        status = asyncio.run(_runtime().status(UUID(range_id)))
+        status = asyncio.run(_runtime().instance_status(UUID(instance_id)))
     except (OSError, ValueError, DockerCommandError, TimeoutError) as exc:
         _fail(exc)
-    typer.echo(f"range_id={status.range_id} state={status.state}")
+    typer.echo(
+        f"instance_id={status.instance_id} generation={status.generation} state={status.state}"
+    )
 
 
 @range_app.command("metadata")
-def range_metadata(range_id: str) -> None:
+def range_metadata(instance_id: str) -> None:
     """Print a range instance metadata snapshot."""
 
     try:
-        metadata = asyncio.run(_runtime().snapshot_metadata(UUID(range_id)))
+        metadata = asyncio.run(_runtime().snapshot_metadata(UUID(instance_id)))
     except (OSError, ValueError, DockerCommandError, TimeoutError) as exc:
         _fail(exc)
     typer.echo(metadata.model_dump_json(indent=2))
 
 
 @range_app.command("stop")
-def range_stop(range_id: str) -> None:
+def range_stop(instance_id: str) -> None:
     """Stop a range while retaining its containers."""
 
     try:
-        status = asyncio.run(_runtime().stop(UUID(range_id)))
+        status = asyncio.run(_runtime().stop_instance(UUID(instance_id)))
     except (OSError, ValueError, DockerCommandError, TimeoutError) as exc:
         _fail(exc)
-    typer.echo(f"range_id={status.range_id} state={status.state}")
+    typer.echo(
+        f"instance_id={status.instance_id} generation={status.generation} state={status.state}"
+    )
 
 
 @range_app.command("reset")
-def range_reset(range_id: str) -> None:
+def range_reset(instance_id: str) -> None:
     """Recreate an instance with the same build and fresh target state."""
 
     try:
-        status = asyncio.run(_runtime().reset(UUID(range_id)))
+        status = asyncio.run(_runtime().reset_instance(UUID(instance_id)))
     except (OSError, ValueError, DockerCommandError, TimeoutError) as exc:
         _fail(exc)
-    typer.echo(f"range_id={status.range_id} state={status.state}")
+    typer.echo(
+        f"instance_id={status.instance_id} generation={status.generation} state={status.state}"
+    )
 
 
 @range_app.command("destroy")
-def range_destroy(range_id: str) -> None:
+def range_destroy(instance_id: str) -> None:
     """Remove only this instance's containers, network, and volumes."""
 
     try:
-        status = asyncio.run(_runtime().destroy(UUID(range_id)))
+        status = asyncio.run(_runtime().destroy_instance(UUID(instance_id)))
     except (OSError, ValueError, DockerCommandError, TimeoutError) as exc:
         _fail(exc)
-    typer.echo(f"range_id={status.range_id} state={status.state}")
+    typer.echo(
+        f"instance_id={status.instance_id} generation={status.generation} state={status.state}"
+    )
 
 
 if __name__ == "__main__":
