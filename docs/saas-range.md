@@ -19,14 +19,15 @@ identity counts. The seed determines all public entity IDs and relationships. Th
 `patched` flag changes all five authorization or data-exposure predicates. The optional
 `patched_properties` list selects individual property slugs when `patched` is false; for
 example, `patched_properties: [DOC-CROSS-TENANT-READ]` fixes only document reads. All
-variants with the same seed share identical fixtures and a common pair ID. A range instance
-supplies a fresh secret at startup;
-passwords derive from that secret and are never part of a build. The controller gives the
-gateway a selected identity ID, and the gateway obtains its credential and logs in through
+patch variants of the same base spec and compiler version share identical fixtures and a
+common pair ID. A range instance supplies a fresh secret at startup; passwords derive
+from that secret and are never part of a build. The controller gives the gateway a selected
+identity ID, and the gateway obtains its credential and logs in through
 a fixed worker. The controller has an identity roster; the default agent-visible context
 does not disclose it.
-Trusted controller metadata records the effective `variant` and sorted
-`patched_properties`; the agent-visible projection omits both.
+Trusted controller metadata records the effective `security_variant` and sorted
+`patched_properties`; the agent-visible projection omits both. A hello range has no
+security variant.
 
 The compiler writes `ground_truth.json` and `attack_graph.json` to a private oracle
 directory outside the Compose build context. Neither file is mounted into containers or
@@ -39,10 +40,14 @@ violation edges are inactive when their property is patched. The compiler valida
 and graph references and hashes both files in the build manifest. Milestone 3 will consume
 these files for scripted proofs and validation; current tests use them directly.
 Ground truth is now schema v3 with semantic proof requirements. The explicit
-`SAAS_COMPILER_VERSION` participates in build IDs; any change that can alter target, oracle,
-or graph semantics must bump it. Existing generated SaaS builds with an older oracle schema
-fail integrity checks and must be rebuilt. The stable property/root-cause IDs remain the
-same across compiler versions when their semantic slugs are unchanged.
+`SAAS_COMPILER_VERSION` participates in build IDs and pair IDs; any change that can alter
+target, oracle, or graph semantics must bump it. Vulnerable, selective, and patched builds
+from the same base spec and compiler version share a pair ID. A new compiler version starts
+a new pair family, so results from different compiler semantics cannot be treated as matched
+counterfactuals. Existing generated SaaS builds with an older oracle schema fail integrity
+checks and must be rebuilt. Compiler-2 builds may still be read, but compiler-3 generates
+new build and pair IDs and requires fresh builds for new runs. Property/root-cause IDs remain
+stable across compiler versions when their semantic slugs are unchanged.
 
 The five intended properties are cross-workspace document read, cross-workspace invoice
 read, cross-workspace support-ticket read, member-initiated refund, and anonymous invoice

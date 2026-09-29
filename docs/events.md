@@ -11,9 +11,10 @@ Initial event types: `run_started`, `range_started`, `action_requested`,
 world-fact adjudication, findings, and
 validation. Every event payload is parsed through a discriminated union; unknown types
 or unsupported schema versions are rejected. Legacy v1 action requests and range-start
-events remain parseable. New v2 `RangeStarted` requires a build ID, instance ID, and
-generation; `range_id` is only a legacy v1 field. Future reset, stop, and destroy events
-must use the same explicit instance/generation vocabulary.
+events remain parseable when explicitly marked v1. New construction defaults to v2 for
+`RangeStarted` and `ActionRequested`. New v2 `RangeStarted` requires a build ID, instance
+ID, and generation; `range_id` is only a legacy v1 field. Future reset, stop, and destroy
+events must use the same explicit instance/generation vocabulary.
 New v2 `ActionRequested` events require a request artifact ID, instance ID, and generation;
 they also record the worker ID when present. Their path and body fields are hashes, not raw
 secrets. Each action admitted with an existing instance and current generation produces an
