@@ -13,6 +13,7 @@ from uuid import UUID, uuid4
 from offsecgym.runtime.compiler import HelloRangeCompiler
 from offsecgym.runtime.manifests import InstanceManifest, StateStore, utc_now
 from offsecgym.runtime.saas import SaasRangeCompiler
+from offsecgym.schemas.common import JsonValue
 from offsecgym.schemas.domain import (
     RangeControllerMetadata,
     RangeIdentity,
@@ -376,7 +377,7 @@ class ComposeRangeRuntime:
         range_id: UUID,
         method: str,
         path: str,
-        json_body: dict[str, str] | None,
+        json_body: dict[str, JsonValue] | None,
         identity_id: UUID | None,
     ) -> dict[str, object]:
         instance = self.state.load_instance(range_id)
