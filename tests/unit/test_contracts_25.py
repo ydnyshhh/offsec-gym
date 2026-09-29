@@ -41,11 +41,11 @@ from offsecgym.schemas.domain import (
 from offsecgym.schemas.events import ActionRequested, parse_event
 from offsecgym.schemas.evidence import Evidence, RequestArtifact
 from offsecgym.schemas.ground_truth import (
+    AnonymousRequestRequirement,
     GroundTruthManifest,
     GroundTruthObject,
     GroundTruthProperty,
     GroundTruthSubject,
-    ProofRequirement,
     RootCause,
 )
 from offsecgym.schemas.specs import RangeSpec
@@ -90,7 +90,7 @@ def sample_oracle_and_graph(active: bool) -> tuple[GroundTruthManifest, AttackGr
                 ),
                 vulnerable_effect="billing_email_returned",
                 root_cause_id=root_cause_id,
-                proof_requirements=(ProofRequirement(kind="anonymous_request"),),
+                proof_requirements=(AnonymousRequestRequirement(),),
                 active=active,
             ),
         ),
@@ -323,7 +323,7 @@ def test_world_fact_provenance_contradiction_and_metadata_projection() -> None:
         seed=42,
         state="healthy",
         family="saas",
-        patched=False,
+        variant="vulnerable",
         identities=(identity,),
     )
     public = agent_visible_context(metadata)

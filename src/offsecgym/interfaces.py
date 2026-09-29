@@ -21,6 +21,7 @@ from offsecgym.schemas.domain import (
     WorldFact,
 )
 from offsecgym.schemas.events import AnyTraceEvent
+from offsecgym.schemas.ground_truth import GroundTruthManifest
 from offsecgym.schemas.specs import RangeSpec
 
 
@@ -58,6 +59,10 @@ class Validator(Protocol):
     async def validate(
         self, finding: CandidateFinding, context: ValidationContext
     ) -> ValidationResult: ...
+
+
+class OracleStore(Protocol):
+    def load_ground_truth(self, build_id: UUID) -> GroundTruthManifest: ...
 
 
 class WorldState(Protocol):

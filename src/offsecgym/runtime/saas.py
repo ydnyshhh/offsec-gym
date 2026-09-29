@@ -27,16 +27,23 @@ from offsecgym.schemas.domain import (
     StateTransitionExpectation,
 )
 from offsecgym.schemas.ground_truth import (
+    AnonymousRequestRequirement,
     GroundTruthManifest,
     GroundTruthObject,
     GroundTruthProperty,
     GroundTruthSubject,
-    ProofRequirement,
+    IdentityRequirement,
+    ObjectRelationRequirement,
+    ResponseFieldRequirement,
+    ResponseStatusRequirement,
     RootCause,
+    StateTransitionRequirement,
 )
 from offsecgym.schemas.specs import RangeSpec
 
 ENTITY_NAMESPACE = UUID("5e079198-b3e4-4a85-a40a-541d1bda1a9b")
+# Bump whenever target, oracle, or graph semantics can change without a spec/template change.
+SAAS_COMPILER_VERSION = "tenant-boundary-v1/compiler-2"
 TEMPLATE_NAMES = ("Dockerfile", "gateway_idle.py", "http_worker.py", "saas_service.py")
 IDENTITIES = {
     "customers": 3,
@@ -200,7 +207,11 @@ def oracle_for_fixture(
             ),
             "protected_document_returned",
             "missing_document_workspace_predicate",
-            ("identity", "foreign_document_id", "response_body"),
+            (
+                IdentityRequirement(role="member"),
+                ObjectRelationRequirement(resource_type="document", relation="foreign_workspace"),
+                ResponseStatusRequirement(status_codes=(200,)),
+            ),
         ),
         (
             "INVOICE-CROSS-TENANT-READ",
@@ -217,7 +228,11 @@ def oracle_for_fixture(
             ),
             "foreign_invoice_returned",
             "missing_invoice_workspace_predicate",
-            ("identity", "foreign_invoice_id", "response_body"),
+            (
+                IdentityRequirement(role="member"),
+                ObjectRelationRequirement(resource_type="invoice", relation="foreign_workspace"),
+                ResponseStatusRequirement(status_codes=(200,)),
+            ),
         ),
         (
             "TICKET-CROSS-TENANT-READ",
@@ -234,7 +249,11 @@ def oracle_for_fixture(
             ),
             "foreign_ticket_returned",
             "missing_ticket_workspace_predicate",
-            ("identity", "foreign_ticket_id", "response_body"),
+            (
+                IdentityRequirement(role="member"),
+                ObjectRelationRequirement(resource_type="ticket", relation="foreign_workspace"),
+                ResponseStatusRequirement(status_codes=(200,)),
+            ),
         ),
         (
             "MEMBER-REFUND",
@@ -254,7 +273,12 @@ def oracle_for_fixture(
             ),
             "invoice_refunded",
             "refund_checks_membership_not_admin_role",
-            ("identity", "refund_response", "invoice_status"),
+            (
+                IdentityRequirement(role="member"),
+                ObjectRelationRequirement(resource_type="invoice", relation="own_workspace"),
+                ResponseStatusRequirement(status_codes=(200,)),
+                StateTransitionRequirement(from_state="paid", to_state="refunded"),
+            ),
         ),
         (
             "PUBLIC-INVOICE-METADATA",
@@ -270,7 +294,10 @@ def oracle_for_fixture(
             ),
             "billing_email_returned",
             "public_preview_serializes_private_field",
-            ("anonymous_request", "billing_email_in_response"),
+            (
+                AnonymousRequestRequirement(),
+                ResponseFieldRequirement(field="billing_email", expectation="present"),
+            ),
         ),
     )
     properties = []
@@ -311,7 +338,7 @@ def oracle_for_fixture(
                 expectation=expectation,
                 vulnerable_effect=effect,
                 root_cause_id=root_id,
-                proof_requirements=tuple(ProofRequirement(kind=proof) for proof in proofs),
+                proof_requirements=proofs,
                 active=slug not in patched_slugs,
             )
         )
@@ -606,7 +633,7 @@ class SaasRangeCompiler:
             + fixture_bytes
             + compose_template
         ).hexdigest()
-        build_id = uuid5(BUILD_NAMESPACE, f"2.5:{spec_hash}:{template_hash}")
+        build_id = uuid5(BUILD_NAMESPACE, f"{SAAS_COMPILER_VERSION}:{spec_hash}:{template_hash}")
         oracle = oracle_for_fixture(fixture, patch_set, build_id, pair_id, spec.scenario)
         graph = graph_for_fixture(fixture, oracle)
         oracle_bytes = (

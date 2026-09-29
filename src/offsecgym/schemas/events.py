@@ -35,8 +35,26 @@ class RunStarted(TraceEvent):
 
 
 class RangeStarted(TraceEvent):
+    schema_version: Literal["1", "2"] = "2"
     type: Literal["range_started"] = "range_started"
-    range_id: UUID
+    range_id: UUID | None = None
+    build_id: UUID | None = None
+    range_instance_id: UUID | None = None
+    range_generation: int | None = Field(default=None, ge=0)
+
+    @model_validator(mode="after")
+    def require_versioned_identity(self) -> RangeStarted:
+        if self.schema_version == "1":
+            if self.range_id is None or any(
+                item is not None
+                for item in (self.build_id, self.range_instance_id, self.range_generation)
+            ):
+                raise ValueError("v1 range-start event requires only legacy range_id")
+        elif self.range_id is not None or any(
+            item is None for item in (self.build_id, self.range_instance_id, self.range_generation)
+        ):
+            raise ValueError("v2 range-start event requires build, instance, and generation")
+        return self
 
 
 class ActionRequested(TraceEvent):

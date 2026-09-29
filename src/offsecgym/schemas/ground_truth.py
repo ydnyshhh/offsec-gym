@@ -2,13 +2,18 @@
 
 from __future__ import annotations
 
-from typing import Literal
+from typing import Annotated, Literal
 from uuid import UUID
 
 from pydantic import Field, field_validator, model_validator
 
 from offsecgym.schemas.common import StrictModel
-from offsecgym.schemas.domain import SecurityExpectation
+from offsecgym.schemas.domain import (
+    AuthorizationExpectation,
+    FieldExposureExpectation,
+    SecurityExpectation,
+    StateTransitionExpectation,
+)
 
 
 class RootCause(StrictModel):
@@ -36,21 +41,54 @@ class GroundTruthObject(StrictModel):
     workspace_id: UUID | None = None
 
 
-ProofKind = Literal[
-    "identity",
-    "foreign_document_id",
-    "foreign_invoice_id",
-    "foreign_ticket_id",
-    "response_body",
-    "refund_response",
-    "invoice_status",
-    "anonymous_request",
-    "billing_email_in_response",
+class IdentityRequirement(StrictModel):
+    kind: Literal["identity"] = "identity"
+    role: str = Field(min_length=1)
+
+
+class ObjectRelationRequirement(StrictModel):
+    kind: Literal["object_relation"] = "object_relation"
+    resource_type: str = Field(min_length=1)
+    relation: str = Field(min_length=1)
+
+
+class ResponseStatusRequirement(StrictModel):
+    kind: Literal["response_status"] = "response_status"
+    status_codes: tuple[int, ...] = Field(min_length=1)
+
+    @field_validator("status_codes")
+    @classmethod
+    def valid_codes(cls, value: tuple[int, ...]) -> tuple[int, ...]:
+        if any(code < 100 or code > 599 for code in value) or len(set(value)) != len(value):
+            raise ValueError("response status codes must be distinct HTTP codes")
+        return value
+
+
+class ResponseFieldRequirement(StrictModel):
+    kind: Literal["response_field"] = "response_field"
+    field: str = Field(min_length=1)
+    expectation: Literal["present", "absent"]
+
+
+class StateTransitionRequirement(StrictModel):
+    kind: Literal["state_transition"] = "state_transition"
+    from_state: str = Field(min_length=1)
+    to_state: str = Field(min_length=1)
+
+
+class AnonymousRequestRequirement(StrictModel):
+    kind: Literal["anonymous_request"] = "anonymous_request"
+
+
+ProofRequirement = Annotated[
+    IdentityRequirement
+    | ObjectRelationRequirement
+    | ResponseStatusRequirement
+    | ResponseFieldRequirement
+    | StateTransitionRequirement
+    | AnonymousRequestRequirement,
+    Field(discriminator="kind"),
 ]
-
-
-class ProofRequirement(StrictModel):
-    kind: ProofKind
 
 
 class GroundTruthProperty(StrictModel):
@@ -81,11 +119,47 @@ class GroundTruthProperty(StrictModel):
             raise ValueError("oracle object type and expectation disagree")
         if self.subject.role == "anonymous" and self.subject.identity_id is not None:
             raise ValueError("anonymous subject cannot have an identity")
+        for requirement in self.proof_requirements:
+            if (
+                isinstance(requirement, IdentityRequirement)
+                and requirement.role != self.subject.role
+            ):
+                raise ValueError("proof identity role differs from oracle subject")
+            if (
+                isinstance(requirement, AnonymousRequestRequirement)
+                and self.subject.role != "anonymous"
+            ):
+                raise ValueError("anonymous request proof requires anonymous subject")
+            if (
+                isinstance(requirement, ObjectRelationRequirement)
+                and requirement.resource_type != self.object.resource_type
+            ):
+                raise ValueError("proof resource type differs from oracle object")
+            if (
+                isinstance(requirement, ObjectRelationRequirement)
+                and isinstance(
+                    self.expectation, (AuthorizationExpectation, StateTransitionExpectation)
+                )
+                and requirement.relation != self.expectation.object_relation
+            ):
+                raise ValueError("proof relation differs from oracle expectation")
+            if isinstance(requirement, StateTransitionRequirement) and (
+                not isinstance(self.expectation, StateTransitionExpectation)
+                or requirement.from_state != self.expectation.from_state
+                or requirement.to_state != self.expectation.to_state
+            ):
+                raise ValueError("state transition proof differs from expectation")
+            if (
+                isinstance(requirement, ResponseFieldRequirement)
+                and isinstance(self.expectation, FieldExposureExpectation)
+                and requirement.field not in self.expectation.forbidden_fields
+            ):
+                raise ValueError("response-field proof differs from exposure expectation")
         return self
 
 
 class GroundTruthManifest(StrictModel):
-    schema_version: Literal["2"] = "2"
+    schema_version: Literal["3"] = "3"
     scenario_id: str = Field(min_length=1)
     build_id: UUID
     pair_id: UUID

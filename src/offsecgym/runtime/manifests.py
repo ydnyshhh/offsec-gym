@@ -180,7 +180,21 @@ class StateStore:
                 manifest.oracle_artifact_digests,
                 "hidden oracle",
             )
+            self._verify_oracle_versions(build_id)
         return manifest
+
+    def _verify_oracle_versions(self, build_id: UUID) -> None:
+        oracle_dir = self.root / "oracles" / build_id.hex
+        for name, version in (("ground_truth.json", "3"), ("attack_graph.json", "2")):
+            path = oracle_dir / name
+            try:
+                payload = json.loads(path.read_text(encoding="utf-8"))
+            except (OSError, UnicodeError, json.JSONDecodeError) as exc:
+                raise BuildIntegrityError(f"hidden oracle is invalid: {name}") from exc
+            if not isinstance(payload, dict) or payload.get("schema_version") != version:
+                raise UnsupportedManifestVersionError(
+                    f"hidden oracle {name} uses an unsupported version; rebuild this SaaS range"
+                )
 
     @staticmethod
     def _verify_files(directory: Path, digests: dict[str, Digest], purpose: str) -> None:

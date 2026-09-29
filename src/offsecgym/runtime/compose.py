@@ -12,7 +12,7 @@ from uuid import UUID, uuid4
 
 from offsecgym.runtime.compiler import HelloRangeCompiler
 from offsecgym.runtime.manifests import InstanceManifest, StateStore, utc_now
-from offsecgym.runtime.saas import SaasRangeCompiler
+from offsecgym.runtime.saas import PROPERTY_SLUGS, SaasRangeCompiler, patched_properties
 from offsecgym.schemas.common import JsonValue
 from offsecgym.schemas.domain import (
     RangeControllerMetadata,
@@ -291,7 +291,14 @@ class ComposeRangeRuntime:
             state=status.state,
             generation=instance.generation,
             family=build.spec.family,
-            patched=build.spec.patched,
+            variant=(
+                "vulnerable"
+                if not patched_properties(build.spec)
+                else "patched"
+                if patched_properties(build.spec) == PROPERTY_SLUGS
+                else "selective"
+            ),
+            patched_properties=tuple(sorted(patched_properties(build.spec))),
             pair_id=build.pair_id,
             identities=tuple(
                 RangeIdentity(

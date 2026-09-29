@@ -134,7 +134,7 @@ class ValidationContext(StrictModel):
     run_id: UUID
     range_instance_id: UUID
     range_generation: int = Field(ge=0)
-    ground_truth_ref: str = Field(min_length=1)
+    build_id: UUID
 
 
 class ValidationResult(StrictModel):
@@ -223,9 +223,20 @@ class RangeControllerMetadata(StrictModel):
     image_id: str | None = None
     state: Literal["starting", "healthy", "unhealthy", "stopped", "destroyed"]
     family: str
-    patched: bool
+    variant: Literal["vulnerable", "patched", "selective"]
+    patched_properties: tuple[str, ...] = ()
     pair_id: UUID | None = None
     identities: tuple[RangeIdentity, ...] = ()
+
+    @model_validator(mode="after")
+    def validate_variant(self) -> RangeControllerMetadata:
+        if len(set(self.patched_properties)) != len(self.patched_properties):
+            raise ValueError("patched property slugs must be distinct")
+        if self.variant == "vulnerable" and self.patched_properties:
+            raise ValueError("vulnerable variant cannot contain patched properties")
+        if self.variant in {"patched", "selective"} and not self.patched_properties:
+            raise ValueError("patched variant needs patched properties")
+        return self
 
 
 def agent_visible_context(

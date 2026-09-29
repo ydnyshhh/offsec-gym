@@ -31,7 +31,7 @@ def validate_hello_spec(spec: RangeSpec) -> None:
         raise ValueError("Milestone 1 supports only hello/health_check")
     if spec.topology != {"hello": True}:
         raise ValueError("hello range requires exactly one enabled hello service")
-    if spec.identities or spec.vulnerabilities or spec.patched:
+    if spec.identities or spec.vulnerabilities or spec.patched or spec.patched_properties:
         raise ValueError("hello range has no identities, vulnerabilities, or patched variant")
 
 

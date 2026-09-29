@@ -99,8 +99,14 @@ async def test_saas_oracle_pair_and_containment(tmp_path: Path) -> None:
         assert vulnerable.state == patched.state == selective.state == "healthy"
         vulnerable_meta = await runtime.snapshot_metadata(vulnerable.instance_id)
         patched_meta = await runtime.snapshot_metadata(patched.instance_id)
+        selective_meta = await runtime.snapshot_metadata(selective.instance_id)
         assert vulnerable_meta.family == patched_meta.family == "saas"
-        assert not vulnerable_meta.patched and patched_meta.patched
+        assert vulnerable_meta.variant == "vulnerable"
+        assert vulnerable_meta.patched_properties == ()
+        assert patched_meta.variant == "patched"
+        assert len(patched_meta.patched_properties) == 5
+        assert selective_meta.variant == "selective"
+        assert selective_meta.patched_properties == ("DOC-CROSS-TENANT-READ",)
         assert vulnerable_meta.pair_id == patched_meta.pair_id
         assert vulnerable_meta.identities == patched_meta.identities
         member = vulnerable_meta.identities[0].identity_id

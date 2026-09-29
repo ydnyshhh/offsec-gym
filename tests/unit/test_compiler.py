@@ -44,6 +44,11 @@ def test_hello_compiler_rejects_unsupported_surface(tmp_path: Path) -> None:
     )
     with pytest.raises(ValueError, match="exactly one"):
         compiler.build(spec)
+    valid_topology = spec.model_copy(update={"topology": {"hello": True}})
+    with pytest.raises(ValueError, match="no identities"):
+        compiler.build(
+            valid_topology.model_copy(update={"patched_properties": ("RANDOM-NONSENSE",)})
+        )
 
 
 def test_lifecycle_rejects_resource_with_foreign_owner() -> None:
