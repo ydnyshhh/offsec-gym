@@ -1,4 +1,4 @@
-# Event stream v1
+# Event stream and action provenance
 
 `TraceEvent` is append-only, typed, and versioned. `event_id` is stable; `run_id` scopes the
 stream; `sequence_number` is assigned transactionally by the store; `occurred_at` requires
@@ -10,8 +10,16 @@ Initial event types: `run_started`, `range_started`, `action_requested`,
 `run_completed`. Later event versions cover worker assignments, model calls,
 world-fact adjudication, findings, and
 validation. Every event payload is parsed through a discriminated union; unknown types
-or schema versions are rejected.
+or unsupported schema versions are rejected. Legacy v1 action requests remain parseable.
+New v2 `ActionRequested` events require a request artifact ID, instance ID, and generation;
+they also record the worker ID when present. Their path and body fields are hashes, not raw
+secrets. Each action attempt produces an instance-scoped, mode-0600 request artifact even
+when policy blocks it. Response evidence is a separate mode-0600 artifact linked to that
+request ID and generation. Legacy events lack this provenance and cannot establish a
+generation-aware validation result.
 
 Request events precede external effects. An allowed action receives exactly one terminal
 completion, blocked, failed, or outcome-unknown resolution. JSONL is an export of the
-authoritative PostgreSQL stream. Projections are rebuildable from that stream.
+authoritative PostgreSQL stream. Projections are rebuildable from that stream. The current
+gateway reads the full stream before each action for budgets and duplicates; this requires
+an indexed projection and atomic reservations before multi-agent runs.

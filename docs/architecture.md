@@ -69,10 +69,14 @@ events or exported manifests.
 `RangeSpec` specifies the synthetic range, seed, topology, identities, and security-property
 variants. `ExperimentSpec` binds a range to a model, orchestrator, memory and validation
 policy, budget, and replication seed. `Budget` contains hard resource ceilings.
-`ActionRequest` and `ActionResult` describe a target action and gateway decision.
+`ActionRequest` and `ActionResult` describe a target action and gateway decision. New
+request artifacts and response evidence bind an action to an instance generation.
 `TraceEvent` includes schema version, stable ID, run ID, actor, timezone-aware timestamp,
-correlation/causation IDs, and store-assigned sequence number. `CandidateFinding` references
-exact actions and evidence. `ValidationResult` records a separate verdict and reason.
+correlation/causation IDs, and store-assigned sequence number. `CandidateFinding` states a
+typed expectation and references exact actions and evidence without hidden oracle IDs.
+`ValidationResult` records a separate verdict and may cite a canonical property/root-cause
+UUID. Controller metadata and agent-visible range context have separate types; the default
+agent context does not contain an account roster.
 
 The public protocols are `RangeRuntime`, `ActionGateway`, `Agent`, `Orchestrator`,
 `Validator`, `WorldState`, and `EventStore`. The contract is intentionally small; each
