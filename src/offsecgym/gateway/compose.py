@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import base64
 import hashlib
+import json
 import math
 from collections.abc import Sequence
 from time import monotonic
@@ -54,6 +55,12 @@ class ComposeActionGateway:
                 destination=action.destination,
                 method=action.method,
                 path_sha256=hashlib.sha256(action.path.encode("utf-8")).hexdigest(),
+                identity_id=action.identity_id,
+                body_sha256=hashlib.sha256(
+                    json.dumps(action.json_body, sort_keys=True, separators=(",", ":")).encode()
+                ).hexdigest()
+                if action.json_body is not None
+                else None,
             )
             await self.events.append(requested)
             reason = await self._policy_reason(action, context, previous)
@@ -75,7 +82,18 @@ class ComposeActionGateway:
                 )
             self._last_dispatch[context.run_id] = monotonic()
             try:
-                response = await self.runtime.execute_hello_http(context.range_id, action.path)
+                instance = self.runtime.state.load_instance(context.range_id)
+                build = self.runtime.state.load_build(instance.build_id)
+                if build.spec.family == "hello":
+                    response = await self.runtime.execute_hello_http(context.range_id, action.path)
+                else:
+                    response = await self.runtime.execute_saas_http(
+                        context.range_id,
+                        action.method,
+                        action.path,
+                        action.json_body,
+                        action.identity_id,
+                    )
                 raw = base64.b64decode(str(response["body_b64"]), validate=True)
                 response_sha256 = hashlib.sha256(raw).hexdigest()
                 evidence_id = uuid4()
@@ -86,6 +104,9 @@ class ComposeActionGateway:
                     {
                         "action_id": str(action.action_id),
                         "request_path": action.path,
+                        "request_method": action.method,
+                        "identity_id": str(action.identity_id) if action.identity_id else None,
+                        "json_body": action.json_body,
                         "http_status": response["http_status"],
                         "body_b64": response["body_b64"],
                         "response_sha256": response_sha256,
@@ -141,17 +162,26 @@ class ComposeActionGateway:
         context: ExperimentContext,
         previous: Sequence[AnyTraceEvent],
     ) -> str | None:
-        reason = scope_reason(action, context)
-        if reason:
-            return reason
         try:
             instance = self.runtime.state.load_instance(context.range_id)
             build = self.runtime.state.load_build(instance.build_id)
-            if build.spec.family != "hello" or build.spec.topology != {"hello": True}:
+            reason = scope_reason(action, context, build.spec.family)
+            if reason:
+                return reason
+            if build.spec.family not in {"hello", "saas"}:
                 return "range_out_of_scope"
+            if (
+                build.spec.family == "saas"
+                and action.identity_id is not None
+                and all(
+                    account["id"] != str(action.identity_id)
+                    for account in self.runtime._public_accounts(instance.build_id)
+                )
+            ):
+                return "identity_unknown"
             if (await self.runtime.status(context.range_id)).state != "healthy":
                 return "range_unhealthy"
-        except (ValueError, DockerCommandError):
+        except (ValueError, DockerCommandError, OSError):
             return "range_unavailable"
         if any(
             isinstance(event, ActionRequested) and event.action_id == action.action_id

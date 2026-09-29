@@ -19,7 +19,8 @@ class ActionRequest(StrictModel):
     kind: Literal["http_request"]
     destination: str = Field(min_length=1)
     method: Literal["GET", "POST", "PUT", "PATCH", "DELETE"]
-    path: str = Field(min_length=1)
+    path: str = Field(min_length=1, max_length=2048)
+    json_body: dict[str, str] | None = None
 
 
 class ActionResult(StrictModel):

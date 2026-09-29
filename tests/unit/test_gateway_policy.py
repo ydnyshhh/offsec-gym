@@ -34,3 +34,31 @@ def test_scope_policy_binds_run_service_and_method() -> None:
     assert (
         scope_reason(allowed.model_copy(update={"method": "POST"}), context) == "method_not_allowed"
     )
+
+
+def test_saas_policy_blocks_direct_login_and_unassigned_identity() -> None:
+    run_id = uuid4()
+    assigned = uuid4()
+    context = ExperimentContext(
+        run_id=run_id,
+        range_id=uuid4(),
+        budget=Budget(max_actions=10),
+        allowed_identity_ids=(assigned,),
+    )
+    action = ActionRequest(
+        run_id=run_id,
+        kind="http_request",
+        destination="saas",
+        method="GET",
+        path="/api/me",
+        identity_id=assigned,
+    )
+    assert scope_reason(action, context, "saas") is None
+    assert (
+        scope_reason(action.model_copy(update={"identity_id": uuid4()}), context, "saas")
+        == "identity_out_of_scope"
+    )
+    assert (
+        scope_reason(action.model_copy(update={"path": "/api/login?next=/api/me"}), context, "saas")
+        == "login_is_gateway_managed"
+    )

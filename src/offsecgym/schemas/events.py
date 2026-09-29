@@ -46,6 +46,8 @@ class ActionRequested(TraceEvent):
     destination: str = Field(min_length=1)
     method: str | None = None
     path_sha256: str | None = Field(default=None, pattern=r"^[0-9a-f]{64}$")
+    identity_id: UUID | None = None
+    body_sha256: str | None = Field(default=None, pattern=r"^[0-9a-f]{64}$")
 
 
 class ActionBlocked(TraceEvent):

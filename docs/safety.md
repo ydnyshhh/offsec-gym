@@ -24,3 +24,12 @@ unreachable, disallowed destinations rejected, external redirects not followed, 
 ports unpublished, and one instance's cleanup preserving another. Runtime mutations check
 ownership labels before acting. Docker configuration is a starting mechanism, not proof of
 containment for future agent code with broader capabilities.
+
+The SaaS range uses the same network and container restrictions. Its gateway accepts only
+identities listed in the experiment context, derives their credentials on the trusted
+controller, and logs in through a fixed worker. It blocks direct login actions and never
+records passwords in action events or evidence. A new instance gets a fresh secret; reset
+rotates it. The secret is visible to trusted Docker administrators through container
+configuration, so Docker host access remains part of the trusted control boundary. Ground
+truth and attack-graph files are outside the image build context and never mounted into
+the target or worker.

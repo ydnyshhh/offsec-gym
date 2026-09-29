@@ -3,7 +3,7 @@
 Work in small, testable increments. Update architecture documentation before a major
 subsystem and `implementation-status.md` after it. Add a regression test for a discovered
 bug before or alongside the fix. Run unit and lint checks locally; CI runs the same checks
-plus a PostgreSQL event-store integration test.
+plus a PostgreSQL event-store integration test and real Docker range tests.
 
 Use `uv sync --extra dev`, `uv run pytest -q`, `uv run ruff check .`, and
 `uv run ruff format --check .`. Set

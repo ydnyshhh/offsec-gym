@@ -38,6 +38,7 @@ class ExperimentContext(StrictModel):
     run_id: UUID
     range_id: UUID
     budget: Budget
+    allowed_identity_ids: tuple[UUID, ...] = ()
 
 
 class OrchestrationResult(StrictModel):
@@ -105,6 +106,13 @@ class RangeStatus(StrictModel):
     checked_at: datetime
 
 
+class RangeIdentity(StrictModel):
+    identity_id: UUID
+    username: str
+    role: str
+    workspace_id: UUID | None = None
+
+
 class RangeMetadata(StrictModel):
     instance_id: UUID
     build_id: UUID
@@ -113,3 +121,7 @@ class RangeMetadata(StrictModel):
     seed: int
     image_id: str | None = None
     state: Literal["starting", "healthy", "unhealthy", "stopped", "destroyed"]
+    family: str
+    patched: bool
+    pair_id: UUID | None = None
+    identities: tuple[RangeIdentity, ...] = ()

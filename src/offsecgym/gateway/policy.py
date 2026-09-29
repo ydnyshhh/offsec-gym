@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from urllib.parse import urlsplit
 
 from offsecgym.schemas.actions import ActionRequest
@@ -23,13 +24,34 @@ def path_allowed(path: str) -> bool:
     )
 
 
-def scope_reason(action: ActionRequest, context: ExperimentContext) -> str | None:
+def scope_reason(
+    action: ActionRequest, context: ExperimentContext, family: str = "hello"
+) -> str | None:
     if action.run_id != context.run_id:
         return "run_mismatch"
-    if action.kind != "http_request" or action.destination != "hello":
+    if action.kind != "http_request" or action.destination != family:
         return "destination_out_of_scope"
-    if action.method != "GET":
-        return "method_not_allowed"
     if not path_allowed(action.path):
         return "invalid_path"
+    if family == "hello":
+        if action.method != "GET":
+            return "method_not_allowed"
+        if action.identity_id is not None or action.json_body is not None:
+            return "invalid_request"
+    elif family == "saas":
+        if action.method not in {"GET", "POST"}:
+            return "method_not_allowed"
+        if urlsplit(action.path).path == "/api/login":
+            return "login_is_gateway_managed"
+        if (
+            action.identity_id is not None
+            and action.identity_id not in context.allowed_identity_ids
+        ):
+            return "identity_out_of_scope"
+        if action.method == "GET" and action.json_body is not None:
+            return "invalid_request"
+        if action.json_body is not None and len(json.dumps(action.json_body).encode()) > 4096:
+            return "request_body_too_large"
+    else:
+        return "destination_out_of_scope"
     return None

@@ -61,11 +61,15 @@ def _fail(exc: Exception) -> None:
 
 
 @range_app.command("build")
-def range_build(path: Path) -> None:
+def range_build(
+    path: Path, seed: int | None = typer.Option(None, min=0, help="Override the spec seed")
+) -> None:
     """Compile a deterministic range bundle from a YAML spec."""
 
     try:
         spec = _load_spec(path, RangeSpec)
+        if seed is not None:
+            spec = RangeSpec.model_validate({**spec.model_dump(mode="python"), "seed": seed})
         build_id = asyncio.run(_runtime().build(spec))
     except (OSError, yaml.YAMLError, ValidationError, ValueError) as exc:
         _fail(exc)
@@ -73,16 +77,22 @@ def range_build(path: Path) -> None:
 
 
 @range_app.command("start")
-def range_start(source: str) -> None:
+def range_start(
+    source: str, seed: int | None = typer.Option(None, min=0, help="Override a spec seed")
+) -> None:
     """Start a new range from a spec/build ID, or resume an instance ID."""
 
     try:
         path = Path(source)
         if path.is_file():
             spec = _load_spec(path, RangeSpec)
+            if seed is not None:
+                spec = RangeSpec.model_validate({**spec.model_dump(mode="python"), "seed": seed})
             build_id = asyncio.run(_runtime().build(spec))
             source_id = build_id
         else:
+            if seed is not None:
+                raise ValueError("--seed applies only when starting from a spec file")
             source_id = UUID(source)
         status = asyncio.run(_runtime().start(source_id))
     except (

@@ -36,4 +36,5 @@ another project's resources. Reset destroys and recreates only the same instance
 Milestone 1 tests cover deterministic builds, lifecycle and idempotency, gateway policy,
 redirect handling, external egress denial, two-run network separation, and teardown
 ownership. The hello range has no accounts, so it generates a unique instance nonce but no
-credentials. Credential creation arrives with the first authenticated SaaS range.
+credentials. The authenticated SaaS range and its per-instance credentials are documented
+in [saas-range.md](saas-range.md).

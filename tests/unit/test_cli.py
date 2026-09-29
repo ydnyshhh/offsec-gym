@@ -23,3 +23,12 @@ def test_range_build_and_status(tmp_path: Path, monkeypatch) -> None:
     status = runner.invoke(app, ["range", "status", build_id])
     assert status.exit_code == 0, status.output
     assert "state=built" in status.output
+
+
+def test_saas_seed_override_changes_build_id(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.setenv("OFFSECGYM_STATE_DIR", str(tmp_path))
+    path = Path(__file__).parents[2] / "examples" / "saas-range.yaml"
+    default = runner.invoke(app, ["range", "build", str(path)])
+    alternate = runner.invoke(app, ["range", "build", str(path), "--seed", "43"])
+    assert default.exit_code == alternate.exit_code == 0
+    assert default.output != alternate.output

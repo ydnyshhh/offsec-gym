@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import asyncio
+import hashlib
+import hmac
 import json
 import os
 from pathlib import Path
@@ -10,7 +12,8 @@ from uuid import UUID, uuid4
 
 from offsecgym.runtime.compiler import HelloRangeCompiler
 from offsecgym.runtime.manifests import InstanceManifest, StateStore, utc_now
-from offsecgym.schemas.domain import RangeMetadata, RangeStatus
+from offsecgym.runtime.saas import SaasRangeCompiler
+from offsecgym.schemas.domain import RangeIdentity, RangeMetadata, RangeStatus
 from offsecgym.schemas.specs import RangeSpec
 
 
@@ -55,9 +58,14 @@ class ComposeRangeRuntime:
     def __init__(self, state_dir: Path) -> None:
         self.state = StateStore(state_dir)
         self.compiler = HelloRangeCompiler(self.state)
+        self.saas_compiler = SaasRangeCompiler(self.state)
 
     async def build(self, spec: RangeSpec) -> UUID:
-        return self.compiler.build(spec).build_id
+        if spec.family == "hello":
+            return self.compiler.build(spec).build_id
+        if spec.family == "saas":
+            return self.saas_compiler.build(spec).build_id
+        raise ValueError(f"unsupported range family: {spec.family}")
 
     def _compose_command(self, instance: InstanceManifest, *arguments: str) -> list[str]:
         build_dir = self.state.build_dir(instance.build_id)
@@ -75,7 +83,11 @@ class ComposeRangeRuntime:
 
     @staticmethod
     def _environment(instance: InstanceManifest) -> dict[str, str]:
-        return {**os.environ, "OFFSECGYM_INSTANCE_ID": str(instance.instance_id)}
+        return {
+            **os.environ,
+            "OFFSECGYM_INSTANCE_ID": str(instance.instance_id),
+            "OFFSECGYM_INSTANCE_SECRET": instance.nonce.hex,
+        }
 
     async def _compose(
         self,
@@ -220,11 +232,12 @@ class ComposeRangeRuntime:
         )
         records = _parse_compose_ps(output)
         services = {record.get("Service"): record for record in records}
-        hello = services.get("hello", {})
+        build = self.state.load_build(instance.build_id)
+        target = services.get("hello" if build.spec.family == "hello" else "saas", {})
         gateway = services.get("gateway", {})
         if (
-            hello.get("State") == "running"
-            and hello.get("Health") == "healthy"
+            target.get("State") == "running"
+            and target.get("Health") == "healthy"
             and gateway.get("State") == "running"
         ):
             state = "healthy"
@@ -257,14 +270,48 @@ class ComposeRangeRuntime:
             seed=build.spec.seed,
             image_id=instance.image_id,
             state=status.state,
+            family=build.spec.family,
+            patched=build.spec.patched,
+            pair_id=build.pair_id,
+            identities=tuple(
+                RangeIdentity(
+                    identity_id=UUID(account["id"]),
+                    username=account["username"],
+                    role=account["role"],
+                    workspace_id=UUID(account["workspace_id"]) if account["workspace_id"] else None,
+                )
+                for account in self._public_accounts(build.build_id)
+            ),
         )
+
+    def _public_accounts(self, build_id: UUID) -> list[dict[str, str | None]]:
+        build = self.state.load_build(build_id)
+        if build.spec.family != "saas":
+            return []
+        fixture = json.loads(
+            (self.state.build_dir(build_id) / "fixture.json").read_text(encoding="utf-8")
+        )
+        return fixture["accounts"]
+
+    def identity_credentials(self, range_id: UUID, identity_id: UUID) -> dict[str, str]:
+        instance = self.state.load_instance(range_id)
+        for account in self._public_accounts(instance.build_id):
+            if account["id"] == str(identity_id):
+                username = account["username"]
+                return {
+                    "username": username,
+                    "password": hmac.new(
+                        instance.nonce.hex.encode(), username.encode(), hashlib.sha256
+                    ).hexdigest()[:32],
+                }
+        raise ValueError("unknown range identity")
 
     async def reset(self, range_id: UUID) -> RangeStatus:
         instance = self.state.load_instance(range_id)
         if instance.state == "destroyed":
             raise ValueError("destroyed range instances cannot be reset")
         await self._down(instance)
-        self._save_state(instance, "stopped")
+        self._save_state(instance, "stopped", nonce=uuid4())
         return await self.start(range_id)
 
     async def stop(self, range_id: UUID) -> RangeStatus:
@@ -295,6 +342,35 @@ class ComposeRangeRuntime:
             "python",
             "/app/http_worker.py",
             input_bytes=json.dumps({"method": "GET", "path": path}).encode("utf-8"),
+            timeout_seconds=15,
+        )
+        return json.loads(result)
+
+    async def execute_saas_http(
+        self,
+        range_id: UUID,
+        method: str,
+        path: str,
+        json_body: dict[str, str] | None,
+        identity_id: UUID | None,
+    ) -> dict[str, object]:
+        instance = self.state.load_instance(range_id)
+        build = self.state.load_build(instance.build_id)
+        if build.spec.family != "saas":
+            raise ValueError("range is not a SaaS build")
+        if (await self.status(range_id)).state != "healthy":
+            raise DockerCommandError("range is not healthy")
+        identity = self.identity_credentials(range_id, identity_id) if identity_id else None
+        result = await self._compose(
+            instance,
+            "exec",
+            "-T",
+            "gateway",
+            "python",
+            "/app/http_worker.py",
+            input_bytes=json.dumps(
+                {"method": method, "path": path, "json_body": json_body, "identity": identity}
+            ).encode(),
             timeout_seconds=15,
         )
         return json.loads(result)
