@@ -11,6 +11,12 @@
   local rate limit, response evidence, and blocked/completed/failed events.
 - Docker acceptance tests for external egress, cross-instance isolation, redirect behavior,
   lifecycle, and cleanup.
+- Seeded AcmeCloud SaaS API with login, workspace membership, documents, invoices, refunds,
+  support tickets, and role boundaries.
+- Five paired security properties across vulnerable and patched builds. Public fixtures
+  match exactly; hidden ground truth and attack graph live outside the Docker build.
+- Per-instance credentials, public identity roster, identity-scoped gateway actions, and
+  live oracle tests for intended weaknesses and non-vulnerable decoys.
 
 ## Partially implemented
 
@@ -22,8 +28,8 @@
 
 ## Next milestone
 
-Milestone 2: first synthetic security-property range with vulnerable and patched
-variants, explicit identities, and a hidden oracle.
+Milestone 3: scripted oracle agent, deterministic finding validator, and evaluator using
+the same gateway and evidence contracts as later model agents.
 
 ## Known architectural debt
 
@@ -32,6 +38,8 @@ variants, explicit identities, and a hidden oracle.
   range currently uses local instance manifests and evidence files.
 - Build and instance operations assume one trusted local controller; concurrent controllers
   and crash recovery need coordination and reconciliation.
+- The first SaaS API is one service with an in-process SQLite fixture; service-level
+  distribution and structural scenario mutation remain future range work.
 
 ## Failing tests
 

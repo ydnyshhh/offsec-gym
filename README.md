@@ -6,8 +6,9 @@ models and orchestration strategies are interchangeable subjects of study.
 
 Licensed under Apache-2.0; see [LICENSE](LICENSE).
 
-Milestone 1 adds a contained Docker Compose hello range, lifecycle commands, and an
-audited HTTP action gateway. The platform does not yet call a model or evaluate findings.
+Milestone 2 adds a seeded multi-tenant SaaS range with five paired security properties,
+isolated instance credentials, hidden ground truth, an attack graph, and live oracle tests.
+The platform does not yet call a model or evaluate agent findings.
 
 ## Development
 
@@ -20,7 +21,7 @@ uv run pytest -q
 uv run ruff check .
 ```
 
-Validate and run the first synthetic range with Docker running:
+Validate and run a synthetic range with Docker running:
 
 ```sh
 uv run offsecgym spec validate examples/hello-range.yaml
@@ -34,10 +35,19 @@ uv run offsecgym range reset RANGE_ID
 uv run offsecgym range destroy RANGE_ID
 ```
 
+The SaaS vulnerable and patched siblings use the same seed and public fixtures:
+
+```sh
+uv run offsecgym range start examples/saas-range.yaml --seed 42
+uv run offsecgym range start examples/saas-range-patched.yaml
+uv run offsecgym range metadata RANGE_ID
+```
+
 `range start` prints `RANGE_ID`. Builds, instance manifests, and local evidence are kept in
-`.offsecgym/`; set `OFFSECGYM_STATE_DIR` to use a different directory. Only the
-`hello/health_check` spec is supported in this milestone. See [runtime](docs/runtime.md)
-for the containment and gateway behavior.
+`.offsecgym/`; set `OFFSECGYM_STATE_DIR` to use a different directory. Metadata lists
+nonsecret identity IDs and the counterfactual pair ID. Hidden oracle files remain outside
+the Docker build context. See [SaaS range](docs/saas-range.md) and
+[runtime](docs/runtime.md) for the range and gateway behavior.
 
 PostgreSQL integration tests require `OFFSECGYM_TEST_DATABASE_URL` to point to an
 isolated, disposable database. Apply `alembic upgrade head` before running them.
