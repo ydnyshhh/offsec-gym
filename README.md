@@ -55,7 +55,8 @@ See [SaaS range](docs/saas-range.md) and [runtime](docs/runtime.md).
 
 Generated Milestone 2 build and instance manifests are incompatible with this version.
 Stop and destroy live instances with the earlier version before upgrading, then use a fresh
-state directory and rebuild. The existing YAML examples remain valid.
+state directory and rebuild. Previously generated SaaS builds with an older hidden-oracle
+schema also require rebuilding. The existing YAML examples remain valid.
 
 PostgreSQL integration tests require `OFFSECGYM_TEST_DATABASE_URL` to point to an
 isolated, disposable database. Apply `alembic upgrade head` before running them.

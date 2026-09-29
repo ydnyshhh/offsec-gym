@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import base64
+import binascii
 import hashlib
 import json
 import math
@@ -15,7 +16,7 @@ from uuid import UUID, uuid4
 from offsecgym.gateway.policy import scope_reason
 from offsecgym.interfaces import EventStore
 from offsecgym.runtime.compose import ComposeRangeRuntime, DockerCommandError
-from offsecgym.runtime.manifests import write_json_atomic
+from offsecgym.runtime.manifests import BuildIntegrityError, BuildManifest, write_json_atomic
 from offsecgym.schemas.actions import ActionRequest, ActionResult
 from offsecgym.schemas.domain import ExperimentContext
 from offsecgym.schemas.events import (
@@ -49,6 +50,16 @@ class ComposeActionGateway:
         lock = self._locks.setdefault(context.run_id, asyncio.Lock())
         async with lock:
             async with self.runtime.get_instance_guard(context.range_instance_id):
+                # Untrusted/stale context must not create an instance-scoped directory.
+                instance = self.runtime.state.load_instance(context.range_instance_id)
+                if instance.generation != context.range_generation:
+                    return ActionResult(
+                        action_id=action.action_id,
+                        status="blocked",
+                        reason_code="range_generation_mismatch",
+                        duration_ms=_elapsed_ms(started),
+                    )
+                build = self.runtime.state.verify_build_integrity(instance.build_id)
                 previous = await self.events.read_run(context.run_id)
                 request_artifact = RequestArtifact(
                     request_artifact_id=uuid4(),
@@ -90,7 +101,17 @@ class ComposeActionGateway:
                     request_artifact_id=request_artifact.request_artifact_id,
                 )
                 await self.events.append(requested)
-                reason = await self._policy_reason(action, context, previous)
+                try:
+                    reason = await self._policy_reason(action, context, previous, build)
+                except BuildIntegrityError:
+                    await self._record_failure(
+                        action, context, requested, started, "build_integrity_failed"
+                    )
+                    raise
+                except (DockerCommandError, OSError, ValueError):
+                    return await self._record_failure(
+                        action, context, requested, started, "range_unavailable"
+                    )
                 if reason:
                     await self.events.append(
                         ActionBlocked(
@@ -109,7 +130,6 @@ class ComposeActionGateway:
                     )
                 self._last_dispatch[context.run_id] = monotonic()
                 try:
-                    instance = self.runtime.state.load_instance(context.range_instance_id)
                     build = self.runtime.state.verify_build_integrity(instance.build_id)
                     if build.spec.family == "hello":
                         response = await self.runtime.execute_hello_http(
@@ -170,52 +190,71 @@ class ComposeActionGateway:
                         )
                     )
                     return result
-                except (DockerCommandError, ValueError, KeyError, TypeError, OSError, TimeoutError):
-                    await self.events.append(
-                        ActionFailed(
-                            run_id=context.run_id,
-                            actor="gateway",
-                            action_id=action.action_id,
-                            reason_code="gateway_execution_failed",
-                            causation_id=requested.event_id,
-                        )
+                except BuildIntegrityError:
+                    await self._record_failure(
+                        action, context, requested, started, "build_integrity_failed"
                     )
-                    return ActionResult(
-                        action_id=action.action_id,
-                        status="failed",
-                        reason_code="gateway_execution_failed",
-                        duration_ms=_elapsed_ms(started),
+                    raise
+                except DockerCommandError:
+                    return await self._record_failure(
+                        action, context, requested, started, "target_execution_failed"
                     )
+                except (ValueError, KeyError, TypeError, binascii.Error):
+                    return await self._record_failure(
+                        action, context, requested, started, "worker_protocol_failed"
+                    )
+                except (OSError, TimeoutError):
+                    return await self._record_failure(
+                        action, context, requested, started, "range_unavailable"
+                    )
+
+    async def _record_failure(
+        self,
+        action: ActionRequest,
+        context: ExperimentContext,
+        requested: ActionRequested,
+        started: float,
+        reason_code: str,
+    ) -> ActionResult:
+        await self.events.append(
+            ActionFailed(
+                run_id=context.run_id,
+                actor="gateway",
+                action_id=action.action_id,
+                reason_code=reason_code,
+                causation_id=requested.event_id,
+            )
+        )
+        return ActionResult(
+            action_id=action.action_id,
+            status="failed",
+            reason_code=reason_code,
+            duration_ms=_elapsed_ms(started),
+        )
 
     async def _policy_reason(
         self,
         action: ActionRequest,
         context: ExperimentContext,
         previous: Sequence[AnyTraceEvent],
+        build: BuildManifest,
     ) -> str | None:
-        try:
-            instance = self.runtime.state.load_instance(context.range_instance_id)
-            if instance.generation != context.range_generation:
-                return "range_generation_mismatch"
-            build = self.runtime.state.verify_build_integrity(instance.build_id)
-            reason = scope_reason(action, context, build.spec.family)
-            if reason:
-                return reason
-            if build.spec.family not in {"hello", "saas"}:
-                return "range_out_of_scope"
-            if (
-                build.spec.family == "saas"
-                and action.identity_id is not None
-                and all(
-                    account["id"] != str(action.identity_id)
-                    for account in self.runtime._public_accounts(instance.build_id)
-                )
-            ):
-                return "identity_unknown"
-            if (await self.runtime.instance_status(context.range_instance_id)).state != "healthy":
-                return "range_unhealthy"
-        except (ValueError, DockerCommandError, OSError):
-            return "range_unavailable"
+        reason = scope_reason(action, context, build.spec.family)
+        if reason:
+            return reason
+        if build.spec.family not in {"hello", "saas"}:
+            return "range_out_of_scope"
+        if (
+            build.spec.family == "saas"
+            and action.identity_id is not None
+            and all(
+                account["id"] != str(action.identity_id)
+                for account in self.runtime._public_accounts(build.build_id)
+            )
+        ):
+            return "identity_unknown"
+        if (await self.runtime.instance_status(context.range_instance_id)).state != "healthy":
+            return "range_unhealthy"
         if any(
             isinstance(event, ActionRequested) and event.action_id == action.action_id
             for event in previous

@@ -27,3 +27,12 @@ Generated v1 build and instance artifacts are incompatible. Stop and destroy liv
 instances with the older version, then rebuild under a fresh state directory. Existing
 v1 input examples and legacy trace events remain parseable where their semantics are
 unambiguous; legacy events cannot supply generation-aware validation provenance.
+
+Milestone 2.5.1 makes the range-start event and validation context explicit about build,
+instance, and generation. The oracle store resolves ground truth by verified build ID;
+arbitrary oracle paths are excluded. Ground-truth proof requirements are semantic typed
+checks rather than SaaS-specific strings. A named compiler identity version participates
+in the build ID and must change whenever target, oracle, or graph semantics can change.
+Old generated SaaS oracles use an unsupported schema and require rebuilding. Gateway
+preflight rejects invalid instance contexts before writing artifacts, and build-integrity
+failures propagate as environment failures rather than ordinary agent action failures.

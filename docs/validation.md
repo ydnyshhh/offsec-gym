@@ -9,6 +9,14 @@ identity and object relationships, expected policy, observed effect, and hidden 
 mapping. Replay uses a reset or cloned synthetic range when a finding depends on mutable
 state; evidence from a previous generation cannot prove a claim about the current one.
 
+`ValidationContext` carries a build ID, instance ID, and generation, never an arbitrary
+oracle path. The privileged `OracleStore` resolves ground truth from the verified build.
+Its state-backed implementation checks that the context's build and generation match the
+instance and that the oracle's binding matches the build manifest. Ground-truth proof
+requirements are typed semantic checks: identity, object relation, HTTP response status
+or field, state transition, and anonymous request. The deterministic validator should
+dispatch on these types rather than AcmeCloud-specific proof strings.
+
 Verdicts are `validated`, `rejected`, or `inconclusive`. Missing proof is rejected;
 unavailable replay infrastructure is inconclusive. Keep each check and its reason code in
 `ValidationResult`. Oracle data and validator credentials are inaccessible to the solver.

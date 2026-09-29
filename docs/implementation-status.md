@@ -26,6 +26,8 @@
   access, and separate controller and agent-visible metadata contracts.
 - Contract tests across six seeds and real Docker tests for selective patches, concurrent
   requests, request redaction, provenance, and lifecycle generations.
+- Explicit v2 range-start events, effective selective-variant controller metadata,
+  build-bound oracle lookup, semantic proof requirements, and classified gateway failures.
 
 ## Partially implemented
 

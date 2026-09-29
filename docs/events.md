@@ -10,11 +10,16 @@ Initial event types: `run_started`, `range_started`, `action_requested`,
 `run_completed`. Later event versions cover worker assignments, model calls,
 world-fact adjudication, findings, and
 validation. Every event payload is parsed through a discriminated union; unknown types
-or unsupported schema versions are rejected. Legacy v1 action requests remain parseable.
+or unsupported schema versions are rejected. Legacy v1 action requests and range-start
+events remain parseable. New v2 `RangeStarted` requires a build ID, instance ID, and
+generation; `range_id` is only a legacy v1 field. Future reset, stop, and destroy events
+must use the same explicit instance/generation vocabulary.
 New v2 `ActionRequested` events require a request artifact ID, instance ID, and generation;
 they also record the worker ID when present. Their path and body fields are hashes, not raw
-secrets. Each action attempt produces an instance-scoped, mode-0600 request artifact even
-when policy blocks it. Response evidence is a separate mode-0600 artifact linked to that
+secrets. Each action admitted with an existing instance and current generation produces an
+instance-scoped, mode-0600 request artifact even when policy blocks it. Invalid instance
+contexts and stale generations are rejected before any instance artifact is created.
+Response evidence is a separate mode-0600 artifact linked to that
 request ID and generation. Legacy events lack this provenance and cannot establish a
 generation-aware validation result.
 

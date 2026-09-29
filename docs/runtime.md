@@ -23,6 +23,8 @@ reads verify them and reject missing, changed, extra, or symlinked files. The Do
 ID recorded on the instance is distinct from the deterministic source build ID. Integrity
 checks detect accidental or manual changes within a trusted local controller; the state
 root is not a defense against an attacker who can rewrite both files and manifests.
+SaaS integrity checks also reject old hidden-oracle schema versions; rebuild those bundles
+instead of reusing them after a compiler semantic change.
 
 Both `hello` and the trusted HTTP worker attach only to the project's `internal: true`
 network. Neither publishes ports. Containers run as a non-root UID, with a read-only root
@@ -32,15 +34,22 @@ worker command using `docker compose exec -T` and passes a typed request over st
 worker can contact only the `hello` service and never follows redirects. No model-provided
 text becomes a shell command.
 
-The gateway checks run/instance IDs, generation, service, method, path, action budget,
-and rate limit. It saves a restricted-permission request artifact for **every** attempted
-action, including blocked actions, with credential-like body keys and query parameters
+The gateway first verifies that the instance exists and the context generation is current;
+invalid contexts cannot create orphan instance directories. It then checks run/service,
+method, path, action budget, and rate limit. It saves a restricted-permission request
+artifact for every admitted action, including policy-blocked actions, with credential-like
+body keys and query parameters
 redacted. `ActionRequested` v2 contains the artifact ID, worker ID, instance ID, and
 generation plus raw path/body hashes. A completed response gets a separate evidence file
 that references the request artifact and records the same instance/generation. Neither
 response evidence nor events copy the raw request body. A crash or cancellation can leave
 an outcome-unknown request for later reconciliation. PostgreSQL remains the event store;
 the lifecycle CLI does not create an experiment run.
+Build-integrity failures retain their typed exception so the future controller can end
+the run as an environment failure. Recorded action failures distinguish
+`build_integrity_failed`, `range_unavailable`, `target_execution_failed`, and
+`worker_protocol_failed`. A preflight integrity failure happens before an action event is
+admitted.
 
 The gateway and lifecycle operations share an in-process per-instance guard. Reset cannot
 relabel an action that is already being dispatched. One run-wide gateway lock and a full

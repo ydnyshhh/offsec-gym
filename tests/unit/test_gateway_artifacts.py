@@ -13,6 +13,8 @@ from uuid import UUID, uuid4
 import pytest
 
 from offsecgym.gateway.compose import ComposeActionGateway
+from offsecgym.runtime.compose import DockerCommandError
+from offsecgym.runtime.manifests import BuildIntegrityError, UnknownInstanceError
 from offsecgym.schemas.actions import ActionRequest
 from offsecgym.schemas.domain import ExperimentContext
 from offsecgym.schemas.events import ActionRequested
@@ -43,12 +45,13 @@ class FakeState:
         return self.root / instance_id.hex
 
     def load_instance(self, instance_id: UUID) -> SimpleNamespace:
-        assert instance_id == self.instance_id
+        if instance_id != self.instance_id:
+            raise UnknownInstanceError("unknown range instance")
         return SimpleNamespace(build_id=self.build_id, generation=self.generation)
 
     def verify_build_integrity(self, build_id: UUID) -> SimpleNamespace:
         assert build_id == self.build_id
-        return SimpleNamespace(spec=SimpleNamespace(family="saas"))
+        return SimpleNamespace(build_id=build_id, spec=SimpleNamespace(family="saas"))
 
 
 class FakeRuntime:
@@ -60,7 +63,6 @@ class FakeRuntime:
         self.dispatched = 0
 
     def get_instance_guard(self, instance_id: UUID) -> asyncio.Lock:
-        assert instance_id == self.state.instance_id
         return self.guard
 
     def _public_accounts(self, build_id: UUID) -> list:
@@ -157,11 +159,123 @@ async def test_artifacts_redact_secrets_and_bind_generation_through_reset(tmp_pa
     assert stale.status == "blocked"
     assert stale.reason_code == "range_generation_mismatch"
     assert runtime.dispatched == 1
-    stale_request = [event for event in events.events if isinstance(event, ActionRequested)][-1]
-    stale_file = (
-        runtime.state.instance_dir(instance_id)
-        / "requests"
-        / (f"{stale_request.request_artifact_id.hex}.json")
+    assert len([event for event in events.events if isinstance(event, ActionRequested)]) == 1
+    assert len(list((runtime.state.instance_dir(instance_id) / "requests").iterdir())) == 1
+
+
+@pytest.mark.asyncio
+async def test_unknown_instance_does_not_create_orphan_artifacts(tmp_path: Path) -> None:
+    runtime = FakeRuntime(tmp_path, uuid4())
+    events = MemoryEvents()
+    gateway = ComposeActionGateway(runtime, events, min_interval_seconds=0)
+    unknown_instance = uuid4()
+    run_id = uuid4()
+    context = ExperimentContext(
+        run_id=run_id,
+        range_instance_id=unknown_instance,
+        range_generation=0,
+        budget=Budget(max_actions=1),
     )
-    assert stale_file.is_file()
-    assert stale_file.stat().st_mode & 0o777 == 0o600
+    action = ActionRequest(
+        run_id=run_id,
+        kind="http_request",
+        destination="saas",
+        method="GET",
+        path="/api/catalog",
+    )
+    with pytest.raises(UnknownInstanceError):
+        await gateway.execute(action, context)
+    assert not (tmp_path / unknown_instance.hex).exists()
+    assert events.events == []
+
+
+@pytest.mark.asyncio
+async def test_build_integrity_failure_is_not_an_agent_action_failure(tmp_path: Path) -> None:
+    instance_id = uuid4()
+    runtime = FakeRuntime(tmp_path, instance_id)
+    events = MemoryEvents()
+    gateway = ComposeActionGateway(runtime, events, min_interval_seconds=0)
+    run_id = uuid4()
+    context = ExperimentContext(
+        run_id=run_id,
+        range_instance_id=instance_id,
+        range_generation=0,
+        budget=Budget(max_actions=2),
+    )
+    action = ActionRequest(
+        run_id=run_id,
+        kind="http_request",
+        destination="saas",
+        method="GET",
+        path="/api/catalog",
+    )
+    original_verify = runtime.state.verify_build_integrity
+    checks = 0
+
+    def fail_after_request(build_id: UUID) -> SimpleNamespace:
+        nonlocal checks
+        checks += 1
+        if checks == 2:
+            raise BuildIntegrityError("bundle digest changed")
+        return original_verify(build_id)
+
+    runtime.state.verify_build_integrity = fail_after_request
+    with pytest.raises(BuildIntegrityError, match="bundle digest changed"):
+        await gateway.execute(action, context)
+    assert [event.type for event in events.events] == ["action_requested", "action_failed"]
+    assert events.events[-1].reason_code == "build_integrity_failed"
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("mode", "reason"),
+    [
+        ("target", "target_execution_failed"),
+        ("protocol", "worker_protocol_failed"),
+        ("unavailable", "range_unavailable"),
+    ],
+)
+async def test_gateway_distinguishes_environment_failure_modes(
+    tmp_path: Path, mode: str, reason: str
+) -> None:
+    class FaultRuntime(FakeRuntime):
+        async def instance_status(self, instance_id: UUID) -> SimpleNamespace:
+            if mode == "unavailable":
+                raise DockerCommandError("daemon unavailable")
+            return await super().instance_status(instance_id)
+
+        async def execute_saas_http(self, *args: object) -> dict[str, object]:
+            if mode == "target":
+                raise DockerCommandError("target execution failed")
+            if mode == "protocol":
+                return {
+                    "http_status": 200,
+                    "body_b64": "not-base64!",
+                    "truncated": False,
+                    "content_type": "text/plain",
+                    "redirect_location": None,
+                }
+            return await super().execute_saas_http(*args)
+
+    instance_id = uuid4()
+    run_id = uuid4()
+    runtime = FaultRuntime(tmp_path, instance_id)
+    events = MemoryEvents()
+    gateway = ComposeActionGateway(runtime, events, min_interval_seconds=0)
+    context = ExperimentContext(
+        run_id=run_id,
+        range_instance_id=instance_id,
+        range_generation=0,
+        budget=Budget(max_actions=1),
+    )
+    action = ActionRequest(
+        run_id=run_id,
+        kind="http_request",
+        destination="saas",
+        method="GET",
+        path="/api/catalog",
+    )
+    result = await gateway.execute(action, context)
+    assert result.status == "failed" and result.reason_code == reason
+    assert [event.type for event in events.events] == ["action_requested", "action_failed"]
+    assert events.events[-1].reason_code == reason
