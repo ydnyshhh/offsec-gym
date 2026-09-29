@@ -44,6 +44,8 @@ class ActionRequested(TraceEvent):
     action_id: UUID
     action_type: str = Field(min_length=1)
     destination: str = Field(min_length=1)
+    method: str | None = None
+    path_sha256: str | None = Field(default=None, pattern=r"^[0-9a-f]{64}$")
 
 
 class ActionBlocked(TraceEvent):
@@ -57,6 +59,14 @@ class ActionCompleted(TraceEvent):
     action_id: UUID
     evidence_id: UUID | None = None
     duration_ms: int = Field(ge=0)
+    http_status: int | None = Field(default=None, ge=100, le=599)
+    response_sha256: str | None = Field(default=None, pattern=r"^[0-9a-f]{64}$")
+
+
+class ActionFailed(TraceEvent):
+    type: Literal["action_failed"] = "action_failed"
+    action_id: UUID
+    reason_code: str = Field(min_length=1)
 
 
 class BudgetUpdated(TraceEvent):
@@ -87,6 +97,7 @@ AnyTraceEvent = Annotated[
     | ActionRequested
     | ActionBlocked
     | ActionCompleted
+    | ActionFailed
     | BudgetUpdated
     | RunCompleted,
     Field(discriminator="type"),

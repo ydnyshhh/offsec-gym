@@ -35,7 +35,10 @@ packages = ["src/offsecgym"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 asyncio_mode = "auto"
-markers = ["postgres: requires a PostgreSQL test database"]
+markers = [
+  "postgres: requires a PostgreSQL test database",
+  "docker: requires a local Docker daemon",
+]
 
 [tool.ruff]
 line-length = 100

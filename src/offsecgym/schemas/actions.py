@@ -29,3 +29,8 @@ class ActionResult(StrictModel):
     reason_code: str | None = None
     evidence_id: UUID | None = None
     duration_ms: int = Field(ge=0)
+    http_status: int | None = Field(default=None, ge=100, le=599)
+    body_text: str | None = Field(default=None, max_length=16384)
+    redirect_location: str | None = None
+    response_sha256: str | None = Field(default=None, pattern=r"^[0-9a-f]{64}$")
+    truncated: bool = False

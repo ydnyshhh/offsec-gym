@@ -5,9 +5,10 @@ stream; `sequence_number` is assigned transactionally by the store; `occurred_at
 a timezone. `actor`, `correlation_id`, and `causation_id` connect commands and outcomes.
 Sequence number zero is reserved for an event draft and must not be persisted.
 
-Milestone 0 event types: `run_started`, `range_started`, `action_requested`,
-`action_blocked`, `action_completed`, `budget_updated`, and `run_completed`. Later event
-versions cover worker assignments, model calls, world-fact adjudication, findings, and
+Initial event types: `run_started`, `range_started`, `action_requested`,
+`action_blocked`, `action_completed`, `action_failed`, `budget_updated`, and
+`run_completed`. Later event versions cover worker assignments, model calls,
+world-fact adjudication, findings, and
 validation. Every event payload is parsed through a discriminated union; unknown types
 or schema versions are rejected.
 
