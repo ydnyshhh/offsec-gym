@@ -103,3 +103,13 @@ class RangeStatus(StrictModel):
     range_id: UUID
     state: Literal["built", "starting", "healthy", "unhealthy", "stopped", "destroyed"]
     checked_at: datetime
+
+
+class RangeMetadata(StrictModel):
+    instance_id: UUID
+    build_id: UUID
+    project_name: str
+    spec_sha256: str
+    seed: int
+    image_id: str | None = None
+    state: Literal["starting", "healthy", "unhealthy", "stopped", "destroyed"]

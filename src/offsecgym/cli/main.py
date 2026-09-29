@@ -2,17 +2,21 @@
 
 from __future__ import annotations
 
+import asyncio
 from pathlib import Path
+from uuid import UUID
 
 import typer
 import yaml
 from pydantic import ValidationError
 
 from offsecgym import __version__
+from offsecgym.config import Settings
+from offsecgym.runtime.compose import ComposeRangeRuntime, DockerCommandError
 from offsecgym.schemas.specs import ExperimentSpec, RangeSpec
 
 app = typer.Typer(help="Synthetic-range research platform")
-range_app = typer.Typer(help="Range lifecycle (available in Milestone 1)")
+range_app = typer.Typer(help="Build and manage isolated synthetic ranges")
 spec_app = typer.Typer(help="Versioned input specifications")
 app.add_typer(range_app, name="range")
 app.add_typer(spec_app, name="spec")
@@ -35,53 +39,117 @@ def validate_spec(
         typer.echo("kind must be 'range' or 'experiment'", err=True)
         raise typer.Exit(2)
     try:
-        raw = yaml.safe_load(path.read_text(encoding="utf-8"))
-        schema = RangeSpec if kind == "range" else ExperimentSpec
-        spec = schema.model_validate(raw)
+        spec = _load_spec(path, RangeSpec if kind == "range" else ExperimentSpec)
     except (OSError, yaml.YAMLError, ValidationError, ValueError) as exc:
         typer.echo(f"invalid {kind} specification: {exc}", err=True)
         raise typer.Exit(2) from exc
     typer.echo(f"valid {kind} specification (schema_version={spec.schema_version})")
 
 
-def _not_implemented() -> None:
-    typer.echo("range lifecycle is scheduled for Milestone 1", err=True)
-    raise typer.Exit(2)
+def _load_spec(path: Path, schema: type[RangeSpec] | type[ExperimentSpec]):
+    raw = yaml.safe_load(path.read_text(encoding="utf-8"))
+    return schema.model_validate(raw)
+
+
+def _runtime() -> ComposeRangeRuntime:
+    return ComposeRangeRuntime(Settings().state_dir)
+
+
+def _fail(exc: Exception) -> None:
+    typer.echo(f"range error: {exc}", err=True)
+    raise typer.Exit(2) from exc
 
 
 @range_app.command("build")
 def range_build(path: Path) -> None:
-    """Build a range from a spec (Milestone 1)."""
+    """Compile a deterministic range bundle from a YAML spec."""
 
-    _not_implemented()
+    try:
+        spec = _load_spec(path, RangeSpec)
+        build_id = asyncio.run(_runtime().build(spec))
+    except (OSError, yaml.YAMLError, ValidationError, ValueError) as exc:
+        _fail(exc)
+    typer.echo(f"build_id={build_id}")
 
 
 @range_app.command("start")
-def range_start(path: Path) -> None:
-    """Start a range from a spec (Milestone 1)."""
+def range_start(source: str) -> None:
+    """Start a new range from a spec/build ID, or resume an instance ID."""
 
-    _not_implemented()
+    try:
+        path = Path(source)
+        if path.is_file():
+            spec = _load_spec(path, RangeSpec)
+            build_id = asyncio.run(_runtime().build(spec))
+            source_id = build_id
+        else:
+            source_id = UUID(source)
+        status = asyncio.run(_runtime().start(source_id))
+    except (
+        OSError,
+        yaml.YAMLError,
+        ValidationError,
+        ValueError,
+        DockerCommandError,
+        TimeoutError,
+    ) as exc:
+        _fail(exc)
+    typer.echo(f"range_id={status.range_id} state={status.state}")
 
 
 @range_app.command("status")
 def range_status(range_id: str) -> None:
-    """Show range status (Milestone 1)."""
+    """Inspect a build or range instance."""
 
-    _not_implemented()
+    try:
+        status = asyncio.run(_runtime().status(UUID(range_id)))
+    except (OSError, ValueError, DockerCommandError, TimeoutError) as exc:
+        _fail(exc)
+    typer.echo(f"range_id={status.range_id} state={status.state}")
+
+
+@range_app.command("metadata")
+def range_metadata(range_id: str) -> None:
+    """Print a range instance metadata snapshot."""
+
+    try:
+        metadata = asyncio.run(_runtime().snapshot_metadata(UUID(range_id)))
+    except (OSError, ValueError, DockerCommandError, TimeoutError) as exc:
+        _fail(exc)
+    typer.echo(metadata.model_dump_json(indent=2))
 
 
 @range_app.command("stop")
 def range_stop(range_id: str) -> None:
-    """Stop a range (Milestone 1)."""
+    """Stop a range while retaining its containers."""
 
-    _not_implemented()
+    try:
+        status = asyncio.run(_runtime().stop(UUID(range_id)))
+    except (OSError, ValueError, DockerCommandError, TimeoutError) as exc:
+        _fail(exc)
+    typer.echo(f"range_id={status.range_id} state={status.state}")
+
+
+@range_app.command("reset")
+def range_reset(range_id: str) -> None:
+    """Recreate an instance with the same build and fresh target state."""
+
+    try:
+        status = asyncio.run(_runtime().reset(UUID(range_id)))
+    except (OSError, ValueError, DockerCommandError, TimeoutError) as exc:
+        _fail(exc)
+    typer.echo(f"range_id={status.range_id} state={status.state}")
 
 
 @range_app.command("destroy")
 def range_destroy(range_id: str) -> None:
-    """Destroy a range (Milestone 1)."""
+    """Remove only this instance's containers, network, and volumes."""
 
-    _not_implemented()
+    try:
+        status = asyncio.run(_runtime().destroy(UUID(range_id)))
+    except (OSError, ValueError, DockerCommandError, TimeoutError) as exc:
+        _fail(exc)
+    typer.echo(f"range_id={status.range_id} state={status.state}")
 
 
 if __name__ == "__main__":

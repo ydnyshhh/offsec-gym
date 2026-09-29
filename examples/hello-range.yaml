@@ -1,0 +1,6 @@
+schema_version: "1"
+family: hello
+scenario: health_check
+seed: 42
+topology:
+  hello: true

@@ -34,6 +34,8 @@ Milestone 1 supplies a contained hello range and functional gateway. Milestone 2
 first security property pair; Milestone 3 proves it with a scripted solver and evaluator before
 LLM-based experiments.
 
+The concrete Milestone 1 runtime design is in [runtime.md](runtime.md).
+
 Python 3.12 is the baseline. Pydantic validates versioned external input; Typer supplies a
 discoverable CLI; SQLAlchemy with asyncpg persists events; Alembic versions the schema;
 PyYAML reads declarative specs. Redis, Kubernetes, an LLM framework, and a dashboard are not
