@@ -43,7 +43,7 @@ from offsecgym.schemas.specs import RangeSpec
 
 ENTITY_NAMESPACE = UUID("5e079198-b3e4-4a85-a40a-541d1bda1a9b")
 # Bump whenever target, oracle, or graph semantics can change without a spec/template change.
-SAAS_COMPILER_VERSION = "tenant-boundary-v1/compiler-2"
+SAAS_COMPILER_VERSION = "tenant-boundary-v1/compiler-3"
 TEMPLATE_NAMES = ("Dockerfile", "gateway_idle.py", "http_worker.py", "saas_service.py")
 IDENTITIES = {
     "customers": 3,
@@ -621,7 +621,8 @@ class SaasRangeCompiler:
         pair_bytes = json.dumps(
             pair_spec.model_dump(mode="json"), sort_keys=True, separators=(",", ":")
         ).encode()
-        pair_id = uuid5(BUILD_NAMESPACE, f"saas-pair:{hashlib.sha256(pair_bytes).hexdigest()}")
+        pair_spec_hash = hashlib.sha256(pair_bytes).hexdigest()
+        pair_id = uuid5(BUILD_NAMESPACE, f"{SAAS_COMPILER_VERSION}:saas-pair:{pair_spec_hash}")
         root = files("offsecgym.runtime").joinpath("templates", "saas")
         templates = {name: root.joinpath(name).read_bytes() for name in TEMPLATE_NAMES}
         fixture_bytes = json.dumps(fixture, sort_keys=True, separators=(",", ":")).encode()

@@ -24,7 +24,7 @@ class StateOracleStore:
     def __init__(self, state: StateStore) -> None:
         self.state = state
 
-    def load_ground_truth(self, build_id: UUID) -> GroundTruthManifest:
+    def _load_ground_truth(self, build_id: UUID) -> GroundTruthManifest:
         build = self.state.verify_build_integrity(build_id)
         if build.spec.family != "saas":
             raise InvalidGroundTruthError("this range family has no security oracle")
@@ -57,7 +57,7 @@ class StateOracleStore:
             raise OracleBindingError("validation build does not match range instance")
         if instance.generation != context.range_generation:
             raise OracleBindingError("validation generation does not match range instance")
-        oracle = self.load_ground_truth(context.build_id)
+        oracle = self._load_ground_truth(context.build_id)
         if oracle.build_id != instance.build_id:
             raise OracleBindingError("ground truth build does not match range instance")
         return oracle

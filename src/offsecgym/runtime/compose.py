@@ -281,6 +281,16 @@ class ComposeRangeRuntime:
         instance = self.state.load_instance(instance_id)
         build = self.state.verify_build_integrity(instance.build_id)
         status = await self.instance_status(instance_id)
+        patch_set = patched_properties(build.spec) if build.spec.family == "saas" else frozenset()
+        security_variant = (
+            None
+            if build.spec.family != "saas"
+            else "vulnerable"
+            if not patch_set
+            else "patched"
+            if patch_set == PROPERTY_SLUGS
+            else "selective"
+        )
         return RangeControllerMetadata(
             instance_id=instance.instance_id,
             build_id=instance.build_id,
@@ -291,14 +301,8 @@ class ComposeRangeRuntime:
             state=status.state,
             generation=instance.generation,
             family=build.spec.family,
-            variant=(
-                "vulnerable"
-                if not patched_properties(build.spec)
-                else "patched"
-                if patched_properties(build.spec) == PROPERTY_SLUGS
-                else "selective"
-            ),
-            patched_properties=tuple(sorted(patched_properties(build.spec))),
+            security_variant=security_variant,
+            patched_properties=tuple(sorted(patch_set)),
             pair_id=build.pair_id,
             identities=tuple(
                 RangeIdentity(

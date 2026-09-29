@@ -64,7 +64,9 @@ def test_proof_requirements_are_typed_and_scenario_independent(tmp_path: Path) -
     with pytest.raises(ValidationError):
         adapter.validate_python({"kind": "response_field", "field": "billing_email"})
     manifest = SaasRangeCompiler(StateStore(tmp_path)).build(saas_spec())
-    oracle = StateOracleStore(StateStore(tmp_path)).load_ground_truth(manifest.build_id)
+    oracle = GroundTruthManifest.model_validate_json(
+        (tmp_path / "oracles" / manifest.build_id.hex / "ground_truth.json").read_bytes()
+    )
     assert oracle.schema_version == "3"
     kinds = {item.kind for prop in oracle.properties for item in prop.proof_requirements}
     assert kinds == {
@@ -108,14 +110,23 @@ def test_compiler_identity_version_binds_oracle_semantics(tmp_path: Path, monkey
 
     compiler = SaasRangeCompiler(StateStore(tmp_path))
     first = compiler.build(saas_spec())
-    first_oracle = StateOracleStore(compiler.state).load_ground_truth(first.build_id)
+    first_oracle = GroundTruthManifest.model_validate_json(
+        (tmp_path / "oracles" / first.build_id.hex / "ground_truth.json").read_bytes()
+    )
     monkeypatch.setattr(saas, "SAAS_COMPILER_VERSION", "tenant-boundary-v1/compiler-next")
     second = compiler.build(saas_spec())
-    second_oracle = StateOracleStore(compiler.state).load_ground_truth(second.build_id)
+    second_oracle = GroundTruthManifest.model_validate_json(
+        (tmp_path / "oracles" / second.build_id.hex / "ground_truth.json").read_bytes()
+    )
     assert first.build_id != second.build_id
-    assert first.pair_id == second.pair_id
+    assert first.pair_id != second.pair_id
+    assert first_oracle.pair_id == first.pair_id
+    assert second_oracle.pair_id == second.pair_id
     assert {item.property_id for item in first_oracle.properties} == {
         item.property_id for item in second_oracle.properties
+    }
+    assert {item.root_cause_id for item in first_oracle.root_causes} == {
+        item.root_cause_id for item in second_oracle.root_causes
     }
 
 
@@ -160,8 +171,32 @@ async def test_controller_metadata_uses_effective_patch_set(tmp_path: Path, monk
 
     monkeypatch.setattr(runtime, "instance_status", status)
     metadata = await runtime.snapshot_metadata(instance_id)
-    assert metadata.variant == "patched"
+    assert metadata.security_variant == "patched"
     assert metadata.patched_properties == tuple(sorted(PROPERTY_SLUGS))
     visible = agent_visible_context(metadata)
-    assert "variant" not in visible.model_dump()
+    assert "security_variant" not in visible.model_dump()
     assert "patched_properties" not in visible.model_dump()
+
+
+@pytest.mark.asyncio
+async def test_hello_metadata_has_no_security_variant(tmp_path: Path, monkeypatch) -> None:
+    runtime = ComposeRangeRuntime(tmp_path)
+    build_id = await runtime.build(
+        RangeSpec(family="hello", scenario="health_check", seed=42, topology={"hello": True})
+    )
+    instance_id = await runtime.create_instance(build_id)
+
+    async def status(_: object) -> RangeInstanceStatus:
+        return RangeInstanceStatus(
+            instance_id=instance_id,
+            build_id=build_id,
+            generation=0,
+            state="stopped",
+            checked_at=utc_now(),
+        )
+
+    monkeypatch.setattr(runtime, "instance_status", status)
+    metadata = await runtime.snapshot_metadata(instance_id)
+    assert metadata.family == "hello"
+    assert metadata.security_variant is None
+    assert metadata.patched_properties == ()

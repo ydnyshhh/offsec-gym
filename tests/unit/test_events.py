@@ -14,10 +14,14 @@ def test_event_serialization_round_trip() -> None:
         action_id=uuid4(),
         action_type="http_request",
         destination="hello",
+        range_instance_id=uuid4(),
+        range_generation=0,
+        request_artifact_id=uuid4(),
     )
     parsed = parse_event(event.model_dump(mode="json"))
     assert isinstance(parsed, ActionRequested)
     assert parsed == event
+    assert event.schema_version == "2"
     assert parsed.sequence_number == 0
 
 

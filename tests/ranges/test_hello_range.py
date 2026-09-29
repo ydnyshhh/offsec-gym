@@ -81,6 +81,9 @@ async def test_hello_lifecycle_containment_and_gateway(tmp_path: Path) -> None:
         assert first.state == second.state == "healthy"
         assert first.instance_id != second.instance_id
         assert first.generation == second.generation == 0
+        first_metadata = await runtime.snapshot_metadata(first.instance_id)
+        assert first_metadata.security_variant is None
+        assert first_metadata.patched_properties == ()
         first_manifest = runtime.state.load_instance(first.instance_id)
         second_manifest = runtime.state.load_instance(second.instance_id)
         assert first_manifest.nonce != second_manifest.nonce

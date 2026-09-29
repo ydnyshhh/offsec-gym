@@ -223,7 +223,7 @@ class RangeControllerMetadata(StrictModel):
     image_id: str | None = None
     state: Literal["starting", "healthy", "unhealthy", "stopped", "destroyed"]
     family: str
-    variant: Literal["vulnerable", "patched", "selective"]
+    security_variant: Literal["vulnerable", "patched", "selective"] | None = None
     patched_properties: tuple[str, ...] = ()
     pair_id: UUID | None = None
     identities: tuple[RangeIdentity, ...] = ()
@@ -232,9 +232,15 @@ class RangeControllerMetadata(StrictModel):
     def validate_variant(self) -> RangeControllerMetadata:
         if len(set(self.patched_properties)) != len(self.patched_properties):
             raise ValueError("patched property slugs must be distinct")
-        if self.variant == "vulnerable" and self.patched_properties:
+        if self.family == "hello" and self.security_variant is not None:
+            raise ValueError("hello range has no security variant")
+        if self.family == "saas" and self.security_variant is None:
+            raise ValueError("saas range requires a security variant")
+        if self.security_variant is None and self.patched_properties:
+            raise ValueError("patched properties require a security variant")
+        if self.security_variant == "vulnerable" and self.patched_properties:
             raise ValueError("vulnerable variant cannot contain patched properties")
-        if self.variant in {"patched", "selective"} and not self.patched_properties:
+        if self.security_variant in {"patched", "selective"} and not self.patched_properties:
             raise ValueError("patched variant needs patched properties")
         return self
 

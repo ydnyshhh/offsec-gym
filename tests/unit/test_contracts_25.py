@@ -246,22 +246,22 @@ def test_action_requested_v2_provenance_and_legacy_v1_readability() -> None:
         action_type="http_request",
         destination="saas",
     )
-    legacy = ActionRequested(**base)
+    legacy = ActionRequested(**base, schema_version="1")
     assert parse_event(legacy.model_dump(mode="json")) == legacy
     assert legacy.range_instance_id is None
     instance_id, artifact_id = uuid4(), uuid4()
     current = ActionRequested(
         **base,
-        schema_version="2",
         range_instance_id=instance_id,
         range_generation=3,
         request_artifact_id=artifact_id,
     )
     assert parse_event(current.model_dump(mode="json")) == current
+    assert current.schema_version == "2"
     with pytest.raises(ValidationError, match="requires instance"):
-        ActionRequested(**base, schema_version="2")
+        ActionRequested(**base)
     with pytest.raises(ValidationError, match="cannot include v2 provenance"):
-        ActionRequested(**base, range_instance_id=instance_id)
+        ActionRequested(**base, schema_version="1", range_instance_id=instance_id)
 
 
 def test_evidence_and_request_artifact_bind_instance_generation() -> None:
@@ -323,9 +323,17 @@ def test_world_fact_provenance_contradiction_and_metadata_projection() -> None:
         seed=42,
         state="healthy",
         family="saas",
-        variant="vulnerable",
+        security_variant="vulnerable",
         identities=(identity,),
     )
+    with pytest.raises(ValidationError, match="saas range requires"):
+        RangeControllerMetadata.model_validate(
+            {**metadata.model_dump(mode="python"), "security_variant": None}
+        )
+    with pytest.raises(ValidationError, match="hello range has no"):
+        RangeControllerMetadata.model_validate(
+            {**metadata.model_dump(mode="python"), "family": "hello"}
+        )
     public = agent_visible_context(metadata)
     assert public.identity_ids == public.known_roles == ()
     assert "username" not in public.model_dump_json()

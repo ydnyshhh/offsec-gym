@@ -58,7 +58,7 @@ class RangeStarted(TraceEvent):
 
 
 class ActionRequested(TraceEvent):
-    schema_version: Literal["1", "2"] = "1"
+    schema_version: Literal["1", "2"] = "2"
     type: Literal["action_requested"] = "action_requested"
     action_id: UUID
     action_type: str = Field(min_length=1)

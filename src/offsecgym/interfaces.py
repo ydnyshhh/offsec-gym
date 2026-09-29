@@ -62,7 +62,7 @@ class Validator(Protocol):
 
 
 class OracleStore(Protocol):
-    def load_ground_truth(self, build_id: UUID) -> GroundTruthManifest: ...
+    def load_for_context(self, context: ValidationContext) -> GroundTruthManifest: ...
 
 
 class WorldState(Protocol):

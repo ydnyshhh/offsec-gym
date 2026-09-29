@@ -24,9 +24,12 @@ def test_saas_paired_builds_share_fixture_and_hide_oracle(tmp_path: Path) -> Non
     compiler = SaasRangeCompiler(state)
     vulnerable = compiler.build(load_spec())
     patched = compiler.build(load_spec(patched=True))
+    selective = compiler.build(
+        load_spec().model_copy(update={"patched_properties": ("DOC-CROSS-TENANT-READ",)})
+    )
     assert compiler.build(load_spec()) == vulnerable
-    assert vulnerable.build_id != patched.build_id
-    assert vulnerable.pair_id == patched.pair_id
+    assert len({vulnerable.build_id, selective.build_id, patched.build_id}) == 3
+    assert vulnerable.pair_id == selective.pair_id == patched.pair_id
     fixture_path = state.build_dir(vulnerable.build_id) / "fixture.json"
     patched_fixture = state.build_dir(patched.build_id) / "fixture.json"
     assert fixture_path.read_bytes() == patched_fixture.read_bytes()
