@@ -1,0 +1,9 @@
+schema_version: "1"
+family: hello
+scenario: health_check
+seed: 42
+patched: false
+topology:
+  hello: true
+identities: {}
+vulnerabilities: []

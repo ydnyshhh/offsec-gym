@@ -1,0 +1,16 @@
+schema_version: "1"
+name: scripted_hello
+seed: 1
+range:
+  schema_version: "1"
+  family: hello
+  scenario: health_check
+  seed: 42
+  topology:
+    hello: true
+budget:
+  max_actions: 10
+  max_wall_seconds: 60
+orchestrator: scripted
+memory: none
+validation: deterministic

@@ -1,0 +1,78 @@
+"""Range and experiment input contracts."""
+
+from __future__ import annotations
+
+from typing import Literal
+
+from pydantic import Field, model_validator
+
+from offsecgym.schemas.common import StrictModel
+
+
+class Budget(StrictModel):
+    max_total_tokens: int | None = Field(default=None, gt=0)
+    max_actions: int | None = Field(default=None, gt=0)
+    max_http_requests: int | None = Field(default=None, gt=0)
+    max_workers: int | None = Field(default=None, gt=0)
+    max_concurrency: int | None = Field(default=None, gt=0)
+    max_wall_seconds: int | None = Field(default=None, gt=0)
+    max_cost_usd: float | None = Field(default=None, gt=0)
+
+    @model_validator(mode="after")
+    def require_limit(self) -> Budget:
+        if all(value is None for value in self.model_dump().values()):
+            raise ValueError("at least one budget limit is required")
+        if (
+            self.max_workers is not None
+            and self.max_concurrency is not None
+            and self.max_concurrency > self.max_workers
+        ):
+            raise ValueError("max_concurrency cannot exceed max_workers")
+        return self
+
+
+class VulnerabilitySpec(StrictModel):
+    family: str = Field(min_length=1)
+    component: str = Field(min_length=1)
+    variant: str = Field(min_length=1)
+
+
+class RangeSpec(StrictModel):
+    schema_version: Literal["1"] = "1"
+    family: str = Field(min_length=1)
+    scenario: str = Field(min_length=1)
+    seed: int = Field(ge=0)
+    patched: bool = False
+    topology: dict[str, bool] = Field(default_factory=dict)
+    identities: dict[str, int] = Field(default_factory=dict)
+    vulnerabilities: tuple[VulnerabilitySpec, ...] = ()
+
+    @model_validator(mode="after")
+    def validate_counts(self) -> RangeSpec:
+        if any(count < 0 for count in self.identities.values()):
+            raise ValueError("identity counts cannot be negative")
+        return self
+
+
+class ModelSpec(StrictModel):
+    provider: str = Field(min_length=1)
+    name: str = Field(min_length=1)
+    reasoning: str | None = None
+
+
+class ExperimentSpec(StrictModel):
+    schema_version: Literal["1"] = "1"
+    name: str = Field(min_length=1)
+    seed: int = Field(ge=0)
+    range: RangeSpec
+    budget: Budget
+    orchestrator: Literal["scripted", "monolithic", "planner_executor", "ephemeral_workers"]
+    memory: Literal["none", "transcript", "summary", "structured"] = "none"
+    validation: Literal["deterministic", "self", "independent_model"] = "deterministic"
+    model: ModelSpec | None = None
+
+    @model_validator(mode="after")
+    def require_model_for_llm(self) -> ExperimentSpec:
+        if self.orchestrator != "scripted" and self.model is None:
+            raise ValueError("model is required for non-scripted orchestrators")
+        return self
