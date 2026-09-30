@@ -105,7 +105,7 @@ def test_extracts_identity_and_objects_only_from_matching_complete_responses() -
             },
         ),
     )
-    assert {fact.predicate for fact in detailed} == {"workspace", "title"}
+    assert {fact.predicate for fact in detailed} == {"workspace", "title", "body_excerpt"}
     assert (
         extractor.extract(
             detail, _result(detail, {"id": str(uuid4()), "workspace_id": str(workspace)})

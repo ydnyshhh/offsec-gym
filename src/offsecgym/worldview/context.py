@@ -16,6 +16,7 @@ from offsecgym.schemas.domain import WorldFact
 from offsecgym.schemas.events import ContextRetrieved
 from offsecgym.worldview.ledger import EntityLedger
 from offsecgym.worldview.state import EventWorldState
+from offsecgym.worldview.working_set import ActiveWorkingSet
 
 _TERMS = re.compile(r"[a-z0-9_]+")
 _UUIDS = re.compile(r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}", re.I)
@@ -71,13 +72,16 @@ class WorldContextBuilder:
         *,
         kind: str | None = None,
         max_facts: int = 32,
-        max_chars: int = 6000,
+        max_chars: int = 7500,
+        working_set: ActiveWorkingSet | None = None,
     ) -> WorldContext:
         if not 1 <= max_facts <= 100 or not 200 <= max_chars <= 8000:
             raise ValueError("context limits are outside supported bounds")
         facts = list(await self.state.query(run_id, kind=kind))
         terms = set(_TERMS.findall(query.casefold())) - _STOP
         seed_ids = {UUID(item) for item in _UUIDS.findall(query)}
+        if working_set is not None:
+            seed_ids.update(working_set.entity_ids())
         ledger = EntityLedger(facts)
         related_ids = ledger.related_ids(seed_ids)
         unique_observed: dict[tuple[str, UUID, str, str], WorldFact] = {}
@@ -109,8 +113,24 @@ class WorldContextBuilder:
             "contains_document": 4,
             "contains_ticket": 4,
             "username": 3,
+            "body_excerpt": 4,
+            "mentions_invoice": 5,
         }
-        indexed = list(enumerate(controller_facts))
+        lines = ["Relevant world facts (unvalidated claims remain labeled):"]
+        working_fact_ids: tuple[UUID, ...] = ()
+        working_lines: list[str] = []
+        if working_set is not None:
+            working_lines, working_fact_ids = working_set.render(
+                max_chars=min(3500, max_chars // 2),
+                max_facts=min(18, max_facts),
+            )
+            lines.extend(working_lines)
+        working_fact_set = set(working_fact_ids)
+        indexed = [
+            (index, fact)
+            for index, fact in enumerate(controller_facts)
+            if fact.fact_id not in working_fact_set
+        ]
         indexed.sort(
             key=lambda pair: (
                 int(pair[1].subject.entity_id in seed_ids) * 10
@@ -125,13 +145,12 @@ class WorldContextBuilder:
             ),
             reverse=True,
         )
-        lines = ["Relevant world facts (unvalidated claims remain labeled):"]
         ledger_kept: list[WorldFact] = []
         if indexed:
             lines.append("Known entities (controller-observed; exact IDs):")
         ledger_limit = max_chars - (1400 if other_facts else 100)
         for _, fact in indexed:
-            if len(ledger_kept) >= max_facts or ledger_limit <= 0:
+            if len(ledger_kept) + len(working_fact_ids) >= max_facts or ledger_limit <= 0:
                 break
             value = (
                 f"{fact.object_value.entity_type}:{fact.object_value.entity_id}"
@@ -224,10 +243,13 @@ class WorldContextBuilder:
                     fact.predicate,
                     json.dumps(value, sort_keys=True, ensure_ascii=False),
                 )
-                if key not in seen and len(selected) + len(ledger_kept) < max_facts:
+                if (
+                    key not in seen
+                    and len(selected) + len(ledger_kept) + len(working_fact_ids) < max_facts
+                ):
                     selected.append(group)
                     seen.add(key)
-            if len(selected) + len(ledger_kept) >= max_facts:
+            if len(selected) + len(ledger_kept) + len(working_fact_ids) >= max_facts:
                 break
         kept: list[_FactGroup] = []
         for group in selected:
@@ -258,13 +280,14 @@ class WorldContextBuilder:
             line = f"- active coverage: {claim.component}: {claim.objective}"
             if len("\n".join((*lines, line))) <= max_chars:
                 lines.append(line)
-        if not kept and not ledger_kept and not claims:
+        if not kept and not ledger_kept and not claims and not working_lines:
             lines.append("- none")
         rendered = "\n".join(lines)
         context = WorldContext(
             run_id=run_id,
             fact_ids=tuple(
-                [fact.fact_id for fact in ledger_kept]
+                list(working_fact_ids)
+                + [fact.fact_id for fact in ledger_kept]
                 + [group.representative.fact_id for group in kept]
             ),
             text=rendered,
@@ -275,7 +298,17 @@ class WorldContextBuilder:
                 actor="worldstate",
                 query_sha256=hashlib.sha256(
                     json.dumps(
-                        {"query": query, "kind": kind}, sort_keys=True, separators=(",", ":")
+                        {
+                            "query": query,
+                            "kind": kind,
+                            "working_actions": (
+                                [str(item) for item in working_set.action_ids()]
+                                if working_set is not None
+                                else []
+                            ),
+                        },
+                        sort_keys=True,
+                        separators=(",", ":"),
                     ).encode()
                 ).hexdigest(),
                 rendered_sha256=hashlib.sha256(rendered.encode()).hexdigest(),

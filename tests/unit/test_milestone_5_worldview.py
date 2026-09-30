@@ -253,7 +253,7 @@ async def test_claim_links_do_not_imply_semantic_truth() -> None:
 
 def test_structured_tool_schemas_remain_strict() -> None:
     tools = model_tools(structured=True)
-    assert len(tools) == 9
+    assert len(tools) == 10
     for tool in tools:
         schema = tool["parameters"]
         assert tool["strict"] is True

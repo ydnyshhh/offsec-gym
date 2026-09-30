@@ -15,7 +15,9 @@ _WORKSPACE_LIST = re.compile(r"^/api/workspaces/([^/]+)/(documents|invoices|tick
 _DETAIL = re.compile(r"^/api/(documents|invoices|support/tickets)/([^/]+)$")
 _PREVIEW = re.compile(r"^/api/public/invoices/([^/]+)/preview$")
 _REFUND = re.compile(r"^/api/invoices/([^/]+)/refund$")
+_INVOICE_MENTION = re.compile(r"\binvoice ([0-9a-fA-F-]{36})\b")
 _ENTITY_TYPES = {"documents": "document", "invoices": "invoice", "tickets": "ticket"}
+MAX_BODY_EXCERPT = 512
 
 
 @dataclass(frozen=True)
@@ -137,6 +139,23 @@ class ResponseFactExtractor:
                 facts.append(ExtractedFact("observation", entity, field, value))
             elif field != "amount_cents" and isinstance(value, str) and 0 < len(value) <= 2048:
                 facts.append(ExtractedFact("observation", entity, field, value))
+        if entity.entity_type in {"document", "ticket"}:
+            detail_body = body.get("body")
+            if isinstance(detail_body, str) and detail_body:
+                facts.append(
+                    ExtractedFact(
+                        "observation",
+                        entity,
+                        "body_excerpt",
+                        detail_body[:MAX_BODY_EXCERPT],
+                    )
+                )
+                if len(detail_body) > MAX_BODY_EXCERPT:
+                    facts.append(ExtractedFact("observation", entity, "body_truncated", True))
+                match = _INVOICE_MENTION.search(detail_body)
+                invoice = _entity("invoice", match.group(1)) if match else None
+                if invoice:
+                    facts.append(ExtractedFact("relationship", entity, "mentions_invoice", invoice))
         if entity.entity_type == "document":
             for field, target_type in (
                 ("reference_document_id", "document"),
