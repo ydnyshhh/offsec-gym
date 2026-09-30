@@ -74,6 +74,21 @@ prints reconstructed facts and coverage; use `--predicate` or `--kind` to filter
 The configs compare agent systems with different tools and prompts; their score
 difference is not a memory-only ablation. See [Milestone 5](docs/milestone-5.md).
 
+The Kimi K3 OpenRouter diagnostic configs pin the same model, high reasoning, range,
+seed, surface visibility, and budget in both arms. With the control database migrated
+as above, set the API key and run three vulnerable repetitions per arm:
+
+```zsh
+read -rs 'OPENROUTER_API_KEY?OpenRouter API key: '; echo
+export OPENROUTER_API_KEY
+uv run offsecgym experiment run experiments/configs/kimi-k3-transcript-diagnostic.yaml --repetitions 3
+uv run offsecgym experiment run experiments/configs/kimi-k3-structured-diagnostic.yaml --repetitions 3
+```
+
+Each run prints an ID. Use `offsecgym experiment trace RUN_ID` to inspect its events
+and `offsecgym experiment worldview RUN_ID` to inspect structured memory. These
+small samples are for trace inspection, not a statistical score comparison.
+
 `range start` prints an instance ID and generation. `range create BUILD_ID` separates
 instance creation from startup; UUID-based lifecycle commands accept instance IDs only.
 Builds, instance manifests, request artifacts, and evidence are kept in `.offsecgym/`;
