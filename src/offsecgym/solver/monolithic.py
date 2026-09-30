@@ -189,7 +189,9 @@ class MonolithicSaasAgent:
         used_tokens = 0
         used_cost = 0.0
         invalid_calls = 0
-        max_calls = task.budget.max_model_calls or 20
+        max_calls = task.budget.max_model_calls
+        if max_calls is None:
+            raise ValueError("model-call budget is required")
         for _ in range(max_calls):
             remaining = (
                 task.budget.max_total_tokens - used_tokens

@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import json
 import stat
+from io import BytesIO
 from urllib.error import HTTPError
 
 import pytest
@@ -128,6 +129,41 @@ async def test_failed_provider_response_is_retained(tmp_path, monkeypatch) -> No
         )
         == raw_response
     )
+
+
+@pytest.mark.asyncio
+async def test_http_error_body_reaches_restricted_response_artifact(tmp_path, monkeypatch) -> None:
+    runtime = no_docker_runtime(tmp_path, monkeypatch)
+    events = MemoryEvents()
+    provider = OpenAIResponsesProvider("test-secret")
+    body = json.dumps({"error": {"message": "retry", "echo": "test-secret"}}).encode()
+
+    def broken_open(*args, **kwargs):
+        raise HTTPError(provider.URL, 429, "rate limited", {}, BytesIO(body))
+
+    monkeypatch.setattr(provider._opener, "open", broken_open)
+    outcome = await MonolithicExperimentRunner(runtime, events, provider).run(model_spec())
+    assert outcome.evaluation.status == "provider_failed"
+    started = next(item for item in events.items if isinstance(item, ModelCallStarted))
+    failed = next(item for item in events.items if isinstance(item, ModelCallFailed))
+    assert failed.reason_code == "provider_rate_limited" and failed.http_status == 429
+    artifact = ModelCallArtifacts(runtime.state.root).read_verified(
+        outcome.run_id,
+        started.call_id,
+        "response",
+        failed.response_artifact_id,
+        failed.response_sha256,
+    )
+    assert artifact == {"error": {"message": "retry", "echo": "[REDACTED]"}}
+    path = (
+        runtime.state.root
+        / "model_calls"
+        / outcome.run_id.hex
+        / started.call_id.hex
+        / "response.json"
+    )
+    assert stat.S_IMODE(path.stat().st_mode) == 0o600
+    assert "test-secret" not in path.read_text()
 
 
 @pytest.mark.asyncio
@@ -283,7 +319,10 @@ async def test_explicit_per_call_output_limit(tmp_path, monkeypatch) -> None:
     spec = model_spec(tokens=30000).model_copy(
         update={
             "budget": Budget(
-                max_actions=5, max_total_tokens=30000, max_output_tokens_per_call=16000
+                max_actions=5,
+                max_total_tokens=30000,
+                max_output_tokens_per_call=16000,
+                max_model_calls=4,
             )
         }
     )
@@ -379,6 +418,45 @@ def test_openai_http_status_classification(monkeypatch, http_status, expected_ty
     assert "test-secret" not in str(error.value)
 
 
+@pytest.mark.parametrize(
+    ("http_status", "expected_type"),
+    ((400, ProviderRequestError), (429, ProviderFailure), (500, ProviderFailure)),
+)
+def test_openai_http_error_retains_bounded_redacted_json(
+    monkeypatch, http_status, expected_type
+) -> None:
+    adapter = OpenAIResponsesProvider("test-secret")
+    body = json.dumps(
+        {"error": {"message": "request failed", "echo": ["Bearer test-secret"]}}
+    ).encode()
+
+    def broken_open(*args, **kwargs):
+        raise HTTPError(adapter.URL, http_status, "error", {}, BytesIO(body))
+
+    monkeypatch.setattr(adapter._opener, "open", broken_open)
+    with pytest.raises(expected_type) as error:
+        adapter._post({"model": "mock"})
+    assert error.value.http_status == http_status
+    assert error.value.raw_response == {
+        "error": {"message": "request failed", "echo": ["Bearer [REDACTED]"]}
+    }
+    assert "test-secret" not in json.dumps(error.value.raw_response)
+
+
+@pytest.mark.parametrize("body", (b"<html>bad gateway</html>", b"x" * 2_000_001))
+def test_openai_http_error_omits_non_json_or_oversized_body(monkeypatch, body) -> None:
+    adapter = OpenAIResponsesProvider("test-secret")
+
+    def broken_open(*args, **kwargs):
+        raise HTTPError(adapter.URL, 503, "error", {}, BytesIO(body))
+
+    monkeypatch.setattr(adapter._opener, "open", broken_open)
+    with pytest.raises(ProviderFailure) as error:
+        adapter._post({"model": "mock"})
+    assert error.value.reason_code == "provider_server_error"
+    assert error.value.raw_response is None
+
+
 def test_cost_budget_needs_explicit_prices_and_new_unscored_states() -> None:
     spec = model_spec()
     with pytest.raises(ValueError, match="cost budget requires"):
@@ -386,7 +464,11 @@ def test_cost_budget_needs_explicit_prices_and_new_unscored_states() -> None:
             {
                 **spec.model_dump(mode="python"),
                 "model": {"provider": "openai", "name": "mock-model"},
-                "budget": {"max_cost_usd": 0.01, "max_total_tokens": 500},
+                "budget": {
+                    "max_cost_usd": 0.01,
+                    "max_total_tokens": 500,
+                    "max_model_calls": 4,
+                },
             }
         )
     assert unscored_run("provider_failed").score_valid is False

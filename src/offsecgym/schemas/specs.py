@@ -97,6 +97,8 @@ class ExperimentSpec(StrictModel):
             raise ValueError("model is required for non-scripted orchestrators")
         if self.orchestrator == "monolithic" and self.surface_visibility is None:
             raise ValueError("monolithic runs require explicit surface_visibility")
+        if self.orchestrator == "monolithic" and self.budget.max_model_calls is None:
+            raise ValueError("monolithic runs require explicit max_model_calls")
         if self.orchestrator == "scripted" and self.surface_visibility is not None:
             raise ValueError("surface_visibility is only supported for model orchestrators")
         if self.orchestrator == "monolithic" and all(

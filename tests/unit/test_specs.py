@@ -31,6 +31,9 @@ def test_experiment_requires_model_for_non_scripted_agent() -> None:
     with pytest.raises(ValidationError, match="explicit surface_visibility"):
         ExperimentSpec.model_validate(raw)
     raw["surface_visibility"] = "known_routes"
+    with pytest.raises(ValidationError, match="explicit max_model_calls"):
+        ExperimentSpec.model_validate(raw)
+    raw["budget"]["max_model_calls"] = 20
     assert ExperimentSpec.model_validate(raw).model is not None
 
 
