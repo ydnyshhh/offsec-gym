@@ -14,3 +14,10 @@ after completion. Hard limits stop further work; a run ends with an explicit sta
 An experiment matrix expands configurations into individual manifests. Each run is stored
 and evaluated, including infrastructure failures. Paired vulnerable/patched runs use the
 same scenario seed and replication block.
+
+For the monolithic baseline, `ModelSpec.provider=openai` selects the first provider
+adapter. `ModelSpec.name` is an explicit model name. `max_model_calls` limits provider
+round trips, and `max_total_tokens` limits observed input plus output tokens. If
+`max_cost_usd` is set, both token prices per million must be configured in `ModelSpec`.
+The controller records usage after each call and stops before the next call when a ceiling
+is reached. See [Milestone 4](milestone-4.md).

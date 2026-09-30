@@ -9,7 +9,8 @@ Licensed under Apache-2.0; see [LICENSE](LICENSE).
 Milestones 2 and 2.5 add a seeded multi-tenant SaaS range with five security properties,
 isolated instance credentials, typed hidden ground truth and attack graphs, generation-bound
 evidence, and live oracle tests. Milestone 3 adds a scripted agent, independent deterministic
-validation with isolated replay, and root-cause-based evaluation. Model agents remain future work.
+validation with isolated replay, and root-cause-based evaluation. Milestone 4 adds a
+monolithic model baseline through the same gateway, finding, and scoring contracts.
 
 ## Development
 
@@ -58,6 +59,12 @@ uv run offsecgym experiment run experiments/configs/scripted-saas.yaml --paired
 The command prints each run ID and evaluation. Vulnerable runs should validate five distinct
 root causes; patched runs should submit no vulnerability findings. The agent receives only
 its projected context and gateway responses. See [Milestone 3](docs/milestone-3.md).
+
+For the monolithic baseline, edit the model name in
+[the diagnostic config](experiments/configs/monolithic-saas.yaml), set `OPENAI_API_KEY`, and
+run `offsecgym experiment run experiments/configs/monolithic-saas.yaml --repetitions 10`.
+The same PostgreSQL setup is required. See [Milestone 4](docs/milestone-4.md) for budget
+and failure semantics.
 
 `range start` prints an instance ID and generation. `range create BUILD_ID` separates
 instance creation from startup; UUID-based lifecycle commands accept instance IDs only.

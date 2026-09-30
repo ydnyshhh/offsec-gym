@@ -38,6 +38,10 @@
   finding submissions; replay run lifecycle and trace references; terminal run outcomes
   for agent, budget, infrastructure, and validation failures.
 - Selectively patched scripted experiment acceptance test and canonical experiment hash.
+- Provider-neutral model-turn contract, OpenAI Responses adapter, strict typed model
+  tools, monolithic agent, model usage events, and provider/cancellation score states.
+- Fake-provider acceptance test through a live Docker SaaS range and deterministic
+  validation; CLI support for 1–20 diagnostic repetitions.
 
 ## Partially implemented
 
@@ -52,10 +56,9 @@
 
 ## Next milestone
 
-Milestone 4: provider abstraction, typed model tool use, and a baseline LLM agent on the
-same gateway, candidate, validator, and evaluator contracts.
-Extend `RunEvaluation.status` to distinguish `provider_failed` and `cancelled` as
-unscored terminal outcomes; malformed model tool calls remain scored agent behavior.
+Complete the Milestone 4 live diagnostic batch after configuring an API credential and
+available model. Inspect 10–20 runs individually for harness failures before research
+comparisons. Then begin Milestone 5 structured worldview work.
 
 ## Known architectural debt
 

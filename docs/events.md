@@ -31,6 +31,14 @@ validation creates a separate replay run with its own start, range-start, action
 completion events. `ValidationResult.replay_trace` links that run and its evidence to the
 parent finding verdict.
 
+Model turns add `ModelCallStarted`, `ModelCallCompleted`, and `ModelCallFailed`. A call ID
+links start to completion or failure. Completion records provider response ID, input and
+output token counts, and estimated cost when token prices are configured. Failure records
+a stable reason code and optional HTTP status. Raw prompts, response bodies, and API
+credentials are absent from these events. Rejected model tool calls emit
+`ModelToolRejected` with a stable call reference, tool name, and error class but no
+untrusted argument payload.
+
 Request events precede external effects. An allowed action receives exactly one terminal
 completion, blocked, failed, or outcome-unknown resolution. JSONL is an export of the
 authoritative PostgreSQL stream. Projections are rebuildable from that stream. The current

@@ -94,6 +94,13 @@ budget; invoke model and tools; submit structured observations, hypotheses, and 
 return a structured debrief; release lease. Accidental duplication and deliberate
 independent verification are tagged separately.
 
+**Baseline model:** a provider-neutral turn interface supplies output items and usage.
+One monolithic agent builds context from agent-visible metadata, sends strict function
+tools, and routes every action through the gateway and every proposal through the bound
+finding sink. Model call events record a request digest, usage, and provider errors without
+logging credentials or raw prompts. The first adapter is OpenAI Responses; the tool and
+runner contracts do not depend on that provider.
+
 **Finding:** submit candidate with evidence IDs; check schema and provenance; verify the
 claimed subject/object relationship and expected policy; replay a minimal proof in a reset
 or cloned range when feasible; match hidden oracle; record validated, rejected, or
@@ -103,13 +110,14 @@ inconclusive. A validator outage cannot turn a candidate into a false positive.
 
 Terminal states are `completed`, `budget_exhausted`, `agent_failed`,
 `environment_failed`, `provider_failed`, `validation_failed`, and `cancelled`. All remain
-in analysis exports. Provider and infrastructure retries are bounded and recorded. Agent
+in analysis exports. Provider and infrastructure retries, when enabled, are bounded and
+recorded. Agent
 decisions are not silently retried. An action with a request event and no completion after a
 crash is outcome-unknown; it may be replayed only if known idempotent. Teardown uses
 run-owned Compose labels and is idempotent where possible.
 
-Milestone 4 must extend `RunEvaluation.status` to cover `provider_failed` and `cancelled`
-before running model comparisons. A provider outage, 5xx response, or authentication
+Milestone 4 extends `RunEvaluation.status` to cover `provider_failed` and `cancelled`.
+A provider outage, 5xx response, or authentication
 failure ends as `provider_failed` with `score_valid=false`. A model's malformed tool call is
 an agent outcome: classify an unrecovered failure as `agent_failed` and score it, or let a
 recovered run complete and score its actual findings. Controller-initiated cancellation
