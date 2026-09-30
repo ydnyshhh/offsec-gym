@@ -9,6 +9,7 @@ from uuid import UUID
 from pydantic import Field, TypeAdapter, field_validator, model_validator
 
 from offsecgym.schemas.common import StrictModel, new_id
+from offsecgym.schemas.domain import CandidateFinding, ValidationResult
 
 
 class TraceEvent(StrictModel):
@@ -133,6 +134,18 @@ class RunCompleted(TraceEvent):
     status: RunStatus
 
 
+class FindingSubmitted(TraceEvent):
+    schema_version: Literal["2"] = "2"
+    type: Literal["finding_submitted"] = "finding_submitted"
+    finding: CandidateFinding
+
+
+class FindingValidated(TraceEvent):
+    schema_version: Literal["2"] = "2"
+    type: Literal["finding_validated"] = "finding_validated"
+    result: ValidationResult
+
+
 AnyTraceEvent = Annotated[
     RunStarted
     | RangeStarted
@@ -141,6 +154,8 @@ AnyTraceEvent = Annotated[
     | ActionCompleted
     | ActionFailed
     | BudgetUpdated
+    | FindingSubmitted
+    | FindingValidated
     | RunCompleted,
     Field(discriminator="type"),
 ]
