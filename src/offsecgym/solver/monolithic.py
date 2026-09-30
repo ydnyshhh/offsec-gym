@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import Literal
 from uuid import UUID, uuid4, uuid5
 
-from pydantic import Field, ValidationError
+from pydantic import Field, ValidationError, field_validator, model_validator
 
 from offsecgym.interfaces import EventStore, ToolRegistry
 from offsecgym.providers.artifacts import ModelCallArtifacts
@@ -42,6 +42,7 @@ from offsecgym.solver.scripted import (
     FindingSink,
 )
 from offsecgym.worldview import EventWorldState, WorldContextBuilder
+from offsecgym.worldview.state import WorldStateIntegrityError
 
 
 class HTTPArgs(StrictModel):
@@ -59,29 +60,54 @@ class FindingArgs(StrictModel):
 
 
 class AuthorizationFindingArgs(FindingArgs):
-    subject_role: str
-    action: str
-    resource_type: str
-    object_relation: str
+    subject_role: Literal["member", "workspace_admin", "support", "platform_admin"]
+    action: Literal[
+        "GET /api/documents/{id}",
+        "GET /api/invoices/{id}",
+        "GET /api/support/tickets/{id}",
+    ]
+    resource_type: Literal["document", "invoice", "ticket"]
+    object_relation: Literal["own_workspace", "foreign_workspace", "same_workspace", "public"]
     expected: Literal["allow", "deny"]
+
+    @model_validator(mode="after")
+    def route_matches_resource(self) -> AuthorizationFindingArgs:
+        expected = {
+            "GET /api/documents/{id}": "document",
+            "GET /api/invoices/{id}": "invoice",
+            "GET /api/support/tickets/{id}": "ticket",
+        }[self.action]
+        if self.resource_type != expected:
+            raise ValueError("resource_type must match the selected action")
+        return self
 
 
 class ExposureFindingArgs(FindingArgs):
-    subject_role: str
-    action: str
-    resource_type: str
-    forbidden_fields: tuple[str, ...]
+    subject_role: Literal["anonymous"]
+    action: Literal["GET /api/public/invoices/{id}/preview"]
+    resource_type: Literal["invoice"]
+    forbidden_fields: tuple[Literal["billing_email"], ...]
 
 
 class TransitionFindingArgs(FindingArgs):
-    subject_role: str
-    action: str
-    resource_type: str
-    object_relation: str
-    from_state: str
-    to_state: str
+    subject_role: Literal["member", "workspace_admin", "support", "platform_admin"]
+    action: Literal["POST /api/invoices/{id}/refund"]
+    resource_type: Literal["invoice"]
+    object_relation: Literal["own_workspace", "foreign_workspace", "same_workspace", "public"]
+    from_state: Literal["paid"]
+    to_state: Literal["refunded"]
     expected: Literal["allow", "deny"]
-    allowed_roles: tuple[str, ...]
+    allowed_roles: tuple[Literal["workspace_admin", "platform_admin"], ...]
+
+    @field_validator("allowed_roles")
+    @classmethod
+    def canonical_roles(
+        cls, allowed_roles: tuple[Literal["workspace_admin", "platform_admin"], ...]
+    ) -> tuple[Literal["workspace_admin", "platform_admin"], ...]:
+        if len(set(allowed_roles)) != len(allowed_roles):
+            raise ValueError("allowed_roles must be distinct")
+        order = {"workspace_admin": 0, "platform_admin": 1}
+        return tuple(sorted(allowed_roles, key=order.__getitem__))
 
 
 class QueryWorldviewArgs(StrictModel):
@@ -228,14 +254,18 @@ def build_context(
         "GET /api/public/invoices/{id}/preview; POST /api/invoices/{id}/refund. "
         "A null identity_id is an anonymous request. For POST, body_json is a JSON object string. "
         "Use null for root_cause_hypothesis if unknown."
+        " For finding tools, choose the categorical values offered by the tool schema; "
+        "the validator matches those categories exactly."
     )
     if structured:
         instructions += (
             " Your memory is a structured worldview. Only the latest tool exchange is "
-            "carried between calls. Use submit_observation with real gateway evidence, "
-            "submit_hypothesis for uncertain beliefs, and query_worldview to retrieve "
-            "relevant prior facts. An evidence_linked claim has a valid citation but is "
-            "not proven true. Fact statuses are controller decisions; a hypothesis is not proof."
+            "carried between calls. The controller records typed facts and exact IDs from "
+            "complete synthetic HTTP responses. Use submit_hypothesis for uncertain beliefs "
+            "and query_worldview to retrieve related entities and prior facts. "
+            "Use submit_observation only for details the controller cannot extract. "
+            "Controller-observed fields were checked against the response; an "
+            "evidence_linked model claim has only a valid citation, not proven truth."
         )
     roster = ", ".join(str(item) for item in context.range.identity_ids)
     prompt = (
@@ -482,7 +512,9 @@ class MonolithicSaasAgent:
                         submitted,
                     )
                     if structured and call_name == "http_request" and isinstance(args, HTTPArgs):
-                        recent_action_path = f"{args.method} {args.path}"
+                        recent_action_path = (
+                            f"{args.method} {args.path} identity={args.identity_id}"
+                        )
                     if (
                         structured
                         and call_name == "submit_hypothesis"
@@ -559,29 +591,17 @@ class MonolithicSaasAgent:
             if result.evidence_id is not None:
                 observations.append(result.evidence_id)
                 if self.world is not None:
-                    endpoint_id = uuid5(
-                        run_id, f"endpoint:{args.method}:{args.path}:{args.identity_id}"
-                    )
-                    for predicate, value in (
-                        ("request", f"{args.method} {args.path} identity={args.identity_id}"),
-                        ("http_status", result.http_status),
-                    ):
-                        if value is None:
-                            continue
-                        fact = WorldFact(
-                            fact_id=uuid4(),
-                            run_id=run_id,
-                            kind="observation",
-                            subject=EntityRef(entity_id=endpoint_id, entity_type="endpoint"),
-                            predicate=predicate,
-                            object_value=value,
-                            source_event_ids=(model_event_id,),
-                            source_action_ids=(action.action_id,),
-                            evidence_ids=(result.evidence_id,),
-                            confidence=1.0,
-                        )
-                        await self.world.submit_fact(fact)
-                        await self.world.adjudicate_fact(run_id, fact.fact_id)
+                    try:
+                        await self.world.record_response(action, result)
+                    except (ValueError, WorldStateIntegrityError) as exc:
+                        raise ExperimentInfrastructureError(
+                            "gateway response fact extraction failed integrity checks"
+                        ) from exc
+            endpoint_id = (
+                uuid5(run_id, f"endpoint:{args.method}:{args.path}:{args.identity_id}")
+                if result.evidence_id and self.world
+                else None
+            )
             return {
                 "action_id": str(action.action_id),
                 "status": result.status,
@@ -590,7 +610,7 @@ class MonolithicSaasAgent:
                 "http_status": result.http_status,
                 "body_text": (result.body_text or "")[:4000],
                 "truncated": result.truncated or len(result.body_text or "") > 4000,
-                "endpoint_id": str(endpoint_id) if result.evidence_id and self.world else None,
+                "endpoint_id": str(endpoint_id) if endpoint_id else None,
             }
         assert isinstance(args, FindingArgs)
         common = args.model_dump(
@@ -674,7 +694,7 @@ class MonolithicSaasAgent:
         if name == "query_worldview":
             assert isinstance(args, QueryWorldviewArgs)
             context = await self.context_builder.build(
-                run_id, args.query, kind=args.kind, max_facts=10
+                run_id, args.query, kind=args.kind, max_facts=24
             )
             return {
                 "fact_ids": [str(item) for item in context.fact_ids],

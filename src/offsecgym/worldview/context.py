@@ -14,9 +14,11 @@ from offsecgym.interfaces import EventStore
 from offsecgym.schemas.common import StrictModel
 from offsecgym.schemas.domain import WorldFact
 from offsecgym.schemas.events import ContextRetrieved
+from offsecgym.worldview.ledger import EntityLedger
 from offsecgym.worldview.state import EventWorldState
 
 _TERMS = re.compile(r"[a-z0-9_]+")
+_UUIDS = re.compile(r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}", re.I)
 _STOP = {"a", "an", "and", "api", "for", "in", "of", "or", "the", "to", "test"}
 
 
@@ -68,15 +70,86 @@ class WorldContextBuilder:
         query: str,
         *,
         kind: str | None = None,
-        max_facts: int = 12,
+        max_facts: int = 32,
         max_chars: int = 6000,
     ) -> WorldContext:
         if not 1 <= max_facts <= 100 or not 200 <= max_chars <= 8000:
             raise ValueError("context limits are outside supported bounds")
         facts = list(await self.state.query(run_id, kind=kind))
         terms = set(_TERMS.findall(query.casefold())) - _STOP
+        seed_ids = {UUID(item) for item in _UUIDS.findall(query)}
+        ledger = EntityLedger(facts)
+        related_ids = ledger.related_ids(seed_ids)
+        unique_observed: dict[tuple[str, UUID, str, str], WorldFact] = {}
+        other_facts: list[WorldFact] = []
+        for fact in facts:
+            if fact.schema_version == "4" and fact.status == "observed":
+                value = (
+                    fact.object_value.model_dump(mode="json")
+                    if hasattr(fact.object_value, "model_dump")
+                    else fact.object_value
+                )
+                key = (
+                    fact.subject.entity_type,
+                    fact.subject.entity_id,
+                    fact.predicate,
+                    json.dumps(value, sort_keys=True, ensure_ascii=False),
+                )
+                unique_observed.pop(key, None)
+                unique_observed[key] = fact
+            else:
+                other_facts.append(fact)
+        controller_facts = list(unique_observed.values())
+        priority = {
+            "role": 6,
+            "member_of": 6,
+            "workspace": 5,
+            "status": 5,
+            "contains_invoice": 4,
+            "contains_document": 4,
+            "contains_ticket": 4,
+            "username": 3,
+        }
+        indexed = list(enumerate(controller_facts))
+        indexed.sort(
+            key=lambda pair: (
+                int(pair[1].subject.entity_id in seed_ids) * 10
+                + int(pair[1].subject.entity_id in related_ids) * 5
+                + int(
+                    hasattr(pair[1].object_value, "entity_id")
+                    and pair[1].object_value.entity_id in related_ids
+                )
+                * 5,
+                priority.get(pair[1].predicate, 1),
+                pair[0],
+            ),
+            reverse=True,
+        )
+        lines = ["Relevant world facts (unvalidated claims remain labeled):"]
+        ledger_kept: list[WorldFact] = []
+        if indexed:
+            lines.append("Known entities (controller-observed; exact IDs):")
+        ledger_limit = max_chars - (1400 if other_facts else 100)
+        for _, fact in indexed:
+            if len(ledger_kept) >= max_facts or ledger_limit <= 0:
+                break
+            value = (
+                f"{fact.object_value.entity_type}:{fact.object_value.entity_id}"
+                if hasattr(fact.object_value, "entity_id")
+                else json.dumps(fact.object_value, ensure_ascii=False)
+            )
+            source = str(fact.source_action_ids[0]) if fact.source_action_ids else "unknown"
+            evidence = str(fact.evidence_ids[0]) if fact.evidence_ids else "unknown"
+            line = (
+                f"- {fact.subject.entity_type}:{fact.subject.entity_id} "
+                f"{fact.predicate}={value} source_action={source} evidence={evidence}"
+            )
+            if len("\n".join((*lines, line))) > ledger_limit:
+                continue
+            lines.append(line)
+            ledger_kept.append(fact)
         groups: dict[tuple[str, UUID, str, str], _FactGroup] = {}
-        for index, fact in enumerate(facts):
+        for index, fact in enumerate(other_facts):
             value = (
                 fact.object_value.model_dump(mode="json")
                 if hasattr(fact.object_value, "model_dump")
@@ -122,6 +195,8 @@ class WorldContextBuilder:
                 )
             ).casefold()
             matched = sum(term in searchable for term in terms)
+            if fact.subject.entity_id in related_ids:
+                matched += 3
             ranked.append((matched, _trust(fact), fact.confidence, group.index, group))
         ranked.sort(key=lambda item: item[:4], reverse=True)
         if terms and any(matches for matches, *_ in ranked):
@@ -149,12 +224,11 @@ class WorldContextBuilder:
                     fact.predicate,
                     json.dumps(value, sort_keys=True, ensure_ascii=False),
                 )
-                if key not in seen and len(selected) < max_facts:
+                if key not in seen and len(selected) + len(ledger_kept) < max_facts:
                     selected.append(group)
                     seen.add(key)
-            if len(selected) >= max_facts:
+            if len(selected) + len(ledger_kept) >= max_facts:
                 break
-        lines = ["Relevant world facts (unvalidated claims remain labeled):"]
         kept: list[_FactGroup] = []
         for group in selected:
             fact = group.representative
@@ -184,12 +258,15 @@ class WorldContextBuilder:
             line = f"- active coverage: {claim.component}: {claim.objective}"
             if len("\n".join((*lines, line))) <= max_chars:
                 lines.append(line)
-        if not kept and not claims:
+        if not kept and not ledger_kept and not claims:
             lines.append("- none")
         rendered = "\n".join(lines)
         context = WorldContext(
             run_id=run_id,
-            fact_ids=tuple(group.representative.fact_id for group in kept),
+            fact_ids=tuple(
+                [fact.fact_id for fact in ledger_kept]
+                + [group.representative.fact_id for group in kept]
+            ),
             text=rendered,
         )
         await self.events.append(

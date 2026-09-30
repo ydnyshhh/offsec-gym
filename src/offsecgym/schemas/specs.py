@@ -65,11 +65,14 @@ class ModelSpec(StrictModel):
     provider: str = Field(min_length=1)
     name: str = Field(min_length=1)
     reasoning: str | None = None
+    upstream_provider: str | None = Field(default=None, pattern=r"^[a-z0-9-]+$")
     input_usd_per_million_tokens: float | None = Field(default=None, gt=0, allow_inf_nan=False)
     output_usd_per_million_tokens: float | None = Field(default=None, gt=0, allow_inf_nan=False)
 
     @model_validator(mode="after")
     def paired_token_prices(self) -> ModelSpec:
+        if self.upstream_provider is not None and self.provider != "openrouter":
+            raise ValueError("upstream_provider is supported only for OpenRouter")
         if (self.input_usd_per_million_tokens is None) != (
             self.output_usd_per_million_tokens is None
         ):

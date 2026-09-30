@@ -17,12 +17,23 @@ from sqlalchemy.ext.asyncio import create_async_engine
 from offsecgym import __version__
 from offsecgym.config import Settings
 from offsecgym.experiment import MonolithicExperimentRunner, ScriptedExperimentRunner
+from offsecgym.gateway.compose import ComposeActionGateway
 from offsecgym.providers import OpenAIResponsesProvider, OpenRouterResponsesProvider
 from offsecgym.runtime.compose import ComposeRangeRuntime, DockerCommandError
-from offsecgym.schemas.events import ModelCallCompleted
+from offsecgym.runtime.oracle import StateOracleStore
+from offsecgym.schemas.domain import ValidationContext
+from offsecgym.schemas.events import (
+    FindingSubmitted,
+    FindingValidated,
+    ModelCallCompleted,
+    RangeStarted,
+)
 from offsecgym.schemas.specs import ExperimentSpec, RangeSpec
 from offsecgym.storage.event_store import PostgresEventStore
+from offsecgym.validation import CloneReplayVerifier, DeterministicValidator
+from offsecgym.validation.ontology import normalize_legacy_m5v1
 from offsecgym.worldview import EventWorldState, WorldStateIntegrityError
+from offsecgym.worldview.ledger import EntityLedger
 
 app = typer.Typer(help="Synthetic-range research platform")
 range_app = typer.Typer(help="Build and manage isolated synthetic ranges")
@@ -253,6 +264,7 @@ def experiment_worldview(
                 return {
                     "run_id": str(run_id),
                     "facts": [fact.model_dump(mode="json") for fact in facts[:limit]],
+                    "entities": EntityLedger(list(await state.query(run_id))).as_dict(),
                     "coverage": [claim.model_dump(mode="json") for claim in coverage],
                 }
             finally:
@@ -263,6 +275,105 @@ def experiment_worldview(
         typer.echo(f"experiment error: {exc}", err=True)
         raise typer.Exit(2) from exc
     typer.echo(json.dumps(result, indent=2))
+
+
+@experiment_app.command("revalidate")
+def experiment_revalidate(
+    run_id: UUID,
+    legacy_m5v1: bool = typer.Option(
+        False, help="Apply documented exact M5-v1 category aliases before validation"
+    ),
+) -> None:
+    """Recheck saved findings without changing the original run or its evaluation."""
+    try:
+        settings = Settings()
+        if settings.database_url is None or not settings.database_url.startswith(
+            "postgresql+asyncpg://"
+        ):
+            raise ValueError("OFFSECGYM_DATABASE_URL must use postgresql+asyncpg")
+
+        async def revalidate() -> list[dict[str, object]]:
+            engine = create_async_engine(settings.database_url)
+            try:
+                events = PostgresEventStore(engine)
+                trace = await events.read_run(run_id)
+                started = next(
+                    (
+                        event
+                        for event in trace
+                        if isinstance(event, RangeStarted) and event.schema_version == "2"
+                    ),
+                    None,
+                )
+                if (
+                    started is None
+                    or started.build_id is None
+                    or started.range_instance_id is None
+                    or started.range_generation is None
+                ):
+                    raise ValueError("run has no versioned range context")
+                findings = [event.finding for event in trace if isinstance(event, FindingSubmitted)]
+                if not findings:
+                    raise ValueError("run has no submitted findings")
+                previous = {
+                    event.result.finding_id: event.result
+                    for event in trace
+                    if isinstance(event, FindingValidated)
+                }
+                context = ValidationContext(
+                    run_id=run_id,
+                    build_id=started.build_id,
+                    range_instance_id=started.range_instance_id,
+                    range_generation=started.range_generation,
+                )
+                runtime = ComposeRangeRuntime(settings.state_dir)
+                gateway = ComposeActionGateway(runtime, events)
+                validator = DeterministicValidator(
+                    runtime.state,
+                    events,
+                    StateOracleStore(runtime.state),
+                    replay=CloneReplayVerifier(runtime, gateway, events),
+                )
+                output = []
+                for original in findings:
+                    finding, changes = (
+                        normalize_legacy_m5v1(original) if legacy_m5v1 else (original, {})
+                    )
+                    result = await validator.validate(finding, context)
+                    old = previous.get(original.finding_id)
+                    output.append(
+                        {
+                            "finding_id": str(original.finding_id),
+                            "normalization": changes,
+                            "previous_status": old.status if old else None,
+                            "previous_reasons": list(old.reason_codes) if old else [],
+                            "new_status": result.status,
+                            "new_reasons": list(result.reason_codes),
+                            "matched_root_cause_id": (
+                                str(result.matched_root_cause_id)
+                                if result.matched_root_cause_id
+                                else None
+                            ),
+                        }
+                    )
+                return output
+            finally:
+                await engine.dispose()
+
+        results = asyncio.run(revalidate())
+    except (OSError, ValueError, SQLAlchemyError, DockerCommandError) as exc:
+        typer.echo(f"experiment error: {exc}", err=True)
+        raise typer.Exit(2) from exc
+    typer.echo(
+        json.dumps(
+            {
+                "run_id": str(run_id),
+                "normalization_version": "legacy_m5v1" if legacy_m5v1 else None,
+                "results": results,
+            },
+            indent=2,
+        )
+    )
 
 
 @range_app.command("build")

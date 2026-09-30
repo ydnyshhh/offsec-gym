@@ -3,10 +3,12 @@
 from __future__ import annotations
 
 import asyncio
+import hashlib
 from collections.abc import Sequence
-from uuid import UUID
+from uuid import UUID, uuid4
 
 from offsecgym.interfaces import EventStore
+from offsecgym.schemas.actions import ActionRequest, ActionResult
 from offsecgym.schemas.domain import CoverageClaim, WorldFact
 from offsecgym.schemas.events import (
     ActionCompleted,
@@ -17,6 +19,7 @@ from offsecgym.schemas.events import (
     WorldFactStateChange,
     WorldFactSubmitted,
 )
+from offsecgym.worldview.extract import ResponseFactExtractor
 
 
 class WorldStateIntegrityError(RuntimeError):
@@ -27,6 +30,7 @@ class EventWorldState:
     def __init__(self, events: EventStore) -> None:
         self.events = events
         self._locks: dict[UUID, asyncio.Lock] = {}
+        self.extractor = ResponseFactExtractor()
 
     async def submit_fact(self, fact: WorldFact) -> WorldFact:
         if fact.schema_version != "4" or fact.status != "hypothesized":
@@ -57,6 +61,133 @@ class EventWorldState:
             await self.events.append(
                 WorldFactSubmitted(run_id=fact.run_id, actor="worldstate", fact=fact)
             )
+            return fact
+
+    async def record_response(
+        self, request: ActionRequest, result: ActionResult
+    ) -> tuple[WorldFact, ...]:
+        """Verify the gateway event and body hash before extracting observed facts."""
+        if result.evidence_id is None:
+            return ()
+        history = await self.events.read_run(request.run_id)
+        requested = next(
+            (
+                item
+                for item in history
+                if isinstance(item, ActionRequested)
+                and item.action_id == request.action_id
+                and item.schema_version == "2"
+            ),
+            None,
+        )
+        completed = next(
+            (
+                item
+                for item in history
+                if isinstance(item, ActionCompleted) and item.action_id == request.action_id
+            ),
+            None,
+        )
+        if (
+            requested is None
+            or completed is None
+            or result.action_id != request.action_id
+            or requested.destination != request.destination
+            or requested.method != request.method
+            or requested.identity_id != request.identity_id
+            or requested.path_sha256 != hashlib.sha256(request.path.encode()).hexdigest()
+            or requested.sequence_number >= completed.sequence_number
+            or completed.evidence_id != result.evidence_id
+            or completed.http_status != result.http_status
+            or completed.response_sha256 is None
+            or completed.response_sha256 != result.response_sha256
+        ):
+            raise ValueError("gateway response does not match completed action events")
+        facts = []
+        for extracted in self.extractor.extract(request, result):
+            fact = WorldFact(
+                fact_id=uuid4(),
+                run_id=request.run_id,
+                kind=extracted.kind,
+                subject=extracted.subject,
+                predicate=extracted.predicate,
+                object_value=extracted.object_value,
+                source_event_ids=(completed.event_id,),
+                source_action_ids=(request.action_id,),
+                evidence_ids=(result.evidence_id,),
+                confidence=1.0,
+                status="observed",
+            )
+            facts.append(await self._persist_controller_fact(fact))
+        return tuple(facts)
+
+    async def _persist_controller_fact(self, fact: WorldFact) -> WorldFact:
+        """Persist a field already verified by ``record_response``."""
+        if (
+            fact.schema_version != "4"
+            or fact.status != "observed"
+            or fact.kind not in {"observation", "relationship"}
+            or len(fact.source_action_ids) != 1
+            or len(fact.evidence_ids) != 1
+            or len(fact.source_event_ids) != 1
+        ):
+            raise ValueError("controller observation requires one completed response source")
+        async with self._locks.setdefault(fact.run_id, asyncio.Lock()):
+            history = await self.events.read_run(fact.run_id)
+            facts, _ = self._project(history)
+            if fact.fact_id in facts:
+                raise ValueError("world fact ID already exists in this run")
+            self._check_provenance(fact, history)
+            completed = next(
+                (
+                    item
+                    for item in history
+                    if isinstance(item, ActionCompleted)
+                    and item.event_id == fact.source_event_ids[0]
+                    and item.action_id == fact.source_action_ids[0]
+                    and item.evidence_id == fact.evidence_ids[0]
+                    and item.http_status == 200
+                ),
+                None,
+            )
+            if completed is None:
+                raise ValueError("controller observation source must be a 200 response")
+            await self.events.append(
+                WorldFactSubmitted(run_id=fact.run_id, actor="controller", fact=fact)
+            )
+            older = [
+                item
+                for item in facts.values()
+                if item.schema_version == "4"
+                and item.status == "observed"
+                and item.subject == fact.subject
+                and item.predicate == fact.predicate
+                and item.object_value != fact.object_value
+            ]
+            if older:
+                await self.events.append(
+                    WorldFactAdjudicated(
+                        run_id=fact.run_id,
+                        actor="controller",
+                        fact_id=fact.fact_id,
+                        changes=(
+                            WorldFactStateChange(
+                                fact_id=fact.fact_id,
+                                status="observed",
+                                reason_code="response_field_verified",
+                            ),
+                            *(
+                                WorldFactStateChange(
+                                    fact_id=item.fact_id,
+                                    status="superseded",
+                                    reason_code="newer_response_field",
+                                    replacement_fact_id=fact.fact_id,
+                                )
+                                for item in older
+                            ),
+                        ),
+                    )
+                )
             return fact
 
     async def adjudicate_fact(self, run_id: UUID, fact_id: UUID) -> WorldFact:
@@ -94,6 +225,11 @@ class EventWorldState:
                 and peer.status != "superseded"
             ]
             for peer in peers:
+                if peer.schema_version == "4" and peer.status == "observed":
+                    if peer.object_value != fact.object_value:
+                        links.add(peer.fact_id)
+                        status, reason = "contradicted", "conflicts_with_controller_observation"
+                    continue
                 if peer.object_value == fact.object_value:
                     if (
                         linked

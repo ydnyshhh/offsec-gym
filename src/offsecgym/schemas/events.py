@@ -191,7 +191,17 @@ class WorldFactSubmitted(TraceEvent):
         if (
             self.run_id != self.fact.run_id
             or self.fact.schema_version not in {"3", "4"}
-            or self.fact.status != "hypothesized"
+            or (
+                self.fact.status != "hypothesized"
+                and not (
+                    self.actor == "controller"
+                    and self.fact.schema_version == "4"
+                    and self.fact.status == "observed"
+                    and self.fact.kind in {"observation", "relationship"}
+                    and len(self.fact.source_action_ids) == 1
+                    and len(self.fact.evidence_ids) == 1
+                )
+            )
             or (
                 self.fact.schema_version == "4"
                 and (
@@ -200,7 +210,10 @@ class WorldFactSubmitted(TraceEvent):
                 )
             )
         ):
-            raise ValueError("submitted world fact must be a v3/v4 same-run hypothesized claim")
+            raise ValueError(
+                "submitted world fact must be a same-run hypothesized claim "
+                "or controller observation"
+            )
         return self
 
 
