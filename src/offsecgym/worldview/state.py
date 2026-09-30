@@ -29,8 +29,10 @@ class EventWorldState:
         self._locks: dict[UUID, asyncio.Lock] = {}
 
     async def submit_fact(self, fact: WorldFact) -> WorldFact:
-        if fact.schema_version != "3" or fact.status != "hypothesized":
-            raise ValueError("world facts must enter as v3 hypothesized claims")
+        if fact.schema_version != "4" or fact.status != "hypothesized":
+            raise ValueError("world facts must enter as v4 hypothesized claims")
+        if fact.supersedes_fact_id is not None or fact.superseded_by_fact_id is not None:
+            raise ValueError("model claims cannot supersede facts without controller validation")
         async with self._locks.setdefault(fact.run_id, asyncio.Lock()):
             history = await self.events.read_run(fact.run_id)
             facts, _ = self._project(history)
@@ -69,11 +71,20 @@ class EventWorldState:
                 for item in history
             ):
                 return fact
-            grounded = bool(fact.evidence_ids) and fact.kind in {"observation", "relationship"}
-            status = "observed" if grounded else "hypothesized"
-            reason = "gateway_evidence_verified" if grounded else "claim_only"
+            linked = bool(fact.evidence_ids) and fact.kind in {"observation", "relationship"}
+            if linked:
+                status = (
+                    "multi_evidence_linked"
+                    if len(set(fact.evidence_ids)) >= 2
+                    else "evidence_linked"
+                )
+            else:
+                status = "hypothesized"
+            reason = "gateway_evidence_link_verified" if linked else "claim_only"
             changes: dict[UUID, WorldFactStateChange] = {}
             links: set[UUID] = set(fact.contradicts_fact_ids)
+            matching_linked_ids: set[UUID] = set()
+            conflicting_linked_ids: set[UUID] = set()
             peers = [
                 peer
                 for peer in facts.values()
@@ -85,50 +96,50 @@ class EventWorldState:
             for peer in peers:
                 if peer.object_value == fact.object_value:
                     if (
-                        grounded
+                        linked
                         and peer.evidence_ids
-                        and set(fact.evidence_ids).isdisjoint(peer.evidence_ids)
-                        and peer.status in {"observed", "corroborated"}
+                        and len(set(fact.evidence_ids) | set(peer.evidence_ids)) >= 2
+                        and peer.status
+                        in {"evidence_linked", "multi_evidence_linked", "observed", "corroborated"}
                     ):
-                        status, reason = "corroborated", "independent_matching_evidence"
+                        status, reason = "multi_evidence_linked", "distinct_matching_links"
+                        matching_linked_ids.add(peer.fact_id)
                         changes[peer.fact_id] = WorldFactStateChange(
                             fact_id=peer.fact_id,
-                            status="corroborated",
-                            reason_code="independent_matching_evidence",
+                            status="multi_evidence_linked",
+                            reason_code="distinct_matching_links",
                         )
                     continue
                 links.add(peer.fact_id)
-                if (
-                    fact.supersedes_fact_id == peer.fact_id
-                    and grounded
-                    and peer.status != "validated"
-                ):
-                    changes[peer.fact_id] = WorldFactStateChange(
-                        fact_id=peer.fact_id,
-                        status="superseded",
-                        reason_code="evidence_backed_supersession",
-                    )
-                    continue
-                if peer.status in {"observed", "corroborated", "validated"} or (
-                    peer.status == "contradicted" and peer.evidence_ids
-                ):
-                    status, reason = "contradicted", "conflicting_prior_evidence"
-                    if grounded and peer.status != "validated":
-                        changes[peer.fact_id] = WorldFactStateChange(
-                            fact_id=peer.fact_id,
-                            status="contradicted",
-                            reason_code="conflicting_verified_evidence",
-                            contradicts_fact_ids=(fact_id,),
-                        )
-                elif grounded:
-                    changes[peer.fact_id] = WorldFactStateChange(
-                        fact_id=peer.fact_id,
+                peer_linked = peer.status in {
+                    "evidence_linked",
+                    "multi_evidence_linked",
+                    "observed",
+                    "corroborated",
+                    "validated",
+                } or (peer.status == "contradicted" and bool(peer.evidence_ids))
+                if linked and peer_linked:
+                    conflicting_linked_ids.add(peer.fact_id)
+                    status, reason = "contradicted", "conflicting_linked_claims"
+                changes[peer.fact_id] = WorldFactStateChange(
+                    fact_id=peer.fact_id,
+                    status=(
+                        "contradicted"
+                        if linked and peer_linked and peer.status != "validated"
+                        else peer.status
+                    ),
+                    reason_code="conflicting_claim_link",
+                    contradicts_fact_ids=(fact_id,),
+                )
+            if conflicting_linked_ids:
+                status, reason = "contradicted", "conflicting_linked_claims"
+                for matching_id in matching_linked_ids:
+                    changes[matching_id] = WorldFactStateChange(
+                        fact_id=matching_id,
                         status="contradicted",
-                        reason_code="conflicted_by_gateway_evidence",
-                        contradicts_fact_ids=(fact_id,),
+                        reason_code="matching_claim_has_conflicting_links",
+                        contradicts_fact_ids=tuple(sorted(conflicting_linked_ids, key=str)),
                     )
-            if fact.supersedes_fact_id is not None and not grounded:
-                raise ValueError("a claim without gateway evidence cannot supersede a fact")
             changes[fact_id] = WorldFactStateChange(
                 fact_id=fact_id,
                 status=status,
@@ -145,6 +156,36 @@ class EventWorldState:
             )
             updated, _ = self._project(await self.events.read_run(run_id))
             return updated[fact_id]
+
+    async def supersede_fact(
+        self, run_id: UUID, old_fact_id: UUID, new_fact_id: UUID, reason_code: str
+    ) -> WorldFact:
+        """Controller-only disposition; it is not exposed as a model tool."""
+        async with self._locks.setdefault(run_id, asyncio.Lock()):
+            facts, _ = self._project(await self.events.read_run(run_id))
+            old, new = facts.get(old_fact_id), facts.get(new_fact_id)
+            if old is None or new is None or old.fact_id == new.fact_id:
+                raise ValueError("supersession requires two existing distinct facts")
+            if old.subject != new.subject or old.predicate != new.predicate:
+                raise ValueError("supersession requires a matching subject and predicate")
+            if old.status == "validated" or new.status != "validated":
+                raise ValueError("supersession requires an independently validated replacement")
+            await self.events.append(
+                WorldFactAdjudicated(
+                    run_id=run_id,
+                    actor="controller",
+                    fact_id=old_fact_id,
+                    changes=(
+                        WorldFactStateChange(
+                            fact_id=old_fact_id,
+                            status="superseded",
+                            reason_code=reason_code,
+                            replacement_fact_id=new_fact_id,
+                        ),
+                    ),
+                )
+            )
+            return self._project(await self.events.read_run(run_id))[0][old_fact_id]
 
     async def query(
         self,
@@ -241,6 +282,15 @@ class EventWorldState:
                         raise WorldStateIntegrityError(
                             "world fact adjudication references a missing fact"
                         )
+                    if change.replacement_fact_id is not None:
+                        replacement = facts.get(change.replacement_fact_id)
+                        if (
+                            change.status != "superseded"
+                            or replacement is None
+                            or replacement.subject != current.subject
+                            or replacement.predicate != current.predicate
+                        ):
+                            raise WorldStateIntegrityError("invalid world fact replacement link")
                     links = tuple(
                         sorted(
                             set(current.contradicts_fact_ids) | set(change.contradicts_fact_ids),
@@ -248,7 +298,12 @@ class EventWorldState:
                         )
                     )
                     facts[change.fact_id] = current.model_copy(
-                        update={"status": change.status, "contradicts_fact_ids": links}
+                        update={
+                            "status": change.status,
+                            "contradicts_fact_ids": links,
+                            "superseded_by_fact_id": change.replacement_fact_id
+                            or current.superseded_by_fact_id,
+                        }
                     )
             elif isinstance(event, CoverageClaimed):
                 if event.claim.claim_id in coverage:

@@ -190,20 +190,35 @@ class WorldFactSubmitted(TraceEvent):
     def bind_fact_run(self) -> WorldFactSubmitted:
         if (
             self.run_id != self.fact.run_id
-            or self.fact.schema_version != "3"
+            or self.fact.schema_version not in {"3", "4"}
             or self.fact.status != "hypothesized"
+            or (
+                self.fact.schema_version == "4"
+                and (
+                    self.fact.supersedes_fact_id is not None
+                    or self.fact.superseded_by_fact_id is not None
+                )
+            )
         ):
-            raise ValueError("submitted world fact must be a v3 same-run hypothesized claim")
+            raise ValueError("submitted world fact must be a v3/v4 same-run hypothesized claim")
         return self
 
 
 class WorldFactStateChange(StrictModel):
     fact_id: UUID
     status: Literal[
-        "hypothesized", "observed", "corroborated", "validated", "contradicted", "superseded"
+        "hypothesized",
+        "evidence_linked",
+        "multi_evidence_linked",
+        "observed",
+        "corroborated",
+        "validated",
+        "contradicted",
+        "superseded",
     ]
     reason_code: str = Field(min_length=1, max_length=128)
     contradicts_fact_ids: tuple[UUID, ...] = ()
+    replacement_fact_id: UUID | None = None
 
 
 class WorldFactAdjudicated(TraceEvent):

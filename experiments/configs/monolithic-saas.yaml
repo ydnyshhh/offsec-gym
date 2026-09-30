@@ -1,5 +1,5 @@
 schema_version: "1"
-name: monolithic_saas_diagnostic
+name: monolithic_saas_transcript_baseline
 seed: 1
 range:
   schema_version: "1"

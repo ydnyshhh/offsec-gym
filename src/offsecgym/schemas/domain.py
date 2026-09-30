@@ -184,7 +184,7 @@ FactValue = str | int | float | bool | None | EntityRef
 
 
 class WorldFact(StrictModel):
-    schema_version: Literal["2", "3"] = "3"
+    schema_version: Literal["2", "3", "4"] = "4"
     fact_id: UUID
     run_id: UUID
     kind: (
@@ -199,16 +199,24 @@ class WorldFact(StrictModel):
     evidence_ids: tuple[UUID, ...] = Field(default=(), max_length=20)
     confidence: float = Field(ge=0, le=1, allow_inf_nan=False)
     status: Literal[
-        "hypothesized", "observed", "corroborated", "validated", "contradicted", "superseded"
+        "hypothesized",
+        "evidence_linked",
+        "multi_evidence_linked",
+        "observed",
+        "corroborated",
+        "validated",
+        "contradicted",
+        "superseded",
     ] = "hypothesized"
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     supersedes_fact_id: UUID | None = None
+    superseded_by_fact_id: UUID | None = None
     contradicts_fact_ids: tuple[UUID, ...] = ()
 
     @model_validator(mode="after")
     def validate_provenance(self) -> WorldFact:
-        if self.schema_version == "3" and self.kind is None:
-            raise ValueError("v3 world fact requires kind")
+        if self.schema_version in {"3", "4"} and self.kind is None:
+            raise ValueError("v3/v4 world fact requires kind")
         if self.schema_version == "2" and self.kind is not None:
             raise ValueError("v2 world fact cannot contain kind")
         if not (
@@ -218,7 +226,11 @@ class WorldFact(StrictModel):
             or self.evidence_ids
         ):
             raise ValueError("world fact needs source provenance")
-        if self.supersedes_fact_id == self.fact_id or self.fact_id in self.contradicts_fact_ids:
+        if (
+            self.supersedes_fact_id == self.fact_id
+            or self.superseded_by_fact_id == self.fact_id
+            or self.fact_id in self.contradicts_fact_ids
+        ):
             raise ValueError("world fact cannot supersede or contradict itself")
         if any(
             len(values) != len(set(values))

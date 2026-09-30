@@ -1,5 +1,5 @@
 schema_version: "1"
-name: monolithic_saas_structured_diagnostic
+name: monolithic_saas_structured_worldview
 seed: 1
 range:
   schema_version: "1"

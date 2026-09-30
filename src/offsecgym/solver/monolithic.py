@@ -188,7 +188,8 @@ def model_tools(*, structured: bool = False) -> list[dict[str, object]]:
             "Retrieve bounded, task-relevant world facts; use null kind for all kinds."
         ),
         "submit_observation": (
-            "Record a concise observation backed by an actual gateway action and evidence ID."
+            "Record your concise interpretation with a real gateway action and evidence ID. "
+            "The controller checks the citation, not whether response content proves the text."
         ),
         "submit_hypothesis": (
             "Record an uncertain hypothesis. Use null action and evidence IDs if unsupported."
@@ -233,8 +234,8 @@ def build_context(
             " Your memory is a structured worldview. Only the latest tool exchange is "
             "carried between calls. Use submit_observation with real gateway evidence, "
             "submit_hypothesis for uncertain beliefs, and query_worldview to retrieve "
-            "relevant prior facts. Fact statuses are controller decisions; a hypothesis "
-            "is not proof."
+            "relevant prior facts. An evidence_linked claim has a valid citation but is "
+            "not proven true. Fact statuses are controller decisions; a hypothesis is not proof."
         )
     roster = ", ".join(str(item) for item in context.range.identity_ids)
     prompt = (
@@ -278,6 +279,8 @@ class MonolithicSaasAgent:
         used_tokens = 0
         used_cost = 0.0
         invalid_calls = 0
+        recent_action_path: str | None = None
+        recent_question: str | None = None
         max_calls = task.budget.max_model_calls
         if max_calls is None:
             raise ValueError("model-call budget is required")
@@ -299,7 +302,21 @@ class MonolithicSaasAgent:
             max_output_tokens = min(limits)
             if structured:
                 assert self.context_builder is not None
-                selected = await self.context_builder.build(context.run_id, task.goal)
+                query_parts = [task.goal]
+                assert self.world is not None
+                active = [
+                    claim
+                    for claim in await self.world.coverage(context.run_id)
+                    if claim.status == "active"
+                ]
+                query_parts.extend(f"{claim.component} {claim.objective}" for claim in active[-2:])
+                if recent_action_path:
+                    query_parts.append(recent_action_path)
+                if recent_question:
+                    query_parts.append(recent_question)
+                selected = await self.context_builder.build(
+                    context.run_id, " ".join(query_parts)[:1024]
+                )
                 selected_item = {"role": "user", "content": selected.text}
                 input_items = [
                     *base_items,
@@ -464,6 +481,14 @@ class MonolithicSaasAgent:
                         observations,
                         submitted,
                     )
+                    if structured and call_name == "http_request" and isinstance(args, HTTPArgs):
+                        recent_action_path = f"{args.method} {args.path}"
+                    if (
+                        structured
+                        and call_name == "submit_hypothesis"
+                        and isinstance(args, SubmitHypothesisArgs)
+                    ):
+                        recent_question = f"{args.predicate} {args.value_text}"
                 except (ValueError, KeyError, TypeError, ValidationError) as exc:
                     invalid_calls += 1
                     output = {"error": "invalid_tool_call", "detail": type(exc).__name__}
