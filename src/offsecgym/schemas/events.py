@@ -9,7 +9,7 @@ from uuid import UUID
 from pydantic import Field, TypeAdapter, field_validator, model_validator
 
 from offsecgym.schemas.common import StrictModel, new_id
-from offsecgym.schemas.domain import CandidateFinding, ValidationResult
+from offsecgym.schemas.domain import CandidateFinding, CoverageClaim, ValidationResult, WorldFact
 
 
 class TraceEvent(StrictModel):
@@ -182,6 +182,68 @@ class ModelToolRejected(TraceEvent):
     reason_code: str = Field(min_length=1)
 
 
+class WorldFactSubmitted(TraceEvent):
+    type: Literal["world_fact_submitted"] = "world_fact_submitted"
+    fact: WorldFact
+
+    @model_validator(mode="after")
+    def bind_fact_run(self) -> WorldFactSubmitted:
+        if (
+            self.run_id != self.fact.run_id
+            or self.fact.schema_version != "3"
+            or self.fact.status != "hypothesized"
+        ):
+            raise ValueError("submitted world fact must be a v3 same-run hypothesized claim")
+        return self
+
+
+class WorldFactStateChange(StrictModel):
+    fact_id: UUID
+    status: Literal[
+        "hypothesized", "observed", "corroborated", "validated", "contradicted", "superseded"
+    ]
+    reason_code: str = Field(min_length=1, max_length=128)
+    contradicts_fact_ids: tuple[UUID, ...] = ()
+
+
+class WorldFactAdjudicated(TraceEvent):
+    type: Literal["world_fact_adjudicated"] = "world_fact_adjudicated"
+    fact_id: UUID
+    changes: tuple[WorldFactStateChange, ...] = Field(min_length=1)
+
+    @model_validator(mode="after")
+    def require_unique_changes(self) -> WorldFactAdjudicated:
+        ids = [change.fact_id for change in self.changes]
+        if self.fact_id not in ids or len(ids) != len(set(ids)):
+            raise ValueError("world fact adjudication needs unique changes including target")
+        return self
+
+
+class CoverageClaimed(TraceEvent):
+    type: Literal["coverage_claimed"] = "coverage_claimed"
+    claim: CoverageClaim
+
+    @model_validator(mode="after")
+    def bind_claim_run(self) -> CoverageClaimed:
+        if self.claim.run_id != self.run_id or self.claim.status != "active":
+            raise ValueError("coverage claim must be active and bound to event run")
+        return self
+
+
+class CoverageUpdated(TraceEvent):
+    type: Literal["coverage_updated"] = "coverage_updated"
+    claim_id: UUID
+    status: Literal["completed", "released"]
+
+
+class ContextRetrieved(TraceEvent):
+    type: Literal["context_retrieved"] = "context_retrieved"
+    query_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    rendered_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    selected_fact_ids: tuple[UUID, ...] = ()
+    max_facts: int = Field(ge=1, le=100)
+
+
 RunStatus = Literal[
     "completed",
     "budget_exhausted",
@@ -236,6 +298,11 @@ AnyTraceEvent = Annotated[
     | ModelCallCompleted
     | ModelCallFailed
     | ModelToolRejected
+    | WorldFactSubmitted
+    | WorldFactAdjudicated
+    | CoverageClaimed
+    | CoverageUpdated
+    | ContextRetrieved
     | FindingSubmitted
     | FindingValidated
     | RunCompleted,

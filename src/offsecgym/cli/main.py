@@ -22,6 +22,7 @@ from offsecgym.runtime.compose import ComposeRangeRuntime, DockerCommandError
 from offsecgym.schemas.events import ModelCallCompleted
 from offsecgym.schemas.specs import ExperimentSpec, RangeSpec
 from offsecgym.storage.event_store import PostgresEventStore
+from offsecgym.worldview import EventWorldState, WorldStateIntegrityError
 
 app = typer.Typer(help="Synthetic-range research platform")
 range_app = typer.Typer(help="Build and manage isolated synthetic ranges")
@@ -84,8 +85,8 @@ def experiment_run(
             or spec.validation != "deterministic"
         ):
             raise ValueError("only scripted or monolithic deterministic experiments are supported")
-        if spec.orchestrator == "monolithic" and spec.memory != "transcript":
-            raise ValueError("the monolithic baseline requires memory=transcript")
+        if spec.orchestrator == "monolithic" and spec.memory not in {"transcript", "structured"}:
+            raise ValueError("the monolithic baseline requires memory=transcript or structured")
         if spec.orchestrator == "monolithic" and spec.surface_visibility != "known_routes":
             raise ValueError("the monolithic baseline requires surface_visibility=known_routes")
         if paired and (spec.range.patched or spec.range.patched_properties):
@@ -204,6 +205,53 @@ def experiment_trace(run_id: UUID) -> None:
         typer.echo(f"experiment error: {exc}", err=True)
         raise typer.Exit(2) from exc
     typer.echo(json.dumps({"run_id": str(run_id), "events": trace}, indent=2))
+
+
+@experiment_app.command("worldview")
+def experiment_worldview(
+    run_id: UUID,
+    predicate: str | None = typer.Option(None, help="Exact fact predicate"),
+    kind: str | None = typer.Option(None, help="Fact kind, such as observation or hypothesis"),
+    limit: int = typer.Option(50, min=1, max=100),
+) -> None:
+    """Inspect reconstructed shared facts and coverage for one run."""
+    try:
+        settings = Settings()
+        if settings.database_url is None or not settings.database_url.startswith(
+            "postgresql+asyncpg://"
+        ):
+            raise ValueError("OFFSECGYM_DATABASE_URL must use postgresql+asyncpg")
+        if kind is not None and kind not in {
+            "observation",
+            "hypothesis",
+            "relationship",
+            "finding",
+            "open_question",
+        }:
+            raise ValueError("kind must be a supported world fact kind")
+
+        async def load_worldview() -> dict[str, object]:
+            engine = create_async_engine(settings.database_url)
+            try:
+                events = PostgresEventStore(engine)
+                if not await events.read_run(run_id):
+                    raise ValueError(f"no events found for run {run_id}")
+                state = EventWorldState(events)
+                facts = await state.query(run_id, predicate, kind=kind)
+                coverage = await state.coverage(run_id)
+                return {
+                    "run_id": str(run_id),
+                    "facts": [fact.model_dump(mode="json") for fact in facts[:limit]],
+                    "coverage": [claim.model_dump(mode="json") for claim in coverage],
+                }
+            finally:
+                await engine.dispose()
+
+        result = asyncio.run(load_worldview())
+    except (OSError, ValueError, WorldStateIntegrityError, SQLAlchemyError) as exc:
+        typer.echo(f"experiment error: {exc}", err=True)
+        raise typer.Exit(2) from exc
+    typer.echo(json.dumps(result, indent=2))
 
 
 @range_app.command("build")

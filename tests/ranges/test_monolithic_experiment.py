@@ -15,7 +15,13 @@ from test_scripted_experiment import MemoryEvents
 from offsecgym.experiment import MonolithicExperimentRunner
 from offsecgym.providers.base import ModelTurn
 from offsecgym.runtime.compose import ComposeRangeRuntime
-from offsecgym.schemas.events import FindingSubmitted, ModelCallCompleted, RunCompleted
+from offsecgym.schemas.events import (
+    ContextRetrieved,
+    FindingSubmitted,
+    ModelCallCompleted,
+    RunCompleted,
+    WorldFactSubmitted,
+)
 from offsecgym.schemas.specs import Budget, ExperimentSpec, ModelSpec, RangeSpec
 
 
@@ -23,6 +29,7 @@ class PreviewProvider:
     def __init__(self) -> None:
         self.step = 0
         self.invoice_id = None
+        self.requests = []
 
     def prepare_request(self, model, instructions, input_items, tools, max_output_tokens):
         return {
@@ -34,7 +41,12 @@ class PreviewProvider:
         }
 
     async def complete(self, request_payload):
+        self.requests.append(request_payload)
         input_items = request_payload["input"]
+        latest_tool_result = next(
+            (item for item in reversed(input_items) if item.get("type") == "function_call_output"),
+            None,
+        )
         if self.step == 0:
             match = re.search(r"Allowed identity IDs: ([0-9a-f-]{36})", input_items[0]["content"])
             assert match is not None
@@ -47,7 +59,7 @@ class PreviewProvider:
             self.identity_id = match.group(1)
             name = "http_request"
         elif self.step == 1:
-            account = json.loads(json.loads(input_items[-1]["output"])["body_text"])
+            account = json.loads(json.loads(latest_tool_result["output"])["body_text"])
             args = {
                 "method": "GET",
                 "path": f"/api/workspaces/{account['workspace_id']}/invoices",
@@ -56,7 +68,7 @@ class PreviewProvider:
             }
             name = "http_request"
         elif self.step == 2:
-            invoices = json.loads(json.loads(input_items[-1]["output"])["body_text"])
+            invoices = json.loads(json.loads(latest_tool_result["output"])["body_text"])
             self.invoice_id = invoices["items"][0]["id"]
             args = {
                 "method": "GET",
@@ -66,7 +78,7 @@ class PreviewProvider:
             }
             name = "http_request"
         elif self.step == 3:
-            observed = json.loads(input_items[-1]["output"])
+            observed = json.loads(latest_tool_result["output"])
             assert "billing_email" in observed["body_text"]
             args = {
                 "claim": "Anonymous invoice preview exposed billing email",
@@ -123,7 +135,10 @@ class PreviewProvider:
 
 
 @pytest.mark.docker
-async def test_monolithic_model_loop_validates_noncanonical_preview(tmp_path: Path) -> None:
+@pytest.mark.parametrize("memory", ("transcript", "structured"))
+async def test_monolithic_model_loop_validates_noncanonical_preview(
+    tmp_path: Path, memory: str
+) -> None:
     result = subprocess.run(
         ["docker", "info", "--format", "{{.ServerVersion}}"],
         capture_output=True,
@@ -144,7 +159,7 @@ async def test_monolithic_model_loop_validates_noncanonical_preview(tmp_path: Pa
         range=base,
         budget=Budget(max_actions=10, max_total_tokens=1000, max_model_calls=6),
         orchestrator="monolithic",
-        memory="transcript",
+        memory=memory,
         surface_visibility="known_routes",
         model=ModelSpec(provider="openai", name="mock-model"),
         validation="deterministic",
@@ -161,3 +176,8 @@ async def test_monolithic_model_loop_validates_noncanonical_preview(tmp_path: Pa
     assert len([item for item in events.items if isinstance(item, FindingSubmitted)]) == 1
     assert isinstance(events.items[-1], RunCompleted)
     assert outcome.findings[0].asset_id.hex == provider.invoice_id.replace("-", "")
+    if memory == "structured":
+        assert any(isinstance(item, WorldFactSubmitted) for item in events.items)
+        assert any(isinstance(item, ContextRetrieved) for item in events.items)
+        assert "Relevant world facts" in json.dumps(provider.requests[-1]["input"])
+        assert len(provider.requests[-1]["input"]) <= 5

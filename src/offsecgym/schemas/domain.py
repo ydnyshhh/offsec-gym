@@ -184,16 +184,19 @@ FactValue = str | int | float | bool | None | EntityRef
 
 
 class WorldFact(StrictModel):
-    schema_version: Literal["2"] = "2"
+    schema_version: Literal["2", "3"] = "3"
     fact_id: UUID
     run_id: UUID
+    kind: (
+        Literal["observation", "hypothesis", "relationship", "finding", "open_question"] | None
+    ) = None
     subject: EntityRef
     predicate: str = Field(min_length=1, max_length=128)
     object_value: FactValue
     source_worker_id: UUID | None = None
-    source_event_ids: tuple[UUID, ...] = ()
-    source_action_ids: tuple[UUID, ...] = ()
-    evidence_ids: tuple[UUID, ...] = ()
+    source_event_ids: tuple[UUID, ...] = Field(default=(), max_length=20)
+    source_action_ids: tuple[UUID, ...] = Field(default=(), max_length=20)
+    evidence_ids: tuple[UUID, ...] = Field(default=(), max_length=20)
     confidence: float = Field(ge=0, le=1, allow_inf_nan=False)
     status: Literal[
         "hypothesized", "observed", "corroborated", "validated", "contradicted", "superseded"
@@ -204,6 +207,10 @@ class WorldFact(StrictModel):
 
     @model_validator(mode="after")
     def validate_provenance(self) -> WorldFact:
+        if self.schema_version == "3" and self.kind is None:
+            raise ValueError("v3 world fact requires kind")
+        if self.schema_version == "2" and self.kind is not None:
+            raise ValueError("v2 world fact cannot contain kind")
         if not (
             self.source_worker_id
             or self.source_event_ids
@@ -213,6 +220,16 @@ class WorldFact(StrictModel):
             raise ValueError("world fact needs source provenance")
         if self.supersedes_fact_id == self.fact_id or self.fact_id in self.contradicts_fact_ids:
             raise ValueError("world fact cannot supersede or contradict itself")
+        if any(
+            len(values) != len(set(values))
+            for values in (
+                self.source_event_ids,
+                self.source_action_ids,
+                self.evidence_ids,
+                self.contradicts_fact_ids,
+            )
+        ):
+            raise ValueError("world fact provenance and relation IDs must be unique")
         if self.created_at.tzinfo is None or self.created_at.utcoffset() is None:
             raise ValueError("world fact timestamp must include timezone")
         if isinstance(self.object_value, str) and len(self.object_value) > 2048:
@@ -223,6 +240,23 @@ class WorldFact(StrictModel):
             not math.isfinite(self.object_value) or abs(self.object_value) > 10**18
         ):
             raise ValueError("world fact float must be finite and bounded")
+        return self
+
+
+class CoverageClaim(StrictModel):
+    schema_version: Literal["1"] = "1"
+    claim_id: UUID
+    run_id: UUID
+    task_id: UUID
+    component: str = Field(min_length=1, max_length=128)
+    objective: str = Field(min_length=1, max_length=512)
+    status: Literal["active", "completed", "released"] = "active"
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+
+    @model_validator(mode="after")
+    def require_timezone(self) -> CoverageClaim:
+        if self.created_at.tzinfo is None or self.created_at.utcoffset() is None:
+            raise ValueError("coverage claim timestamp must include timezone")
         return self
 
 

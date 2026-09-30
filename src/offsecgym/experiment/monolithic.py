@@ -21,7 +21,7 @@ class MonolithicExperimentRunner(ScriptedExperimentRunner):
         return (
             spec.range.family == "saas"
             and spec.orchestrator == "monolithic"
-            and spec.memory == "transcript"
+            and spec.memory in {"transcript", "structured"}
             and spec.validation == "deterministic"
             and spec.model is not None
             and spec.surface_visibility == "known_routes"
@@ -31,5 +31,10 @@ class MonolithicExperimentRunner(ScriptedExperimentRunner):
         if spec.model is None:
             raise ValueError("monolithic agent requires a model")
         return MonolithicSaasAgent(
-            self.provider, spec.model, findings_store, self.events, self.runtime.state.root
+            self.provider,
+            spec.model,
+            findings_store,
+            self.events,
+            self.runtime.state.root,
+            memory=spec.memory,
         )

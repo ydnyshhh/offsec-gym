@@ -44,6 +44,7 @@ from offsecgym.solver.scripted import (
     ScriptedSaasSolver,
 )
 from offsecgym.validation import CloneReplayVerifier, DeterministicValidator
+from offsecgym.worldview import WorldStateIntegrityError
 
 
 class BoundFindingSink:
@@ -237,6 +238,7 @@ class ScriptedExperimentRunner:
             except (
                 ExperimentInfrastructureError,
                 BuildIntegrityError,
+                WorldStateIntegrityError,
                 DockerCommandError,
                 OSError,
                 SQLAlchemyError,
@@ -289,6 +291,7 @@ class ScriptedExperimentRunner:
         except (
             ExperimentInfrastructureError,
             BuildIntegrityError,
+            WorldStateIntegrityError,
             DockerCommandError,
             OSError,
             TimeoutError,

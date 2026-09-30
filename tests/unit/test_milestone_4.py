@@ -85,7 +85,7 @@ class QueueProvider:
 
 @pytest.mark.asyncio
 async def test_monolithic_runner_rejects_unimplemented_memory_mode(tmp_path, monkeypatch) -> None:
-    spec = model_spec().model_copy(update={"memory": "structured"})
+    spec = model_spec().model_copy(update={"memory": "summary"})
     with pytest.raises(ValueError, match="supported deterministic SaaS"):
         await MonolithicExperimentRunner(
             no_docker_runtime(tmp_path, monkeypatch), MemoryEvents(), QueueProvider()

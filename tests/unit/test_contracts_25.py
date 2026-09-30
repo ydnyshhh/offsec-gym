@@ -300,6 +300,7 @@ def test_world_fact_provenance_contradiction_and_metadata_projection() -> None:
     fact = WorldFact(
         fact_id=fact_id,
         run_id=uuid4(),
+        kind="observation",
         subject=EntityRef(entity_id=uuid4(), entity_type="endpoint"),
         predicate="requires_authentication",
         object_value=True,
