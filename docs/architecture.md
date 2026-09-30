@@ -108,6 +108,14 @@ decisions are not silently retried. An action with a request event and no comple
 crash is outcome-unknown; it may be replayed only if known idempotent. Teardown uses
 run-owned Compose labels and is idempotent where possible.
 
+Milestone 4 must extend `RunEvaluation.status` to cover `provider_failed` and `cancelled`
+before running model comparisons. A provider outage, 5xx response, or authentication
+failure ends as `provider_failed` with `score_valid=false`. A model's malformed tool call is
+an agent outcome: classify an unrecovered failure as `agent_failed` and score it, or let a
+recovered run complete and score its actual findings. Controller-initiated cancellation
+ends as `cancelled` with `score_valid=false`. Keep these terminal states distinct in event
+streams, evaluations, and exports.
+
 ## Reproducibility
 
 The immutable run manifest will bind Git revision, spec hashes, scenario seed, run nonce,

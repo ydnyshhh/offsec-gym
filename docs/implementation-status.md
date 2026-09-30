@@ -54,6 +54,8 @@
 
 Milestone 4: provider abstraction, typed model tool use, and a baseline LLM agent on the
 same gateway, candidate, validator, and evaluator contracts.
+Extend `RunEvaluation.status` to distinguish `provider_failed` and `cancelled` as
+unscored terminal outcomes; malformed model tool calls remain scored agent behavior.
 
 ## Known architectural debt
 

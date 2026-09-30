@@ -29,3 +29,11 @@ and recall metrics. An inconclusive validation makes the run unscored. This pres
 agent timeouts and failures in model-comparison denominators while keeping infrastructure
 failures visible in the run table. Parquet exports and broader coverage/cost metrics remain
 future work.
+
+Before Milestone 4 provider runs, extend `RunEvaluation.status` for the existing
+`RunStatus` values `provider_failed` and `cancelled`. Provider outages, provider 5xx
+responses, and authentication failures are `provider_failed` and unscored. Controller
+cancellation is `cancelled` and normally unscored. Malformed tool calls are agent
+behavior: an unrecovered agent failure is scored as `agent_failed`; a recovered run is
+scored under its eventual outcome. Add tests for all three paths and keep their counts
+visible in exports.
