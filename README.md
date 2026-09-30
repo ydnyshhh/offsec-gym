@@ -12,6 +12,8 @@ evidence, and live oracle tests. Milestone 3 adds a scripted agent, independent 
 validation with isolated replay, and root-cause-based evaluation. Milestone 4 adds a
 monolithic model baseline through the same gateway, finding, and scoring contracts.
 Milestone 5 adds event-backed structured worldview memory and bounded context retrieval.
+Milestone 5.2 adds controller-verified response facts, exact entity IDs, and canonical
+finding categories; see [Milestone 5.2](docs/milestone-5.2.md).
 
 ## Development
 
@@ -90,6 +92,13 @@ and `offsecgym experiment worldview RUN_ID` to inspect structured memory. These
 small samples are for trace inspection, not a statistical score comparison.
 See the [Kimi K3 six-run diagnostic](docs/diagnostics/kimi-k3-openrouter-m5.md)
 for observed memory behavior and run IDs.
+
+For the M5.2 follow-up, use `kimi-k3-transcript-m52.yaml` and
+`kimi-k3-structured-m52.yaml` in `experiments/configs/`. Both pin the OpenRouter
+upstream to `moonshotai` with fallbacks disabled. The historical M5-v1 findings
+can be replayed with `offsecgym experiment revalidate RUN_ID --legacy-m5v1`.
+The [M5.2 diagnostic](docs/diagnostics/kimi-k3-openrouter-m52.md) records the
+matched pinned-provider traces and the predeclared progression gates.
 
 `range start` prints an instance ID and generation. `range create BUILD_ID` separates
 instance creation from startup; UUID-based lifecycle commands accept instance IDs only.
