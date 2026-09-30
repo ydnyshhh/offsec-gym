@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 import re
 from typing import Protocol
-from uuid import UUID, uuid4
+from uuid import UUID
 
 from offsecgym.interfaces import ToolRegistry
 from offsecgym.schemas.actions import ActionRequest, ActionResult
@@ -17,6 +17,7 @@ from offsecgym.schemas.domain import (
     CandidateFinding,
     EvidenceRef,
     FieldExposureExpectation,
+    FindingProposal,
     StateTransitionExpectation,
 )
 
@@ -24,11 +25,15 @@ UUID_PATTERN = re.compile(r"\b[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0
 
 
 class FindingSink(Protocol):
-    async def submit(self, finding: CandidateFinding) -> CandidateFinding: ...
+    async def submit(self, proposal: FindingProposal) -> CandidateFinding: ...
 
 
 class ExperimentInfrastructureError(RuntimeError):
     """A gateway or range failure made the scripted run invalid for agent scoring."""
+
+
+class AgentBudgetExhausted(RuntimeError):
+    """The agent reached a controller-enforced action or request budget."""
 
 
 class ScriptedSaasSolver:
@@ -59,6 +64,11 @@ class ScriptedSaasSolver:
                 json_body=body,
             )
             result = await tools.execute(action)
+            if result.status == "blocked" and result.reason_code in {
+                "action_budget_exhausted",
+                "http_budget_exhausted",
+            }:
+                raise AgentBudgetExhausted(result.reason_code)
             if result.status in {"failed", "unknown"}:
                 raise ExperimentInfrastructureError(result.reason_code or result.status)
             reference = (
@@ -83,18 +93,14 @@ class ScriptedSaasSolver:
             references: tuple[EvidenceRef, ...],
             claim: str,
         ) -> None:
-            finding = CandidateFinding(
-                finding_id=uuid4(),
-                run_id=context.run_id,
-                range_instance_id=context.range.range_instance_id,
-                range_generation=context.range.range_generation,
+            proposal = FindingProposal(
                 claim=claim,
                 family=family,
                 asset_id=asset_id,
                 security_property=expectation,
                 evidence=references,
             )
-            await self.findings.submit(finding)
+            finding = await self.findings.submit(proposal)
             submitted.append(finding.finding_id)
 
         # Only public agent context and ordinary gateway responses enter this solver.

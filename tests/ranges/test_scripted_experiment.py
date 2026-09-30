@@ -12,7 +12,14 @@ import yaml
 
 from offsecgym.experiment import ScriptedExperimentRunner
 from offsecgym.runtime.compose import ComposeRangeRuntime
-from offsecgym.schemas.events import FindingSubmitted, FindingValidated, RunCompleted
+from offsecgym.schemas.events import (
+    ActionCompleted,
+    FindingSubmitted,
+    FindingValidated,
+    RangeStarted,
+    RunCompleted,
+    RunStarted,
+)
 from offsecgym.schemas.specs import Budget, ExperimentSpec, RangeSpec
 
 
@@ -50,27 +57,48 @@ async def test_scripted_vulnerable_and_patched_pair(tmp_path: Path) -> None:
         yaml.safe_load((Path(__file__).parents[2] / "examples" / "saas-range.yaml").read_text())
     )
     outcomes = []
-    for patched in (False, True):
+    variants = (
+        base,
+        base.model_copy(update={"patched": True}),
+        base.model_copy(update={"patched_properties": ("DOC-CROSS-TENANT-READ",)}),
+    )
+    for variant in variants:
         spec = ExperimentSpec(
             name="scripted_saas",
             seed=1,
-            range=base.model_copy(update={"patched": patched}),
+            range=variant,
             budget=Budget(max_actions=30, max_http_requests=30, max_wall_seconds=240),
             orchestrator="scripted",
             validation="deterministic",
         )
         outcomes.append(await runner.run(spec))
-    vulnerable, patched = outcomes
-    assert vulnerable.build_id != patched.build_id
+    vulnerable, patched, selective = outcomes
+    assert len({item.build_id for item in outcomes}) == 3
+    assert all(item.evaluation.score_valid for item in outcomes)
     assert vulnerable.evaluation.true_positives == 5
     assert vulnerable.evaluation.false_positives == vulnerable.evaluation.false_negatives == 0
     assert vulnerable.evaluation.precision == vulnerable.evaluation.recall == 1.0
     assert len(vulnerable.findings) == len(vulnerable.validations) == 5
     assert all(result.status == "validated" for result in vulnerable.validations)
     assert len([result for result in vulnerable.validations if result.replay_evidence_ids]) == 1
+    refund_result = next(item for item in vulnerable.validations if item.replay_trace is not None)
+    replay_ref = refund_result.replay_trace
+    assert replay_ref is not None
+    assert replay_ref.evidence_ids == refund_result.replay_evidence_ids
+    replay_events = await events.read_run(replay_ref.replay_run_id)
+    assert isinstance(replay_events[0], RunStarted)
+    assert isinstance(replay_events[1], RangeStarted)
+    assert replay_events[1].range_instance_id == replay_ref.range_instance_id
+    assert replay_events[1].range_generation == replay_ref.range_generation
+    assert len([event for event in replay_events if isinstance(event, ActionCompleted)]) == 3
+    assert isinstance(replay_events[-1], RunCompleted)
+    assert replay_events[-1].status == "completed"
     assert patched.findings == patched.validations == ()
     assert patched.evaluation.true_positives == patched.evaluation.false_positives == 0
     assert patched.evaluation.false_negatives == 0
+    assert selective.evaluation.true_positives == 4
+    assert selective.evaluation.false_positives == selective.evaluation.false_negatives == 0
+    assert len(selective.findings) == 4
     for outcome in outcomes:
         trace = await events.read_run(outcome.run_id)
         assert len([event for event in trace if isinstance(event, FindingSubmitted)]) == len(

@@ -4,9 +4,12 @@ from __future__ import annotations
 
 import asyncio
 import hashlib
+import json
 from uuid import UUID, uuid4
 
-from offsecgym.evaluation import RunEvaluation, evaluate_run, infrastructure_failure
+from sqlalchemy.exc import SQLAlchemyError
+
+from offsecgym.evaluation import RunEvaluation, evaluate_run, unscored_run
 from offsecgym.gateway.compose import ComposeActionGateway
 from offsecgym.interfaces import EventStore
 from offsecgym.runtime.compose import ComposeRangeRuntime, DockerCommandError
@@ -19,11 +22,14 @@ from offsecgym.schemas.domain import (
     AgentTask,
     CandidateFinding,
     ExperimentContext,
+    FindingProposal,
     ValidationContext,
     ValidationResult,
     agent_visible_context,
 )
 from offsecgym.schemas.events import (
+    ActionCompleted,
+    ActionRequested,
     FindingSubmitted,
     FindingValidated,
     RangeStarted,
@@ -31,26 +37,72 @@ from offsecgym.schemas.events import (
     RunStarted,
 )
 from offsecgym.schemas.specs import ExperimentSpec
-from offsecgym.solver.scripted import ExperimentInfrastructureError, ScriptedSaasSolver
+from offsecgym.solver.scripted import (
+    AgentBudgetExhausted,
+    ExperimentInfrastructureError,
+    ScriptedSaasSolver,
+)
 from offsecgym.validation import CloneReplayVerifier, DeterministicValidator
 
 
-class EventFindingSink:
-    def __init__(self, events: EventStore) -> None:
+class BoundFindingSink:
+    def __init__(self, events: EventStore, context: ExperimentContext) -> None:
         self.events = events
+        self.context = context
 
-    async def submit(self, finding: CandidateFinding) -> CandidateFinding:
-        await self.events.append(
-            FindingSubmitted(run_id=finding.run_id, actor="solver", finding=finding)
+    async def submit(self, proposal: FindingProposal) -> CandidateFinding:
+        if len({ref.evidence_id for ref in proposal.evidence}) != len(proposal.evidence):
+            raise ValueError("finding proposal contains duplicate evidence")
+        try:
+            events = await self.events.read_run(self.context.run_id)
+        except Exception as exc:
+            raise ExperimentInfrastructureError("finding event stream unavailable") from exc
+        for ref in proposal.evidence:
+            requested = [
+                event
+                for event in events
+                if isinstance(event, ActionRequested) and event.action_id == ref.action_id
+            ]
+            completed = [
+                event
+                for event in events
+                if isinstance(event, ActionCompleted)
+                and event.action_id == ref.action_id
+                and event.evidence_id == ref.evidence_id
+            ]
+            if (
+                len(requested) != 1
+                or len(completed) != 1
+                or requested[0].schema_version != "2"
+                or requested[0].run_id != self.context.run_id
+                or completed[0].run_id != self.context.run_id
+                or requested[0].range_instance_id != self.context.range_instance_id
+                or requested[0].range_generation != self.context.range_generation
+                or requested[0].sequence_number <= 0
+                or requested[0].sequence_number >= completed[0].sequence_number
+            ):
+                raise ValueError("finding evidence is outside the bound run or generation")
+        finding = CandidateFinding(
+            **proposal.model_dump(mode="python"),
+            finding_id=uuid4(),
+            run_id=self.context.run_id,
+            range_instance_id=self.context.range_instance_id,
+            range_generation=self.context.range_generation,
         )
+        try:
+            await self.events.append(
+                FindingSubmitted(run_id=self.context.run_id, actor="solver", finding=finding)
+            )
+        except SQLAlchemyError as exc:
+            raise ExperimentInfrastructureError("finding event storage unavailable") from exc
         return finding
 
     async def read_run(self, run_id: UUID) -> tuple[CandidateFinding, ...]:
-        return tuple(
-            event.finding
-            for event in await self.events.read_run(run_id)
-            if isinstance(event, FindingSubmitted)
-        )
+        try:
+            events = await self.events.read_run(run_id)
+        except SQLAlchemyError as exc:
+            raise ExperimentInfrastructureError("finding event storage unavailable") from exc
+        return tuple(event.finding for event in events if isinstance(event, FindingSubmitted))
 
 
 class BoundGatewayTools:
@@ -61,7 +113,10 @@ class BoundGatewayTools:
     async def execute(self, action: ActionRequest) -> ActionResult:
         if action.run_id != self.context.run_id:
             raise ValueError("tool action belongs to another run")
-        return await self.gateway.execute(action, self.context)
+        try:
+            return await self.gateway.execute(action, self.context)
+        except SQLAlchemyError as exc:
+            raise ExperimentInfrastructureError("gateway event storage unavailable") from exc
 
 
 class ScriptedExperimentOutcome:
@@ -100,13 +155,17 @@ class ScriptedExperimentRunner:
         instance_id: UUID | None = None
         build_id: UUID | None = None
         agent_result: AgentResult | None = None
-        outcome: ScriptedExperimentOutcome | None = None
-        findings_store = EventFindingSink(self.events)
+        findings: tuple[CandidateFinding, ...] = ()
+        validations: list[ValidationResult] = []
+        evaluation: RunEvaluation | None = None
+        run_status = "completed"
+        failure_reason: str | None = None
+        phase = "setup"
         await self.events.append(
             RunStarted(
                 run_id=run_id,
                 actor="controller",
-                experiment_hash=hashlib.sha256(spec.model_dump_json().encode()).hexdigest(),
+                experiment_hash=experiment_hash(spec),
             )
         )
         try:
@@ -132,6 +191,7 @@ class ScriptedExperimentRunner:
                 allowed_identity_ids=visible.identity_ids,
             )
             gateway = ComposeActionGateway(self.runtime, self.events, min_interval_seconds=0)
+            findings_store = BoundFindingSink(self.events, experiment)
             agent = ScriptedSaasSolver(findings_store)
             task = AgentTask(
                 task_id=uuid4(),
@@ -141,15 +201,43 @@ class ScriptedExperimentRunner:
             )
             agent_context = AgentContext(run_id=run_id, objective=task.goal, range=visible)
             tools = BoundGatewayTools(gateway, experiment)
-            if spec.budget.max_wall_seconds is None:
-                agent_result = await agent.run(task, agent_context, tools)
-            else:
-                agent_result = await asyncio.wait_for(
-                    agent.run(task, agent_context, tools), spec.budget.max_wall_seconds
-                )
-            if agent_result.status != "completed":
-                raise ExperimentInfrastructureError("scripted solver did not complete")
+            phase = "agent"
+            try:
+                if spec.budget.max_wall_seconds is None:
+                    agent_result = await agent.run(task, agent_context, tools)
+                else:
+                    agent_result = await asyncio.wait_for(
+                        agent.run(task, agent_context, tools), spec.budget.max_wall_seconds
+                    )
+                if agent_result.status == "budget_exhausted":
+                    run_status = "budget_exhausted"
+                elif agent_result.status != "completed":
+                    run_status = "agent_failed"
+                    failure_reason = agent_result.status
+            except TimeoutError:
+                run_status = "budget_exhausted"
+                failure_reason = "wall_time_exhausted"
+            except AgentBudgetExhausted as exc:
+                run_status = "budget_exhausted"
+                failure_reason = str(exc)
+            except (
+                ExperimentInfrastructureError,
+                BuildIntegrityError,
+                DockerCommandError,
+                OSError,
+            ):
+                raise
+            except Exception as exc:
+                run_status = "agent_failed"
+                failure_reason = type(exc).__name__
             findings = await findings_store.read_run(run_id)
+            if agent_result is None:
+                agent_result = AgentResult(
+                    task_id=task.task_id,
+                    status="budget_exhausted" if run_status == "budget_exhausted" else "failed",
+                    candidate_finding_ids=tuple(item.finding_id for item in findings),
+                )
+            phase = "validation"
             context = ValidationContext(
                 run_id=run_id,
                 range_instance_id=instance_id,
@@ -161,64 +249,73 @@ class ScriptedExperimentRunner:
                 self.runtime.state,
                 self.events,
                 oracle_store,
-                replay=CloneReplayVerifier(self.runtime, gateway),
+                replay=CloneReplayVerifier(self.runtime, gateway, self.events),
             )
-            validations: list[ValidationResult] = []
             for finding in findings:
                 result = await validator.validate(finding, context)
                 validations.append(result)
                 await self.events.append(
                     FindingValidated(run_id=run_id, actor="validator", result=result)
                 )
-            evaluation = (
-                infrastructure_failure(
-                    len(findings),
-                    inconclusive=sum(item.status == "inconclusive" for item in validations),
+            if any(item.status == "inconclusive" for item in validations):
+                run_status = "environment_failed"
+                failure_reason = "validation_inconclusive"
+            else:
+                evaluation = evaluate_run(
+                    findings,
+                    tuple(validations),
+                    oracle_store.load_for_context(context),
+                    status=run_status,
                 )
-                if any(item.status == "inconclusive" for item in validations)
-                else evaluate_run(
-                    findings, tuple(validations), oracle_store.load_for_context(context)
-                )
-            )
-            outcome = ScriptedExperimentOutcome(
-                run_id, build_id, agent_result, findings, tuple(validations), evaluation
-            )
+        except asyncio.CancelledError:
+            run_status = "cancelled"
+            failure_reason = "controller_cancelled"
+            raise
         except (
             ExperimentInfrastructureError,
             BuildIntegrityError,
             DockerCommandError,
             OSError,
             TimeoutError,
+            SQLAlchemyError,
         ) as exc:
-            findings = await findings_store.read_run(run_id)
-            outcome = ScriptedExperimentOutcome(
-                run_id,
-                build_id,
-                agent_result,
-                findings,
-                (),
-                infrastructure_failure(len(findings)),
-                failure_reason=type(exc).__name__,
-            )
+            run_status = "environment_failed"
+            failure_reason = type(exc).__name__
+        except Exception as exc:
+            run_status = "validation_failed" if phase == "validation" else "environment_failed"
+            failure_reason = type(exc).__name__
         finally:
             if instance_id is not None:
                 try:
                     await self.runtime.destroy_instance(instance_id)
-                except (DockerCommandError, OSError, TimeoutError, ValueError):
-                    if outcome is not None:
-                        outcome.evaluation = infrastructure_failure(len(outcome.findings))
-                        outcome.failure_reason = "range_cleanup_failed"
-                    else:
-                        raise
-        if outcome is None:
-            raise RuntimeError("scripted experiment completed without an outcome")
-        await self.events.append(
-            RunCompleted(
-                run_id=run_id,
-                actor="controller",
-                status="completed"
-                if outcome.evaluation.status == "completed"
-                else "environment_failed",
+                except Exception:
+                    run_status = "environment_failed"
+                    failure_reason = "range_cleanup_failed"
+            if run_status in {"environment_failed", "validation_failed"}:
+                evaluation = unscored_run(
+                    run_status,
+                    len(findings),
+                    validated_count=sum(item.status == "validated" for item in validations),
+                    inconclusive=sum(item.status == "inconclusive" for item in validations),
+                )
+            await self.events.append(
+                RunCompleted(run_id=run_id, actor="controller", status=run_status)
             )
+        if evaluation is None:
+            raise RuntimeError("scripted experiment completed without an evaluation")
+        outcome = ScriptedExperimentOutcome(
+            run_id,
+            build_id,
+            agent_result,
+            findings,
+            tuple(validations),
+            evaluation,
+            failure_reason=failure_reason,
         )
         return outcome
+
+
+def experiment_hash(spec: ExperimentSpec) -> str:
+    """Hash semantic experiment input with stable object-key ordering."""
+    canonical = json.dumps(spec.model_dump(mode="json"), sort_keys=True, separators=(",", ":"))
+    return hashlib.sha256(canonical.encode()).hexdigest()

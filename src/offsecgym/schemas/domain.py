@@ -117,12 +117,9 @@ SecurityExpectation = Annotated[
 ]
 
 
-class CandidateFinding(StrictModel):
-    schema_version: Literal["2"] = "2"
-    finding_id: UUID
-    run_id: UUID
-    range_instance_id: UUID
-    range_generation: int = Field(ge=0)
+class FindingProposal(StrictModel):
+    """Agent-authored claim; the controller supplies all trusted provenance fields."""
+
     claim: str = Field(min_length=1)
     family: str = Field(min_length=1)
     asset_id: UUID
@@ -131,11 +128,26 @@ class CandidateFinding(StrictModel):
     root_cause_hypothesis: str | None = None
 
 
+class CandidateFinding(FindingProposal):
+    schema_version: Literal["2"] = "2"
+    finding_id: UUID
+    run_id: UUID
+    range_instance_id: UUID
+    range_generation: int = Field(ge=0)
+
+
 class ValidationContext(StrictModel):
     run_id: UUID
     range_instance_id: UUID
     range_generation: int = Field(ge=0)
     build_id: UUID
+
+
+class ReplayTraceRef(StrictModel):
+    replay_run_id: UUID
+    range_instance_id: UUID
+    range_generation: int = Field(ge=0)
+    evidence_ids: tuple[UUID, ...] = ()
 
 
 class ValidationResult(StrictModel):
@@ -146,6 +158,16 @@ class ValidationResult(StrictModel):
     matched_property_id: UUID | None = None
     matched_root_cause_id: UUID | None = None
     replay_evidence_ids: tuple[UUID, ...] = ()
+    replay_trace: ReplayTraceRef | None = None
+
+    @model_validator(mode="after")
+    def match_replay_evidence(self) -> ValidationResult:
+        if (
+            self.replay_trace is not None
+            and self.replay_evidence_ids != self.replay_trace.evidence_ids
+        ):
+            raise ValueError("replay evidence IDs must match replay trace")
+        return self
 
 
 class EntityRef(StrictModel):

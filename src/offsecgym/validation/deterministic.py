@@ -14,7 +14,12 @@ from pydantic import ValidationError
 from offsecgym.interfaces import EventStore, OracleStore
 from offsecgym.runtime.manifests import BuildIntegrityError, StateStore
 from offsecgym.runtime.oracle import OracleBindingError
-from offsecgym.schemas.domain import CandidateFinding, ValidationContext, ValidationResult
+from offsecgym.schemas.domain import (
+    CandidateFinding,
+    ReplayTraceRef,
+    ValidationContext,
+    ValidationResult,
+)
 from offsecgym.schemas.events import ActionBlocked, ActionCompleted, ActionFailed, ActionRequested
 from offsecgym.schemas.evidence import Evidence, RequestArtifact
 from offsecgym.schemas.ground_truth import (
@@ -46,12 +51,20 @@ class ProofAction:
 @dataclass(frozen=True)
 class ReplayOutcome:
     status: str
-    evidence_ids: tuple[UUID, ...] = ()
+    trace_ref: ReplayTraceRef | None = None
+
+    @property
+    def evidence_ids(self) -> tuple[UUID, ...]:
+        return self.trace_ref.evidence_ids if self.trace_ref else ()
 
 
 class ReplayVerifier(Protocol):
     async def verify_transition(
-        self, context: ValidationContext, prop: GroundTruthProperty, identity_id: UUID
+        self,
+        context: ValidationContext,
+        prop: GroundTruthProperty,
+        identity_id: UUID,
+        asset_id: UUID,
     ) -> ReplayOutcome: ...
 
 
@@ -108,13 +121,13 @@ class DeterministicValidator:
         matches = [
             prop
             for prop in oracle.properties
-            if prop.family == finding.family
-            and prop.object.object_id == finding.asset_id
-            and prop.expectation == finding.security_property
+            if prop.family == finding.family and prop.expectation == finding.security_property
         ]
         if len(matches) != 1:
             return verdict("rejected", "property_unmatched")
         prop = matches[0]
+        if _fixture_object(fixture, prop.object.resource_type, finding.asset_id) is None:
+            return verdict("rejected", "property_unmatched")
         if not prop.active:
             return verdict("rejected", "property_patched")
 
@@ -130,29 +143,40 @@ class DeterministicValidator:
             and not action.evidence.truncated
         ]
         for primary in candidates:
-            if not self._requirements_met(primary, prop, fixture):
+            if not self._requirements_met(primary, prop, fixture, finding.asset_id):
                 continue
             if any(
                 isinstance(requirement, StateTransitionRequirement)
                 for requirement in prop.proof_requirements
             ):
-                if not _transition_evidenced(actions, primary, prop):
+                if not _transition_evidenced(actions, primary, prop, finding.asset_id):
                     continue
                 if self.replay is None or primary.request.identity_id is None:
                     return verdict("inconclusive", "replay_unavailable")
                 replay = await self.replay.verify_transition(
-                    context, prop, primary.request.identity_id
+                    context, prop, primary.request.identity_id, finding.asset_id
                 )
                 if replay.status == "inconclusive":
-                    return verdict("inconclusive", "replay_unavailable")
+                    return verdict(
+                        "inconclusive",
+                        "replay_unavailable",
+                        replay_evidence_ids=replay.evidence_ids,
+                        replay_trace=replay.trace_ref,
+                    )
                 if replay.status != "validated":
-                    return verdict("rejected", "replay_failed")
+                    return verdict(
+                        "rejected",
+                        "replay_failed",
+                        replay_evidence_ids=replay.evidence_ids,
+                        replay_trace=replay.trace_ref,
+                    )
                 return verdict(
                     "validated",
                     "proof_and_replay_confirmed",
                     matched_property_id=prop.property_id,
                     matched_root_cause_id=prop.root_cause_id,
                     replay_evidence_ids=replay.evidence_ids,
+                    replay_trace=replay.trace_ref,
                 )
             return verdict(
                 "validated",
@@ -249,23 +273,21 @@ class DeterministicValidator:
 
     @staticmethod
     def _requirements_met(
-        action: ProofAction, prop: GroundTruthProperty, fixture: dict[str, object]
+        action: ProofAction,
+        prop: GroundTruthProperty,
+        fixture: dict[str, object],
+        asset_id: UUID,
     ) -> bool:
         account = _account(fixture, action.request.identity_id)
         for requirement in prop.proof_requirements:
             if isinstance(requirement, IdentityRequirement):
-                if (
-                    account is None
-                    or account.get("role") != requirement.role
-                    or action.request.identity_id != prop.subject.identity_id
-                    or account.get("workspace_id") != str(prop.subject.workspace_id)
-                ):
+                if account is None or account.get("role") != requirement.role:
                     return False
             elif isinstance(requirement, AnonymousRequestRequirement):
                 if action.request.identity_id is not None:
                     return False
             elif isinstance(requirement, ObjectRelationRequirement):
-                if not _relation_met(fixture, prop, account, requirement.relation):
+                if not _relation_met(fixture, prop, account, requirement.relation, asset_id):
                     return False
             elif isinstance(requirement, ResponseStatusRequirement):
                 if action.evidence.http_status not in requirement.status_codes:
@@ -295,17 +317,12 @@ def _relation_met(
     prop: GroundTruthProperty,
     account: dict[str, object] | None,
     relation: str,
+    asset_id: UUID,
 ) -> bool:
-    collection = {"document": "documents", "invoice": "invoices", "ticket": "tickets"}.get(
-        prop.object.resource_type
-    )
-    if collection is None or account is None:
+    if account is None:
         return False
-    item = next(
-        (entry for entry in fixture[collection] if entry["id"] == str(prop.object.object_id)),
-        None,
-    )
-    if item is None or item["workspace_id"] != str(prop.object.workspace_id):
+    item = _fixture_object(fixture, prop.object.resource_type, asset_id)
+    if item is None:
         return False
     if relation == "foreign_workspace":
         return account["workspace_id"] != item["workspace_id"]
@@ -314,13 +331,24 @@ def _relation_met(
     return False
 
 
+def _fixture_object(
+    fixture: dict[str, object], resource_type: str, asset_id: UUID
+) -> dict[str, object] | None:
+    collection = {"document": "documents", "invoice": "invoices", "ticket": "tickets"}.get(
+        resource_type
+    )
+    if collection is None:
+        return None
+    return next((item for item in fixture[collection] if item["id"] == str(asset_id)), None)
+
+
 def _action_route(prop: GroundTruthProperty, object_id: UUID) -> tuple[str, str]:
     method, template = prop.expectation.action.split(" ", 1)
     return method, template.replace("{id}", str(object_id))
 
 
 def _transition_evidenced(
-    actions: list[ProofAction], primary: ProofAction, prop: GroundTruthProperty
+    actions: list[ProofAction], primary: ProofAction, prop: GroundTruthProperty, asset_id: UUID
 ) -> bool:
     requirement = next(
         item for item in prop.proof_requirements if isinstance(item, StateTransitionRequirement)
@@ -335,7 +363,7 @@ def _transition_evidenced(
         and action.evidence.http_status == 200
         and not action.evidence.truncated
         and action.body is not None
-        and action.body.get("id") == str(prop.object.object_id)
+        and action.body.get("id") == str(asset_id)
     ]
     return (
         primary.body is not None

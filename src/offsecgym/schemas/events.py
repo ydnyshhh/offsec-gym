@@ -139,6 +139,12 @@ class FindingSubmitted(TraceEvent):
     type: Literal["finding_submitted"] = "finding_submitted"
     finding: CandidateFinding
 
+    @model_validator(mode="after")
+    def bind_finding_run(self) -> FindingSubmitted:
+        if self.run_id != self.finding.run_id:
+            raise ValueError("finding submission run does not match event run")
+        return self
+
 
 class FindingValidated(TraceEvent):
     schema_version: Literal["2"] = "2"
