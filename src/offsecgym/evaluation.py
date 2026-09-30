@@ -14,7 +14,13 @@ from offsecgym.schemas.ground_truth import GroundTruthManifest
 
 class RunEvaluation(StrictModel):
     status: Literal[
-        "completed", "budget_exhausted", "agent_failed", "environment_failed", "validation_failed"
+        "completed",
+        "budget_exhausted",
+        "agent_failed",
+        "environment_failed",
+        "provider_failed",
+        "validation_failed",
+        "cancelled",
     ]
     score_valid: bool
     candidate_count: int = Field(ge=0)
@@ -107,7 +113,7 @@ def evaluate_run(
 
 
 def unscored_run(
-    status: Literal["environment_failed", "validation_failed"],
+    status: Literal["environment_failed", "provider_failed", "validation_failed", "cancelled"],
     candidate_count: int = 0,
     *,
     validated_count: int = 0,

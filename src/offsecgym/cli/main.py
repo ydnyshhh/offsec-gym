@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import os
 from pathlib import Path
 from uuid import UUID
 
@@ -15,8 +16,10 @@ from sqlalchemy.ext.asyncio import create_async_engine
 
 from offsecgym import __version__
 from offsecgym.config import Settings
-from offsecgym.experiment import ScriptedExperimentRunner
+from offsecgym.experiment import MonolithicExperimentRunner, ScriptedExperimentRunner
+from offsecgym.providers import OpenAIResponsesProvider
 from offsecgym.runtime.compose import ComposeRangeRuntime, DockerCommandError
+from offsecgym.schemas.events import ModelCallCompleted
 from offsecgym.schemas.specs import ExperimentSpec, RangeSpec
 from offsecgym.storage.event_store import PostgresEventStore
 
@@ -71,12 +74,18 @@ def _fail(exc: Exception) -> None:
 def experiment_run(
     path: Path,
     paired: bool = typer.Option(False, help="Also run the fully patched sibling"),
+    repetitions: int = typer.Option(1, min=1, max=20, help="Diagnostic repetitions per variant"),
 ) -> None:
-    """Run the scripted SaaS solver, validator, replay, and evaluator."""
+    """Run a scripted or monolithic SaaS agent through validation and evaluation."""
     try:
         spec = _load_spec(path, ExperimentSpec)
-        if spec.orchestrator != "scripted" or spec.validation != "deterministic":
-            raise ValueError("Milestone 3 supports scripted/deterministic experiments")
+        if (
+            spec.orchestrator not in {"scripted", "monolithic"}
+            or spec.validation != "deterministic"
+        ):
+            raise ValueError("only scripted or monolithic deterministic experiments are supported")
+        if spec.orchestrator == "monolithic" and spec.memory != "transcript":
+            raise ValueError("the monolithic baseline requires memory=transcript")
         if paired and (spec.range.patched or spec.range.patched_properties):
             raise ValueError("--paired requires an unpatched base range")
         settings = Settings()
@@ -84,12 +93,27 @@ def experiment_run(
             raise ValueError("OFFSECGYM_DATABASE_URL is required for experiment events")
         if not settings.database_url.startswith("postgresql+asyncpg://"):
             raise ValueError("OFFSECGYM_DATABASE_URL must use postgresql+asyncpg")
+        api_key = None
+        if spec.orchestrator == "monolithic":
+            if spec.model is None or spec.model.provider != "openai":
+                raise ValueError("the monolithic runner currently supports provider=openai")
+            if spec.model.name.startswith("REPLACE_"):
+                raise ValueError("set model.name to an available API model before running")
+            api_key = os.getenv("OPENAI_API_KEY") or os.getenv("OFFSECGYM_OPENAI_API_KEY")
+            if not api_key:
+                raise ValueError("OPENAI_API_KEY is required for OpenAI model experiments")
 
         async def execute() -> list[dict[str, object]]:
             engine = create_async_engine(settings.database_url)
             try:
-                runner = ScriptedExperimentRunner(
-                    ComposeRangeRuntime(settings.state_dir), PostgresEventStore(engine)
+                events = PostgresEventStore(engine)
+                runtime = ComposeRangeRuntime(settings.state_dir)
+                runner = (
+                    ScriptedExperimentRunner(runtime, events)
+                    if spec.orchestrator == "scripted"
+                    else MonolithicExperimentRunner(
+                        runtime, events, OpenAIResponsesProvider(api_key or "")
+                    )
                 )
                 specs = [spec]
                 if paired:
@@ -98,23 +122,42 @@ def experiment_run(
                             update={"range": spec.range.model_copy(update={"patched": True})}
                         )
                     )
-                outcomes = [await runner.run(item) for item in specs]
-                return [
-                    {
-                        "run_id": str(outcome.run_id),
-                        "build_id": str(outcome.build_id) if outcome.build_id else None,
-                        "variant": (
-                            "patched"
-                            if item.range.patched
-                            else "selective"
-                            if item.range.patched_properties
-                            else "vulnerable"
-                        ),
-                        "evaluation": outcome.evaluation.model_dump(mode="json"),
-                        "failure_reason": outcome.failure_reason,
-                    }
-                    for item, outcome in zip(specs, outcomes, strict=True)
-                ]
+                reports = []
+                for repetition in range(1, repetitions + 1):
+                    for item in specs:
+                        outcome = await runner.run(item)
+                        typer.echo(
+                            f"repetition={repetition} run_id={outcome.run_id} "
+                            f"status={outcome.evaluation.status}",
+                            err=True,
+                        )
+                        trace = await events.read_run(outcome.run_id)
+                        calls = [event for event in trace if isinstance(event, ModelCallCompleted)]
+                        reports.append(
+                            {
+                                "run_id": str(outcome.run_id),
+                                "build_id": str(outcome.build_id) if outcome.build_id else None,
+                                "repetition": repetition,
+                                "variant": (
+                                    "patched"
+                                    if item.range.patched
+                                    else "selective"
+                                    if item.range.patched_properties
+                                    else "vulnerable"
+                                ),
+                                "evaluation": outcome.evaluation.model_dump(mode="json"),
+                                "model_usage": {
+                                    "calls": len(calls),
+                                    "input_tokens": sum(call.input_tokens for call in calls),
+                                    "output_tokens": sum(call.output_tokens for call in calls),
+                                    "estimated_cost_usd": sum(
+                                        call.estimated_cost_usd or 0 for call in calls
+                                    ),
+                                },
+                                "failure_reason": outcome.failure_reason,
+                            }
+                        )
+                return reports
             finally:
                 await engine.dispose()
 
@@ -132,6 +175,33 @@ def experiment_run(
     typer.echo(json.dumps({"runs": runs}, indent=2))
     if any(run["evaluation"]["status"] != "completed" for run in runs):
         raise typer.Exit(1)
+
+
+@experiment_app.command("trace")
+def experiment_trace(run_id: UUID) -> None:
+    """Print one persisted, credential-free experiment event stream for diagnosis."""
+    try:
+        settings = Settings()
+        if settings.database_url is None:
+            raise ValueError("OFFSECGYM_DATABASE_URL is required for experiment events")
+        if not settings.database_url.startswith("postgresql+asyncpg://"):
+            raise ValueError("OFFSECGYM_DATABASE_URL must use postgresql+asyncpg")
+
+        async def load_trace() -> list[dict[str, object]]:
+            engine = create_async_engine(settings.database_url)
+            try:
+                events = await PostgresEventStore(engine).read_run(run_id)
+                if not events:
+                    raise ValueError(f"no events found for run {run_id}")
+                return [item.model_dump(mode="json") for item in events]
+            finally:
+                await engine.dispose()
+
+        trace = asyncio.run(load_trace())
+    except (OSError, ValueError, SQLAlchemyError) as exc:
+        typer.echo(f"experiment error: {exc}", err=True)
+        raise typer.Exit(2) from exc
+    typer.echo(json.dumps({"run_id": str(run_id), "events": trace}, indent=2))
 
 
 @range_app.command("build")

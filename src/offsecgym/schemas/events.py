@@ -118,6 +118,40 @@ class BudgetUpdated(TraceEvent):
     used_actions: int = Field(ge=0)
 
 
+class ModelCallStarted(TraceEvent):
+    type: Literal["model_call_started"] = "model_call_started"
+    call_id: UUID
+    provider: str = Field(min_length=1)
+    model: str = Field(min_length=1)
+    input_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+
+
+class ModelCallCompleted(TraceEvent):
+    type: Literal["model_call_completed"] = "model_call_completed"
+    call_id: UUID
+    provider_response_id: str | None = None
+    provider_status: str = Field(min_length=1)
+    tool_call_count: int = Field(ge=0)
+    input_tokens: int = Field(ge=0)
+    output_tokens: int = Field(ge=0)
+    estimated_cost_usd: float | None = Field(default=None, ge=0, allow_inf_nan=False)
+
+
+class ModelCallFailed(TraceEvent):
+    type: Literal["model_call_failed"] = "model_call_failed"
+    call_id: UUID
+    reason_code: str = Field(min_length=1)
+    http_status: int | None = Field(default=None, ge=100, le=599)
+
+
+class ModelToolRejected(TraceEvent):
+    type: Literal["model_tool_rejected"] = "model_tool_rejected"
+    model_call_id: UUID
+    tool_call_id: str = Field(min_length=1)
+    tool_name: str = Field(min_length=1)
+    reason_code: str = Field(min_length=1)
+
+
 RunStatus = Literal[
     "completed",
     "budget_exhausted",
@@ -160,6 +194,10 @@ AnyTraceEvent = Annotated[
     | ActionCompleted
     | ActionFailed
     | BudgetUpdated
+    | ModelCallStarted
+    | ModelCallCompleted
+    | ModelCallFailed
+    | ModelToolRejected
     | FindingSubmitted
     | FindingValidated
     | RunCompleted,

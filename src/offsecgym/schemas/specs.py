@@ -11,12 +11,13 @@ from offsecgym.schemas.common import StrictModel
 
 class Budget(StrictModel):
     max_total_tokens: int | None = Field(default=None, gt=0)
+    max_model_calls: int | None = Field(default=None, gt=0)
     max_actions: int | None = Field(default=None, gt=0)
     max_http_requests: int | None = Field(default=None, gt=0)
     max_workers: int | None = Field(default=None, gt=0)
     max_concurrency: int | None = Field(default=None, gt=0)
     max_wall_seconds: int | None = Field(default=None, gt=0)
-    max_cost_usd: float | None = Field(default=None, gt=0)
+    max_cost_usd: float | None = Field(default=None, gt=0, allow_inf_nan=False)
 
     @model_validator(mode="after")
     def require_limit(self) -> Budget:
@@ -63,6 +64,16 @@ class ModelSpec(StrictModel):
     provider: str = Field(min_length=1)
     name: str = Field(min_length=1)
     reasoning: str | None = None
+    input_usd_per_million_tokens: float | None = Field(default=None, gt=0, allow_inf_nan=False)
+    output_usd_per_million_tokens: float | None = Field(default=None, gt=0, allow_inf_nan=False)
+
+    @model_validator(mode="after")
+    def paired_token_prices(self) -> ModelSpec:
+        if (self.input_usd_per_million_tokens is None) != (
+            self.output_usd_per_million_tokens is None
+        ):
+            raise ValueError("both input and output token prices are required together")
+        return self
 
 
 class ExperimentSpec(StrictModel):
@@ -80,4 +91,11 @@ class ExperimentSpec(StrictModel):
     def require_model_for_llm(self) -> ExperimentSpec:
         if self.orchestrator != "scripted" and self.model is None:
             raise ValueError("model is required for non-scripted orchestrators")
+        if (
+            self.orchestrator == "monolithic"
+            and self.budget.max_cost_usd is not None
+            and self.model is not None
+            and self.model.input_usd_per_million_tokens is None
+        ):
+            raise ValueError("a cost budget requires configured model token prices")
         return self

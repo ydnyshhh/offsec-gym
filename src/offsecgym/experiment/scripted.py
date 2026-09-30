@@ -12,6 +12,7 @@ from sqlalchemy.exc import SQLAlchemyError
 from offsecgym.evaluation import RunEvaluation, evaluate_run, unscored_run
 from offsecgym.gateway.compose import ComposeActionGateway
 from offsecgym.interfaces import EventStore
+from offsecgym.providers.base import ProviderFailure, ProviderRequestError
 from offsecgym.runtime.compose import ComposeRangeRuntime, DockerCommandError
 from offsecgym.runtime.manifests import BuildIntegrityError
 from offsecgym.runtime.oracle import StateOracleStore
@@ -144,13 +145,19 @@ class ScriptedExperimentRunner:
         self.runtime = runtime
         self.events = events
 
+    def _agent(self, findings_store: BoundFindingSink, spec: ExperimentSpec):
+        return ScriptedSaasSolver(findings_store)
+
+    def _supported(self, spec: ExperimentSpec) -> bool:
+        return (
+            spec.range.family == "saas"
+            and spec.orchestrator == "scripted"
+            and spec.validation == "deterministic"
+        )
+
     async def run(self, spec: ExperimentSpec) -> ScriptedExperimentOutcome:
-        if (
-            spec.range.family != "saas"
-            or spec.orchestrator != "scripted"
-            or spec.validation != "deterministic"
-        ):
-            raise ValueError("Milestone 3 runner requires scripted deterministic SaaS spec")
+        if not self._supported(spec):
+            raise ValueError("runner requires a supported deterministic SaaS experiment")
         run_id = uuid4()
         instance_id: UUID | None = None
         build_id: UUID | None = None
@@ -192,7 +199,7 @@ class ScriptedExperimentRunner:
             )
             gateway = ComposeActionGateway(self.runtime, self.events, min_interval_seconds=0)
             findings_store = BoundFindingSink(self.events, experiment)
-            agent = ScriptedSaasSolver(findings_store)
+            agent = self._agent(findings_store, spec)
             task = AgentTask(
                 task_id=uuid4(),
                 goal="Test SaaS authorization and data exposure boundaries",
@@ -211,6 +218,8 @@ class ScriptedExperimentRunner:
                     )
                 if agent_result.status == "budget_exhausted":
                     run_status = "budget_exhausted"
+                elif agent_result.status == "cancelled":
+                    run_status = "cancelled"
                 elif agent_result.status != "completed":
                     run_status = "agent_failed"
                     failure_reason = agent_result.status
@@ -220,11 +229,17 @@ class ScriptedExperimentRunner:
             except AgentBudgetExhausted as exc:
                 run_status = "budget_exhausted"
                 failure_reason = str(exc)
+            except ProviderFailure as exc:
+                run_status = "provider_failed"
+                failure_reason = exc.reason_code
+            except ProviderRequestError as exc:
+                raise ExperimentInfrastructureError(exc.reason_code) from exc
             except (
                 ExperimentInfrastructureError,
                 BuildIntegrityError,
                 DockerCommandError,
                 OSError,
+                SQLAlchemyError,
             ):
                 raise
             except Exception as exc:
@@ -260,7 +275,7 @@ class ScriptedExperimentRunner:
             if any(item.status == "inconclusive" for item in validations):
                 run_status = "environment_failed"
                 failure_reason = "validation_inconclusive"
-            else:
+            elif run_status not in {"provider_failed", "cancelled"}:
                 evaluation = evaluate_run(
                     findings,
                     tuple(validations),
@@ -291,7 +306,12 @@ class ScriptedExperimentRunner:
                 except Exception:
                     run_status = "environment_failed"
                     failure_reason = "range_cleanup_failed"
-            if run_status in {"environment_failed", "validation_failed"}:
+            if run_status in {
+                "environment_failed",
+                "provider_failed",
+                "validation_failed",
+                "cancelled",
+            }:
                 evaluation = unscored_run(
                     run_status,
                     len(findings),

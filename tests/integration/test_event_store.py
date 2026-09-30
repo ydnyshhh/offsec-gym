@@ -10,7 +10,14 @@ from offsecgym.schemas.domain import (
     EvidenceRef,
     ValidationResult,
 )
-from offsecgym.schemas.events import FindingSubmitted, FindingValidated, RunStarted
+from offsecgym.schemas.events import (
+    FindingSubmitted,
+    FindingValidated,
+    ModelCallCompleted,
+    ModelCallFailed,
+    ModelCallStarted,
+    RunStarted,
+)
 from offsecgym.storage.event_store import PostgresEventStore
 
 
@@ -73,5 +80,51 @@ async def test_postgres_persists_candidate_and_validation_events() -> None:
             FindingValidated(run_id=run_id, actor="validator", result=result)
         )
         assert await store.read_run(run_id) == [submitted, checked]
+    finally:
+        await engine.dispose()
+
+
+@pytest.mark.postgres
+async def test_postgres_persists_model_usage_and_provider_failure() -> None:
+    url = os.getenv("OFFSECGYM_TEST_DATABASE_URL")
+    if not url:
+        pytest.skip("OFFSECGYM_TEST_DATABASE_URL is not set")
+    engine = create_async_engine(url)
+    try:
+        store = PostgresEventStore(engine)
+        run_id, call_id = uuid4(), uuid4()
+        started = await store.append(
+            ModelCallStarted(
+                run_id=run_id,
+                actor="controller",
+                call_id=call_id,
+                provider="openai",
+                model="mock-model",
+                input_sha256="a" * 64,
+            )
+        )
+        completed = await store.append(
+            ModelCallCompleted(
+                run_id=run_id,
+                actor="controller",
+                call_id=call_id,
+                provider_status="completed",
+                tool_call_count=1,
+                input_tokens=12,
+                output_tokens=4,
+                estimated_cost_usd=0.00002,
+                causation_id=started.event_id,
+            )
+        )
+        failed = await store.append(
+            ModelCallFailed(
+                run_id=run_id,
+                actor="controller",
+                call_id=uuid4(),
+                reason_code="provider_server_error",
+                http_status=503,
+            )
+        )
+        assert await store.read_run(run_id) == [started, completed, failed]
     finally:
         await engine.dispose()
