@@ -87,6 +87,7 @@ class DeterministicValidator:
     ) -> ValidationResult:
         def verdict(status: str, reason: str, **details: object) -> ValidationResult:
             return ValidationResult(
+                run_id=context.run_id,
                 finding_id=finding.finding_id,
                 status=status,
                 reason_codes=(reason,),

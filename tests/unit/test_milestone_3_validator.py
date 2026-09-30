@@ -399,6 +399,7 @@ def test_evaluator_deduplicates_roots_and_excludes_infrastructure_failures(tmp_p
         prop.root_cause_id for prop in oracle.properties if prop.object.resource_type == "document"
     )
     validated = ValidationResult(
+        run_id=finding.run_id,
         finding_id=finding.finding_id,
         status="validated",
         matched_property_id=next(
@@ -409,7 +410,7 @@ def test_evaluator_deduplicates_roots_and_excludes_infrastructure_failures(tmp_p
     second = finding.model_copy(update={"finding_id": uuid4()})
     duplicate = validated.model_copy(update={"finding_id": second.finding_id})
     third = finding.model_copy(update={"finding_id": uuid4()})
-    rejected = ValidationResult(finding_id=third.finding_id, status="rejected")
+    rejected = ValidationResult(run_id=third.run_id, finding_id=third.finding_id, status="rejected")
     score = evaluate_run((finding, second, third), (validated, duplicate, rejected), oracle)
     assert (score.true_positives, score.duplicates, score.false_positives) == (1, 1, 1)
     assert score.false_negatives == 4
@@ -420,10 +421,20 @@ def test_evaluator_deduplicates_roots_and_excludes_infrastructure_failures(tmp_p
             (validated.model_copy(update={"matched_property_id": uuid4()}),),
             oracle,
         )
+    with pytest.raises(ValueError, match="same-run validation"):
+        evaluate_run(
+            (finding,),
+            (validated.model_copy(update={"run_id": uuid4()}),),
+            oracle,
+        )
     with pytest.raises(ValueError, match="inconclusive validation"):
         evaluate_run(
             (finding,),
-            (ValidationResult(finding_id=finding.finding_id, status="inconclusive"),),
+            (
+                ValidationResult(
+                    run_id=finding.run_id, finding_id=finding.finding_id, status="inconclusive"
+                ),
+            ),
             oracle,
         )
 
@@ -434,11 +445,22 @@ def test_finding_event_round_trip(tmp_path: Path) -> None:
     _, finding, _, _, _, _ = asyncio.run(document_case(tmp_path))
     event = FindingSubmitted(run_id=finding.run_id, actor="solver", finding=finding)
     assert parse_event(event.model_dump(mode="json")) == event
-    result = ValidationResult(finding_id=finding.finding_id, status="rejected")
+    result = ValidationResult(
+        run_id=finding.run_id, finding_id=finding.finding_id, status="rejected"
+    )
     checked = FindingValidated(run_id=finding.run_id, actor="validator", result=result)
     assert parse_event(checked.model_dump(mode="json")) == checked
     with pytest.raises(ValidationError, match="finding submission run"):
         FindingSubmitted(run_id=uuid4(), actor="solver", finding=finding)
+    with pytest.raises(ValidationError, match="validation result run"):
+        FindingValidated(run_id=uuid4(), actor="validator", result=result)
+    legacy_result = ValidationResult(
+        schema_version="2", finding_id=finding.finding_id, status="rejected"
+    )
+    legacy_event = FindingValidated(
+        schema_version="2", run_id=finding.run_id, actor="validator", result=legacy_result
+    )
+    assert parse_event(legacy_event.model_dump(mode="json")) == legacy_event
 
 
 @pytest.mark.asyncio

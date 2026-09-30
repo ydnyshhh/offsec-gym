@@ -241,6 +241,7 @@ async def test_timeout_scores_findings_submitted_before_timeout(
         oracle = StateOracleStore(runtime.state).load_for_context(context)
         prop = oracle.properties[0]
         return ValidationResult(
+            run_id=context.run_id,
             finding_id=finding.finding_id,
             status="validated",
             matched_property_id=prop.property_id,

@@ -163,6 +163,7 @@ def test_oracle_graph_finding_and_validation_share_canonical_id_type(active: boo
     assert "property_id" not in finding.model_dump()
     assert "root_cause_id" not in finding.model_dump()
     verdict = ValidationResult(
+        run_id=finding.run_id,
         finding_id=finding.finding_id,
         status="validated" if active else "rejected",
         matched_property_id=prop.property_id,
@@ -447,6 +448,7 @@ def test_generated_saas_oracle_graph_and_fixture_contracts(tmp_path: Path, seed:
             assert "property_id" not in finding.model_dump()
             assert "root_cause_id" not in finding.model_dump()
             result = ValidationResult(
+                run_id=finding.run_id,
                 finding_id=finding.finding_id,
                 status="validated" if expected_active else "rejected",
                 matched_property_id=prop.property_id,

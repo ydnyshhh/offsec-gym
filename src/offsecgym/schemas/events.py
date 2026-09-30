@@ -211,9 +211,17 @@ class FindingSubmitted(TraceEvent):
 
 
 class FindingValidated(TraceEvent):
-    schema_version: Literal["2"] = "2"
+    schema_version: Literal["2", "3"] = "3"
     type: Literal["finding_validated"] = "finding_validated"
     result: ValidationResult
+
+    @model_validator(mode="after")
+    def bind_validation_run(self) -> FindingValidated:
+        if self.schema_version == "3" and (
+            self.result.schema_version != "3" or self.result.run_id != self.run_id
+        ):
+            raise ValueError("validation result run does not match event run")
+        return self
 
 
 AnyTraceEvent = Annotated[

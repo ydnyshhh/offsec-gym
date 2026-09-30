@@ -65,9 +65,10 @@ def evaluate_run(
 ) -> RunEvaluation:
     if len(findings) != len(results) or any(
         finding.finding_id != result.finding_id
+        or (result.run_id is not None and finding.run_id != result.run_id)
         for finding, result in zip(findings, results, strict=True)
     ):
-        raise ValueError("every candidate needs its corresponding validation result")
+        raise ValueError("every candidate needs its corresponding same-run validation result")
     if any(result.status == "inconclusive" for result in results):
         raise ValueError("inconclusive validation cannot produce a scored run")
     active_properties = {

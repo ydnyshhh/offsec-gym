@@ -75,7 +75,7 @@ async def test_postgres_persists_candidate_and_validation_events() -> None:
         submitted = await store.append(
             FindingSubmitted(run_id=run_id, actor="solver", finding=finding)
         )
-        result = ValidationResult(finding_id=finding.finding_id, status="rejected")
+        result = ValidationResult(run_id=run_id, finding_id=finding.finding_id, status="rejected")
         checked = await store.append(
             FindingValidated(run_id=run_id, actor="validator", result=result)
         )

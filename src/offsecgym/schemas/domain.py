@@ -151,7 +151,8 @@ class ReplayTraceRef(StrictModel):
 
 
 class ValidationResult(StrictModel):
-    schema_version: Literal["2"] = "2"
+    schema_version: Literal["2", "3"] = "3"
+    run_id: UUID | None = None
     finding_id: UUID
     status: Literal["validated", "rejected", "inconclusive"]
     reason_codes: tuple[str, ...] = ()
@@ -162,6 +163,10 @@ class ValidationResult(StrictModel):
 
     @model_validator(mode="after")
     def match_replay_evidence(self) -> ValidationResult:
+        if self.schema_version == "3" and self.run_id is None:
+            raise ValueError("v3 validation result requires run_id")
+        if self.schema_version == "2" and self.run_id is not None:
+            raise ValueError("v2 validation result cannot contain run_id")
         if (
             self.replay_trace is not None
             and self.replay_evidence_ids != self.replay_trace.evidence_ids
