@@ -22,6 +22,10 @@ Milestone 3 computes candidate count, validated count, distinct true positives b
 cause, rejected false positives, undiscovered false negatives, duplicates, inconclusive
 verdicts, precision, and recall. Precision has no value when a run has no positive or
 false-positive findings; recall has no value when the variant has no active properties.
-Runs with unavailable validation or range infrastructure remain visible with
-`environment_failed` status and no agent score denominators. Parquet exports and broader
-coverage/cost metrics remain future work.
+`completed`, `budget_exhausted`, and `agent_failed` have `score_valid=true` and include
+partial findings and all remaining active roots in their score. `environment_failed` and
+`validation_failed` have `score_valid=false` and null TP, FP, FN, duplicate, precision,
+and recall metrics. An inconclusive validation makes the run unscored. This preserves
+agent timeouts and failures in model-comparison denominators while keeping infrastructure
+failures visible in the run table. Parquet exports and broader coverage/cost metrics remain
+future work.

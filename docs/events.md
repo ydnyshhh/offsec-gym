@@ -24,6 +24,13 @@ Response evidence is a separate mode-0600 artifact linked to that
 request ID and generation. Legacy events lack this provenance and cannot establish a
 generation-aware validation result.
 
+The controller accepts agent-authored `FindingProposal` values and persists
+`FindingSubmitted` only after binding trusted run, instance, generation, and finding IDs.
+The event schema requires the event run ID to match the embedded finding. Mutable-claim
+validation creates a separate replay run with its own start, range-start, action, and
+completion events. `ValidationResult.replay_trace` links that run and its evidence to the
+parent finding verdict.
+
 Request events precede external effects. An allowed action receives exactly one terminal
 completion, blocked, failed, or outcome-unknown resolution. JSONL is an export of the
 authoritative PostgreSQL stream. Projections are rebuildable from that stream. The current

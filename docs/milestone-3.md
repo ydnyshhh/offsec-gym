@@ -4,7 +4,9 @@ The scripted SaaS agent uses `Agent.run(task, context, tools)` with a white-box 
 projection. It discovers the member account through `/api/me`, then uses ordinary gateway
 requests to enumerate its workspace, follow document and ticket references, test foreign
 object reads, test the public invoice preview, and test a member refund. It submits typed
-`CandidateFinding` records through an event-backed finding sink. It never loads fixtures,
+`FindingProposal` records to `BoundFindingSink`, which verifies cited action events, stamps
+the trusted run, instance, generation, and finding IDs, and persists `CandidateFinding`.
+It never loads fixtures,
 the attack graph, or hidden ground truth. The controller chooses the visibility policy and
 allowed identity IDs; future model agents can use the same tool and finding interfaces.
 
@@ -16,24 +18,30 @@ hash, response status/hash, and terminal uniqueness. A broken link is rejected b
 the hidden oracle is consulted. Unavailable event storage is inconclusive.
 
 The validator then loads the oracle via `load_for_context`, matches the candidate's typed
-expectation and object to a property, and dispatches proof checks by requirement type:
+expectation to a semantic property, and dispatches proof checks by requirement type:
 identity, object relation, response status, response field, state transition, and anonymous
 request. There are no property-slug branches. Identity and relation checks use the verified
-build fixture, not values supplied by a candidate. Patched properties are rejected even if
-an artifact purports to show a successful response.
+build fixture, not values supplied by a candidate. The oracle's subject and object IDs are
+canonical test witnesses, not the only accepted exploit pair. Any fixture identity and
+asset that satisfy the role, resource type, and relation can prove the same root cause.
+Patched properties are rejected even if an artifact purports to show a successful response.
 
 Refund proof needs a paid GET before the POST and a refunded GET afterward in the same
 generation. `CloneReplayVerifier` creates a new instance of the same build, performs those
 three actions through the gateway under a separate run ID, and destroys the instance.
-`ValidationResult.replay_evidence_ids` records the new proof separately from the solver's
-evidence. Infrastructure or cleanup failure yields an inconclusive result.
+That run records `RunStarted`, `RangeStarted`, gateway actions, and `RunCompleted`.
+`ValidationResult.replay_trace` names the replay run, instance, generation, and evidence
+IDs separately from the solver's evidence. Infrastructure or cleanup failure yields an
+inconclusive result.
 
 The evaluator counts one true positive per active root-cause ID, records duplicates, and
 counts rejected findings as false positives. Active roots without a validated finding are
 false negatives. A patched run with no candidates has zero false positives and no active
-roots; precision and recall are undefined. If the gateway, replay, or validation
-infrastructure fails, the run is marked `environment_failed` and contributes no agent
-precision or recall denominator.
+roots; precision and recall are undefined. Agent failures, action-budget exhaustion, and
+wall-time exhaustion remain scored outcomes, including findings submitted before the
+failure. Infrastructure and validation failures remain visible with `score_valid=false`
+and null score metrics. The runner attempts one terminal `RunCompleted` after each started
+run. A canonical JSON digest identifies the experiment specification.
 
 Run the example with a migrated PostgreSQL database and Docker available:
 

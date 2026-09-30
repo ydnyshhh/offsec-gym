@@ -32,8 +32,12 @@
   agent-visible context used by future agents; it has no access to hidden oracle files.
 - Provenance-first deterministic validator with typed proof handlers and fresh-instance
   replay for the refund state transition.
-- Root-cause-deduplicated evaluator, failure-excluding run metrics, and paired scripted
+- Root-cause-deduplicated evaluator, explicit score validity, and paired scripted
   experiment CLI with PostgreSQL event persistence.
+- Semantic witness validation across fixture identities and assets; controller-bound
+  finding submissions; replay run lifecycle and trace references; terminal run outcomes
+  for agent, budget, infrastructure, and validation failures.
+- Selectively patched scripted experiment acceptance test and canonical experiment hash.
 
 ## Partially implemented
 
@@ -56,6 +60,10 @@ same gateway, candidate, validator, and evaluator contracts.
 - Browser traffic and arbitrary agent network access require a separate mediated design.
 - Persistent experiment run manifest and managed artifact store are still pending; the
   range currently uses local instance manifests and evidence files.
+- Historical offline revalidation after a reset needs immutable run-to-build/generation
+  bindings rather than the current mutable instance manifest.
+- The live scripted range test uses an in-memory event store; PostgreSQL event persistence
+  is tested separately. A full Docker plus PostgreSQL path remains future acceptance work.
 - Build and instance operations assume one trusted local controller; concurrent controllers
   and crash recovery need coordination and reconciliation.
 - The gateway holds a run-wide lock and scans the complete run event history before every

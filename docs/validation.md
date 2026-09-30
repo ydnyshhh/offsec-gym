@@ -1,6 +1,7 @@
 # Independent validation
 
-A solver produces `CandidateFinding`, never a canonical success verdict. A candidate carries
+A solver produces `FindingProposal`, never a canonical success verdict. The controller
+binds trusted provenance fields and persists a `CandidateFinding`. A candidate carries
 an authorization, field-exposure, or state-transition expectation, a concrete claim, and
 exact evidence/action IDs. It cannot submit a hidden property or root-cause ID. The typed
 hidden `GroundTruthManifest` supplies those canonical IDs, and `ValidationResult` may cite
@@ -27,6 +28,12 @@ Only then should it evaluate typed proof requirements, map the proven behavior t
 property, and replay mutable state when needed. Infrastructure failures remain distinct
 from agent/tool outcomes and are excluded from agent success denominators.
 
+The oracle's concrete subject and object are canonical witnesses. A submitted finding
+can use another identity and asset when the verified fixture proves the same typed role,
+resource type, and object relation. The observed response and, for mutable claims, fresh
+replay must still prove the claimed effect. The replay result carries a `ReplayTraceRef`
+to a separate lifecycle event stream and its evidence IDs.
+
 Verdicts are `validated`, `rejected`, or `inconclusive`. Missing proof is rejected;
 unavailable replay infrastructure is inconclusive. Keep each check and its reason code in
 `ValidationResult`. Oracle data and validator credentials are inaccessible to the solver.
@@ -36,6 +43,8 @@ artifact/path hash, response evidence digest, matching v2 request and completion
 and a verified build-bound oracle. Redacted query/body values cannot prove a claim through
 this first deterministic path. Mutable refund claims require ordered paid/refunded evidence
 and a successful replay in a fresh instance. An observed replay mismatch is rejected;
-unavailable replay is inconclusive. Later
+unavailable replay is inconclusive. Historical offline revalidation after an instance
+reset still needs an immutable run manifest: live `load_for_context` checks the current
+mutable generation. Later
 validation ablations may compare solver self-judgment, fresh-model review, deterministic
 checks, and hybrid review over the *same stored candidates*.
