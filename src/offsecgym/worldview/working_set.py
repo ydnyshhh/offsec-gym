@@ -6,6 +6,7 @@ import json
 import re
 from collections import OrderedDict
 from dataclasses import dataclass
+from hashlib import sha256
 from uuid import UUID
 
 from offsecgym.schemas.actions import ActionRequest, ActionResult
@@ -53,18 +54,50 @@ class EvidenceSnapshot:
     path: str
     identity_id: UUID | None
     http_status: int
+    response_sha256: str | None
+    request_fingerprint: str
     facts: tuple[WorldFact, ...]
 
 
 class ActiveWorkingSet:
     """Bounded recent entity/action pairs; older facts remain in the event ledger."""
 
-    def __init__(self, *, max_entities: int = 5, max_actions_per_entity: int = 4) -> None:
-        if not 1 <= max_entities <= 10 or not 1 <= max_actions_per_entity <= 6:
+    def __init__(
+        self,
+        *,
+        max_entities: int = 5,
+        max_actions_per_entity: int = 4,
+        max_identities: int = 16,
+        max_checked_actions: int = 32,
+    ) -> None:
+        if (
+            not 1 <= max_entities <= 10
+            or not 1 <= max_actions_per_entity <= 6
+            or not 1 <= max_identities <= 16
+            or not 1 <= max_checked_actions <= 32
+        ):
             raise ValueError("working-set limits are outside supported bounds")
         self.max_entities = max_entities
         self.max_actions_per_entity = max_actions_per_entity
+        self.max_identities = max_identities
+        self.max_checked_actions = max_checked_actions
         self._entries: OrderedDict[tuple[str, UUID], list[EvidenceSnapshot]] = OrderedDict()
+        self._identities: OrderedDict[UUID, EvidenceSnapshot] = OrderedDict()
+        self._checked: OrderedDict[str, EvidenceSnapshot] = OrderedDict()
+
+    @staticmethod
+    def fingerprint(request: ActionRequest) -> str:
+        canonical = json.dumps(
+            {
+                "method": request.method,
+                "path": request.path,
+                "identity_id": str(request.identity_id) if request.identity_id else None,
+                "body": request.json_body,
+            },
+            sort_keys=True,
+            separators=(",", ":"),
+        )
+        return sha256(canonical.encode()).hexdigest()
 
     def observe(
         self,
@@ -88,23 +121,34 @@ class ActiveWorkingSet:
         ):
             raise ValueError("working-set facts do not match the gateway action")
         key = (target.entity_type, target.entity_id)
-        history = self._entries.setdefault(key, [])
-        history.append(
-            EvidenceSnapshot(
-                target=target,
-                action_id=request.action_id,
-                evidence_id=result.evidence_id,
-                method=request.method,
-                path=request.path,
-                identity_id=request.identity_id,
-                http_status=result.http_status,
-                facts=tuple(fact for fact in facts if fact.subject == target),
-            )
+        snapshot = EvidenceSnapshot(
+            target=target,
+            action_id=request.action_id,
+            evidence_id=result.evidence_id,
+            method=request.method,
+            path=request.path,
+            identity_id=request.identity_id,
+            http_status=result.http_status,
+            response_sha256=result.response_sha256,
+            request_fingerprint=self.fingerprint(request),
+            facts=tuple(fact for fact in facts if fact.subject == target),
         )
+        if target.entity_type == "identity":
+            self._identities[target.entity_id] = snapshot
+            self._identities.move_to_end(target.entity_id)
+            while len(self._identities) > self.max_identities:
+                self._identities.popitem(last=False)
+            return
+        history = self._entries.setdefault(key, [])
+        history.append(snapshot)
         del history[: -self.max_actions_per_entity]
         self._entries.move_to_end(key)
         while len(self._entries) > self.max_entities:
             self._entries.popitem(last=False)
+        self._checked[snapshot.request_fingerprint] = snapshot
+        self._checked.move_to_end(snapshot.request_fingerprint)
+        while len(self._checked) > self.max_checked_actions:
+            self._checked.popitem(last=False)
 
     def snapshot(self) -> tuple[tuple[EntityRef, tuple[EvidenceSnapshot, ...]], ...]:
         return tuple(
@@ -112,10 +156,57 @@ class ActiveWorkingSet:
         )
 
     def action_ids(self) -> tuple[UUID, ...]:
-        return tuple(action.action_id for _, history in self.snapshot() for action in history)
+        return tuple(
+            [snapshot.action_id for snapshot in self._identities.values()]
+            + [snapshot.action_id for snapshot in self._checked.values()]
+        )
 
     def entity_ids(self) -> set[UUID]:
-        return {entity.entity_id for entity, _ in self.snapshot()}
+        return {entity.entity_id for entity, _ in self.snapshot()} | set(self._identities)
+
+    def render_identities(self, *, max_chars: int) -> tuple[list[str], tuple[UUID, ...]]:
+        if not self._identities:
+            return [], ()
+        lines = ["Checked identities (persistent role/workspace and citation):"]
+        selected: list[UUID] = []
+        for identity_id, snapshot in self._identities.items():
+            fields = {fact.predicate: fact for fact in snapshot.facts}
+            role = fields.get("role")
+            workspace = fields.get("member_of")
+            workspace_text = (
+                str(workspace.object_value.entity_id)
+                if workspace is not None and isinstance(workspace.object_value, EntityRef)
+                else "unknown"
+            )
+            line = (
+                f"- identity:{identity_id} role={role.object_value if role else 'unknown'} "
+                f"workspace={workspace_text} HTTP {snapshot.http_status} "
+                f"action={snapshot.action_id} evidence={snapshot.evidence_id}"
+            )
+            if len("\n".join((*lines, line))) > max_chars:
+                break
+            lines.append(line)
+            selected.extend(fact.fact_id for fact in (role, workspace) if fact is not None)
+        return lines, tuple(selected)
+
+    def render_checked_actions(self, *, max_chars: int, max_entries: int = 16) -> list[str]:
+        if not self._checked:
+            return []
+        lines = ["Previously checked requests (latest evidence for each exact fingerprint):"]
+        for snapshot in reversed(tuple(self._checked.values())):
+            identity = str(snapshot.identity_id) if snapshot.identity_id else "anonymous"
+            response = snapshot.response_sha256[:16] if snapshot.response_sha256 else "unknown"
+            line = (
+                f"- {snapshot.method} {snapshot.path} as {identity} HTTP {snapshot.http_status} "
+                f"action={snapshot.action_id} evidence={snapshot.evidence_id} "
+                f"response_sha256_prefix={response}"
+            )
+            if len("\n".join((*lines, line))) > max_chars:
+                break
+            lines.append(line)
+            if len(lines) - 1 >= max_entries:
+                break
+        return lines
 
     def render(self, *, max_chars: int, max_facts: int) -> tuple[list[str], tuple[UUID, ...]]:
         """Render evidence under its target and action, including historical states."""

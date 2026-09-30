@@ -47,6 +47,45 @@ from offsecgym.worldview.ledger import EntityLedger
 from offsecgym.worldview.state import WorldStateIntegrityError
 from offsecgym.worldview.working_set import ActiveWorkingSet
 
+AUTO_CONTEXT_MAX_CHARS = 7500
+WORLD_TOOL_CARRY_MAX_CHARS = 2400
+MEMORY_CONTRIBUTION_MAX_CHARS = 10000
+
+
+def _bounded_world_result(output: dict[str, object], max_chars: int) -> dict[str, object]:
+    """Keep complete JSON tool output inside the per-turn retrieval budget."""
+    result = dict(output)
+
+    def size() -> int:
+        return len(json.dumps(result, separators=(",", ":")))
+
+    if size() <= max_chars:
+        return result
+    result["truncated"] = True
+    if isinstance(result.get("summary"), str):
+        lines = result["summary"].splitlines()
+        while lines and size() > max_chars:
+            lines.pop()
+            result["summary"] = "\n".join(lines)
+        fact_ids = result.get("fact_ids")
+        while isinstance(fact_ids, list) and fact_ids and size() > max_chars:
+            fact_ids.pop()
+    elif isinstance(result.get("entity"), dict):
+        entity = result["entity"]
+        groups = entity.get("evidence_groups")
+        while isinstance(groups, list) and groups and size() > max_chars:
+            groups.pop(0)
+        attributes = entity.get("attributes")
+        if isinstance(attributes, dict):
+            for key, value in tuple(attributes.items()):
+                if isinstance(value, str) and len(value) > 120:
+                    attributes[key] = value[:120]
+            while attributes and size() > max_chars:
+                attributes.pop(next(iter(attributes)))
+    if size() > max_chars:
+        return {"truncated": True, "error": "retrieval_output_budget_exhausted"}
+    return result
+
 
 class HTTPArgs(StrictModel):
     method: Literal["GET", "POST", "PUT", "PATCH", "DELETE"]
@@ -317,6 +356,7 @@ class MonolithicSaasAgent:
         instructions, base_items = build_context(task, context, structured=structured)
         input_items = list(base_items)
         carry: list[dict[str, object]] = []
+        carried_world_output_chars = 0
         selected_item: dict[str, object] | None = None
         definitions = model_tools(structured=structured)
         working_set = ActiveWorkingSet() if structured else None
@@ -363,8 +403,11 @@ class MonolithicSaasAgent:
                 selected = await self.context_builder.build(
                     context.run_id,
                     " ".join(query_parts)[:1024],
+                    max_chars=AUTO_CONTEXT_MAX_CHARS,
                     working_set=working_set,
                 )
+                if len(selected.text) + carried_world_output_chars > MEMORY_CONTRIBUTION_MAX_CHARS:
+                    raise ExperimentInfrastructureError("structured memory contribution exceeded")
                 selected_item = {"role": "user", "content": selected.text}
                 input_items = [
                     *base_items,
@@ -497,10 +540,15 @@ class MonolithicSaasAgent:
                 return AgentResult(task_id=task.task_id, status="failed")
             if structured:
                 assert selected_item is not None
-                carry = [selected_item, *turn.output]
+                carry = list(turn.output)
+                carried_world_output_chars = 0
             else:
                 input_items.extend(turn.output)
             calls = [item for item in turn.output if item.get("type") == "function_call"]
+            retrieval_call_count = sum(
+                item.get("name") in {"query_worldview", "get_entity"} for item in calls
+            )
+            retrieval_output_limit = WORLD_TOOL_CARRY_MAX_CHARS // max(1, retrieval_call_count)
             if not calls:
                 return AgentResult(
                     task_id=task.task_id,
@@ -529,6 +577,7 @@ class MonolithicSaasAgent:
                         observations,
                         submitted,
                         working_set,
+                        retrieval_output_limit,
                     )
                     if structured and call_name == "http_request" and isinstance(args, HTTPArgs):
                         recent_action_path = (
@@ -563,6 +612,12 @@ class MonolithicSaasAgent:
                 }
                 if structured:
                     carry.append(tool_result)
+                    if call_name in {"query_worldview", "get_entity"}:
+                        carried_world_output_chars += len(tool_result["output"])
+                        if carried_world_output_chars > WORLD_TOOL_CARRY_MAX_CHARS:
+                            raise ExperimentInfrastructureError(
+                                "world-tool carryover exceeded its output budget"
+                            )
                 else:
                     input_items.append(tool_result)
                 if invalid_calls >= 3:
@@ -590,9 +645,17 @@ class MonolithicSaasAgent:
         observations: list[UUID],
         submitted: list[UUID],
         working_set: ActiveWorkingSet | None,
+        retrieval_output_limit: int,
     ) -> dict[str, object]:
         if name in WORLD_TOOL_MODELS:
-            return await self._dispatch_world(name, args, run_id, task_id, model_event_id)
+            output = await self._dispatch_world(
+                name, args, run_id, task_id, model_event_id, retrieval_output_limit
+            )
+            return (
+                _bounded_world_result(output, retrieval_output_limit)
+                if name in {"query_worldview", "get_entity"}
+                else output
+            )
         if name == "http_request":
             assert isinstance(args, HTTPArgs)
             body = json.loads(args.body_json) if args.body_json is not None else None
@@ -710,13 +773,23 @@ class MonolithicSaasAgent:
         return {"finding_id": str(finding.finding_id), "status": "submitted"}
 
     async def _dispatch_world(
-        self, name: str, args: StrictModel, run_id: UUID, task_id: UUID, model_event_id: UUID
+        self,
+        name: str,
+        args: StrictModel,
+        run_id: UUID,
+        task_id: UUID,
+        model_event_id: UUID,
+        retrieval_output_limit: int = WORLD_TOOL_CARRY_MAX_CHARS,
     ) -> dict[str, object]:
         assert self.world is not None and self.context_builder is not None
         if name == "query_worldview":
             assert isinstance(args, QueryWorldviewArgs)
             context = await self.context_builder.build(
-                run_id, args.query, kind=args.kind, max_facts=24
+                run_id,
+                args.query,
+                kind=args.kind,
+                max_facts=8,
+                max_chars=min(1600, max(200, retrieval_output_limit - 350)),
             )
             return {
                 "fact_ids": [str(item) for item in context.fact_ids],

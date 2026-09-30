@@ -71,7 +71,7 @@ class WorldContextBuilder:
         query: str,
         *,
         kind: str | None = None,
-        max_facts: int = 32,
+        max_facts: int = 40,
         max_chars: int = 7500,
         working_set: ActiveWorkingSet | None = None,
     ) -> WorldContext:
@@ -117,15 +117,24 @@ class WorldContextBuilder:
             "mentions_invoice": 5,
         }
         lines = ["Relevant world facts (unvalidated claims remain labeled):"]
-        working_fact_ids: tuple[UUID, ...] = ()
+        identity_fact_ids: tuple[UUID, ...] = ()
         working_lines: list[str] = []
+        identity_lines: list[str] = []
+        checked_lines: list[str] = []
+        working_fact_ids: tuple[UUID, ...] = ()
         if working_set is not None:
-            working_lines, working_fact_ids = working_set.render(
-                max_chars=min(3500, max_chars // 2),
-                max_facts=min(18, max_facts),
+            identity_lines, identity_fact_ids = working_set.render_identities(
+                max_chars=min(1900, max_chars // 3)
             )
+            checked_lines = working_set.render_checked_actions(max_chars=min(2600, max_chars // 3))
+            working_lines, working_fact_ids = working_set.render(
+                max_chars=min(2000, max_chars // 3),
+                max_facts=min(12, max_facts),
+            )
+            lines.extend(identity_lines)
+            lines.extend(checked_lines)
             lines.extend(working_lines)
-        working_fact_set = set(working_fact_ids)
+        working_fact_set = set(identity_fact_ids) | set(working_fact_ids)
         indexed = [
             (index, fact)
             for index, fact in enumerate(controller_facts)
@@ -148,9 +157,12 @@ class WorldContextBuilder:
         ledger_kept: list[WorldFact] = []
         if indexed:
             lines.append("Known entities (controller-observed; exact IDs):")
-        ledger_limit = max_chars - (1400 if other_facts else 100)
+        ledger_limit = max_chars - (min(1400, max_chars // 3) if other_facts else 100)
         for _, fact in indexed:
-            if len(ledger_kept) + len(working_fact_ids) >= max_facts or ledger_limit <= 0:
+            if (
+                len(ledger_kept) + len(identity_fact_ids) + len(working_fact_ids) >= max_facts
+                or ledger_limit <= 0
+            ):
                 break
             value = (
                 f"{fact.object_value.entity_type}:{fact.object_value.entity_id}"
@@ -245,11 +257,18 @@ class WorldContextBuilder:
                 )
                 if (
                     key not in seen
-                    and len(selected) + len(ledger_kept) + len(working_fact_ids) < max_facts
+                    and len(selected)
+                    + len(ledger_kept)
+                    + len(identity_fact_ids)
+                    + len(working_fact_ids)
+                    < max_facts
                 ):
                     selected.append(group)
                     seen.add(key)
-            if len(selected) + len(ledger_kept) + len(working_fact_ids) >= max_facts:
+            if (
+                len(selected) + len(ledger_kept) + len(identity_fact_ids) + len(working_fact_ids)
+                >= max_facts
+            ):
                 break
         kept: list[_FactGroup] = []
         for group in selected:
@@ -280,13 +299,21 @@ class WorldContextBuilder:
             line = f"- active coverage: {claim.component}: {claim.objective}"
             if len("\n".join((*lines, line))) <= max_chars:
                 lines.append(line)
-        if not kept and not ledger_kept and not claims and not working_lines:
+        if (
+            not kept
+            and not ledger_kept
+            and not claims
+            and not identity_lines
+            and not checked_lines
+            and not working_lines
+        ):
             lines.append("- none")
         rendered = "\n".join(lines)
         context = WorldContext(
             run_id=run_id,
             fact_ids=tuple(
-                list(working_fact_ids)
+                list(identity_fact_ids)
+                + list(working_fact_ids)
                 + [fact.fact_id for fact in ledger_kept]
                 + [group.representative.fact_id for group in kept]
             ),
