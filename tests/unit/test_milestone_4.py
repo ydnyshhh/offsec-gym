@@ -118,13 +118,16 @@ async def test_failed_provider_response_is_retained(tmp_path, monkeypatch) -> No
     assert outcome.evaluation.status == "provider_failed"
     started = next(item for item in events.items if isinstance(item, ModelCallStarted))
     failed = next(item for item in events.items if isinstance(item, ModelCallFailed))
-    assert ModelCallArtifacts(runtime.state.root).read_verified(
-        outcome.run_id,
-        started.call_id,
-        "response",
-        failed.response_artifact_id,
-        failed.response_sha256,
-    ) == raw_response
+    assert (
+        ModelCallArtifacts(runtime.state.root).read_verified(
+            outcome.run_id,
+            started.call_id,
+            "response",
+            failed.response_artifact_id,
+            failed.response_sha256,
+        )
+        == raw_response
+    )
 
 
 @pytest.mark.asyncio

@@ -68,15 +68,17 @@ class ModelCallArtifacts:
         if path.is_symlink() or not path.is_file() or stat.S_IMODE(path.stat().st_mode) != 0o600:
             raise OSError(f"model artifact is missing or unsafe: {path}")
         record = json.loads(path.read_text(encoding="utf-8"))
-        if not isinstance(record, dict) or set(record) != {
-            "artifact_id", "run_id", "call_id", "kind", "payload"
-        } or any(
-            record.get(key) != expected
-            for key, expected in (
-                ("artifact_id", str(artifact_id)),
-                ("run_id", str(run_id)),
-                ("call_id", str(call_id)),
-                ("kind", kind),
+        if (
+            not isinstance(record, dict)
+            or set(record) != {"artifact_id", "run_id", "call_id", "kind", "payload"}
+            or any(
+                record.get(key) != expected
+                for key, expected in (
+                    ("artifact_id", str(artifact_id)),
+                    ("run_id", str(run_id)),
+                    ("call_id", str(call_id)),
+                    ("kind", kind),
+                )
             )
         ):
             raise ValueError("model artifact provenance mismatch")
