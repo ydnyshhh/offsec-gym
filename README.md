@@ -88,6 +88,8 @@ uv run offsecgym experiment run experiments/configs/kimi-k3-structured-diagnosti
 Each run prints an ID. Use `offsecgym experiment trace RUN_ID` to inspect its events
 and `offsecgym experiment worldview RUN_ID` to inspect structured memory. These
 small samples are for trace inspection, not a statistical score comparison.
+See the [Kimi K3 six-run diagnostic](docs/diagnostics/kimi-k3-openrouter-m5.md)
+for observed memory behavior and run IDs.
 
 `range start` prints an instance ID and generation. `range create BUILD_ID` separates
 instance creation from startup; UUID-based lifecycle commands accept instance IDs only.
