@@ -38,10 +38,12 @@
   finding submissions; replay run lifecycle and trace references; terminal run outcomes
   for agent, budget, infrastructure, and validation failures.
 - Selectively patched scripted experiment acceptance test and canonical experiment hash.
-- Provider-neutral model-turn contract, OpenAI Responses adapter, strict typed model
+- Initial model-turn contract, OpenAI Responses adapter, strict typed model
   tools, monolithic agent, model usage events, and provider/cancellation score states.
 - Fake-provider acceptance test through a live Docker SaaS range and deterministic
   validation; CLI support for 1–20 diagnostic repetitions.
+- Restricted per-call model request/response artifacts with event hashes and replay
+  verification; explicit output-token cap and known-routes diagnostic visibility factor.
 
 ## Partially implemented
 
@@ -53,6 +55,8 @@
 - `WorldFact` has typed provenance and relationship fields; WorldState storage, retrieval,
   and adjudication are not implemented yet.
 - A managed artifact store and full experiment run manifests remain future controller work.
+- The model-turn protocol still uses OpenAI Responses item shapes. Normalize model output
+  and opaque continuation state before adding a second provider.
 
 ## Next milestone
 
@@ -78,6 +82,10 @@ comparisons. Then begin Milestone 5 structured worldview work.
   and rebuild after stopping/destroying old live instances.
 - The first SaaS API is one service with an in-process SQLite fixture; service-level
   distribution and structural scenario mutation remain future range work.
+- The OpenAI adapter uses a synchronous request in a worker thread. Coroutine
+  cancellation does not stop an in-flight HTTP request; use a cancellable async client
+  before strict wall-time or cost comparisons. Cache and reasoning usage subcounts remain
+  in raw response artifacts but are not projected into summary metrics.
 
 ## Failing tests
 

@@ -34,10 +34,17 @@ parent finding verdict.
 Model turns add `ModelCallStarted`, `ModelCallCompleted`, and `ModelCallFailed`. A call ID
 links start to completion or failure. Completion records provider response ID, input and
 output token counts, and estimated cost when token prices are configured. Failure records
-a stable reason code and optional HTTP status. Raw prompts, response bodies, and API
-credentials are absent from these events. Rejected model tool calls emit
+a stable reason code and optional HTTP status. New v2 start/completion events also bind
+request/response artifact IDs and SHA-256 digests. The controller writes the exact provider
+JSON request body and returned response under `model_calls/<run_id>/<call_id>/`, with
+private directories and mode-0600 files. `ModelCallArtifacts.read_verified` checks the
+record's run, call, artifact ID, and payload digest. The request artifact excludes the
+Authorization header and API key. Raw prompts, response bodies, and API credentials are
+absent from events; v1 model events remain readable but do not have replayable model turns.
+Rejected model tool calls emit
 `ModelToolRejected` with a stable call reference, tool name, and error class but no
-untrusted argument payload.
+untrusted argument payload. Its exact arguments are retained in the restricted response
+artifact.
 
 Request events precede external effects. An allowed action receives exactly one terminal
 completion, blocked, failed, or outcome-unknown resolution. JSONL is an export of the

@@ -7,7 +7,8 @@ fixtures, hidden ground truth, attack graphs, range credentials, or Docker. HTTP
 content is untrusted input. The controller executes all tool calls and binds every action
 and finding to its run and instance generation.
 
-`ModelProvider.complete` returns provider-neutral output items and token usage. The first
+`ModelProvider.prepare_request` creates the provider JSON body; `complete` returns the
+raw response plus parsed output items and token usage. The first
 adapter uses the OpenAI Responses API with strict function schemas, stateless conversation
 input, and `store=false`; it carries reasoning items forward for subsequent tool turns.
 The four model tools are `http_request` and typed submission tools for authorization,
@@ -19,14 +20,22 @@ for the function-call and `function_call_output` exchange.
 This baseline requires `memory=transcript`; other memory conditions are reserved for
 later milestones.
 
-Each provider request creates `ModelCallStarted` and either `ModelCallCompleted` with
-input/output tokens and estimated cost or `ModelCallFailed` with a reason code. Event
-payloads contain a request digest, provider/model names, usage, and response ID; they do
-not contain the API key or prompt. The CLI summarizes usage per run. Action and HTTP
+Each provider request is first written to `model_calls/<run_id>/<call_id>/request.json`.
+The returned response is written to `response.json` before `ModelCallCompleted` is
+appended. Files are mode 0600 under private directories; artifacts include opaque
+reasoning state, raw tool arguments, and the exact transcript sent on each turn.
+The v2 `ModelCallStarted` and `ModelCallCompleted` events carry artifact IDs and SHA-256
+digests so a reader can verify them. Event payloads contain provider/model names, usage,
+and response ID but no API key or prompt. The API key is only placed in the HTTP header,
+outside the saved request body. The CLI summarizes usage per run. Action and HTTP
 budgets remain enforced by the gateway. The agent enforces model-call, observed token,
 configured cost, and wall-time budgets. A single provider response can overshoot a token
 or cost ceiling because final usage is known only afterward; the controller stops before
-the next request. Token prices are explicit experiment inputs, not assumed market rates;
+the next request. `max_output_tokens_per_call` is an explicit optional cap; without it,
+the remaining total-token budget is sent as `max_output_tokens`. Fewer than 16 remaining
+tokens end the run without a provider request. OpenAI counts reasoning tokens within
+[`max_output_tokens`](https://developers.openai.com/api/docs/guides/reasoning), so tune
+the per-call cap for the selected model. Token prices are explicit experiment inputs, not assumed market rates;
 the estimate may differ from provider billing, including cache discounts.
 
 Provider outages, 5xx responses, rate limits, and authentication failures produce
@@ -58,5 +67,11 @@ The first 10–20 live runs are a harness diagnostic. Inspect each run's model, 
 finding, validation, and terminal events before drawing conclusions. The fake-provider
 Docker acceptance test checks the complete local tool and scoring path without an API key;
 it does not replace the live diagnostic batch.
+
+`surface_visibility=known_routes` is the current diagnostic condition. The prompt gives
+the model exact route shapes and finding classes. The spec reserves `openapi`,
+`discoverable`, and `black_box` as future experimental conditions; they are rejected by
+this runner until implemented. This baseline does not support model capability claims
+across surface-visibility conditions.
 
 Use `offsecgym experiment trace RUN_ID` to inspect one run's persisted event stream.
