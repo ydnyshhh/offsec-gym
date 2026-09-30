@@ -86,3 +86,10 @@ characters. It keeps the 7,500-character automatic and 10,000-character
 combined memory ceilings. A unit test verifies at least 24 checked actions
 remain visible with eight identities. The gates above remain unchanged for
 a fresh three-run verification.
+
+The [corrected verification](diagnostics/kimi-k3-openrouter-m54.md) passed
+identity retention, typed-ID integrity, retrieval carryover, late input, and
+validated-finding gates. It still had three unchanged workspace-list rereads
+without the prior exact request visible, and one finding cited a clearly
+labeled second invoice as corroboration, which misses the literal same-asset
+gate. M5 remains open; M6 was not started.

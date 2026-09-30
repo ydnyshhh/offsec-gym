@@ -54,6 +54,9 @@
 - Controller-extracted identity/object facts, canonical finding categories, bounded
   document/ticket excerpts, a recent entity/evidence working set, and exact `get_entity`
   lookup. The M5.3 three-run diagnostic is recorded separately.
+- Pinned checked-identity facts, a 32-entry exact request fingerprint index,
+  compact checked-action rendering, and a combined automatic-context/world-tool
+  carryover ceiling. Both M5.4 three-run smoke batches are recorded.
 
 ## Partially implemented
 
@@ -75,11 +78,14 @@
 
 ## Next milestone
 
-The [M5.3 diagnostic](diagnostics/kimi-k3-openrouter-m53.md) missed the
-unchanged-repeat, repeated `/api/me`, and late-input gates. Preserve compact
-checked-identity/action state and bound explicit retrieval carryover, then
-predeclare and run another small structured smoke test. M5 remains open; defer
-large-N monolithic comparisons and Milestone 6 worker coordination.
+The [corrected M5.4 diagnostic](diagnostics/kimi-k3-openrouter-m54.md) cleared
+identity retention, typed-ID, retrieval-size, late-input, and finding gates.
+It missed the gate allowing at most one memory-eviction-driven unchanged
+repeat: three old workspace listings were absent from automatic context at
+repeat time. One explicitly labeled second-invoice corroboration also missed
+the literal same-asset citation gate. M5 remains open under the predeclared
+stopping rule. Keep large-N monolithic comparisons and Milestone 6 worker
+coordination deferred until those boundaries are resolved.
 
 ## Known architectural debt
 

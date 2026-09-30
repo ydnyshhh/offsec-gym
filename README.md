@@ -16,6 +16,8 @@ Milestone 5.2 adds controller-verified response facts, exact entity IDs, and can
 finding categories; see [Milestone 5.2](docs/milestone-5.2.md).
 Milestone 5.3 adds bounded document/ticket details, a recent entity/evidence working
 set, and exact `get_entity` lookup; see [Milestone 5.3](docs/milestone-5.3.md).
+Milestone 5.4 adds pinned checked identities, a bounded checked-action index, and
+bounded worldview-tool carryover; see [Milestone 5.4](docs/milestone-5.4.md).
 
 ## Development
 
@@ -104,6 +106,10 @@ matched pinned-provider traces and the predeclared progression gates.
 The [M5.3 diagnostic](docs/diagnostics/kimi-k3-openrouter-m53.md) records three
 structured runs and the gate misses. M5 is not yet frozen; no 10+10 expansion
 or M6 progression was started.
+The [M5.4 initial](docs/diagnostics/kimi-k3-openrouter-m54-initial.md) and
+[corrected](docs/diagnostics/kimi-k3-openrouter-m54.md) three-run diagnostics
+separate identity, action-history, retrieval, and policy behavior. The
+corrected batch still missed two predeclared gates, so M5 remains open.
 
 `range start` prints an instance ID and generation. `range create BUILD_ID` separates
 instance creation from startup; UUID-based lifecycle commands accept instance IDs only.
