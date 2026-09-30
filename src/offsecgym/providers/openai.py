@@ -24,6 +24,8 @@ class _NoRedirect(HTTPRedirectHandler):
 
 class OpenAIResponsesProvider:
     URL = "https://api.openai.com/v1/responses"
+    PROVIDER = "openai"
+    EXTRA_HEADERS: dict[str, str] = {}
 
     def __init__(self, api_key: str, *, timeout_seconds: float = 90) -> None:
         if not api_key:
@@ -40,7 +42,7 @@ class OpenAIResponsesProvider:
         tools: list[dict[str, object]],
         max_output_tokens: int,
     ) -> dict[str, object]:
-        if model.provider != "openai":
+        if model.provider != self.PROVIDER:
             raise ProviderRequestError("unsupported_provider")
         payload: dict[str, object] = {
             "model": model.name,
@@ -90,6 +92,7 @@ class OpenAIResponsesProvider:
             headers={
                 "Authorization": f"Bearer {self._api_key}",
                 "Content-Type": "application/json",
+                **self.EXTRA_HEADERS,
             },
             method="POST",
         )
@@ -101,6 +104,10 @@ class OpenAIResponsesProvider:
             if exc.code in {401, 403}:
                 raise ProviderFailure(
                     "provider_auth_failed", exc.code, raw_response=error_body
+                ) from exc
+            if exc.code == 402:
+                raise ProviderFailure(
+                    "provider_quota_exhausted", exc.code, raw_response=error_body
                 ) from exc
             if exc.code in {408, 429}:
                 reason = "provider_rate_limited" if exc.code == 429 else "provider_timeout"

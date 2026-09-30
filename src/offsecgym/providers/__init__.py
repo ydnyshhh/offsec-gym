@@ -2,5 +2,13 @@
 
 from offsecgym.providers.base import ModelProvider, ModelTurn, ModelUsage, ProviderFailure
 from offsecgym.providers.openai import OpenAIResponsesProvider
+from offsecgym.providers.openrouter import OpenRouterResponsesProvider
 
-__all__ = ["ModelProvider", "ModelTurn", "ModelUsage", "ProviderFailure", "OpenAIResponsesProvider"]
+__all__ = [
+    "ModelProvider",
+    "ModelTurn",
+    "ModelUsage",
+    "ProviderFailure",
+    "OpenAIResponsesProvider",
+    "OpenRouterResponsesProvider",
+]

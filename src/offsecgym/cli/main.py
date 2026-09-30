@@ -17,7 +17,7 @@ from sqlalchemy.ext.asyncio import create_async_engine
 from offsecgym import __version__
 from offsecgym.config import Settings
 from offsecgym.experiment import MonolithicExperimentRunner, ScriptedExperimentRunner
-from offsecgym.providers import OpenAIResponsesProvider
+from offsecgym.providers import OpenAIResponsesProvider, OpenRouterResponsesProvider
 from offsecgym.runtime.compose import ComposeRangeRuntime, DockerCommandError
 from offsecgym.schemas.events import ModelCallCompleted
 from offsecgym.schemas.specs import ExperimentSpec, RangeSpec
@@ -98,13 +98,18 @@ def experiment_run(
             raise ValueError("OFFSECGYM_DATABASE_URL must use postgresql+asyncpg")
         api_key = None
         if spec.orchestrator == "monolithic":
-            if spec.model is None or spec.model.provider != "openai":
-                raise ValueError("the monolithic runner currently supports provider=openai")
+            if spec.model is None or spec.model.provider not in {"openai", "openrouter"}:
+                raise ValueError("the monolithic runner supports provider=openai or openrouter")
             if spec.model.name.startswith("REPLACE_"):
                 raise ValueError("set model.name to an available API model before running")
-            api_key = os.getenv("OPENAI_API_KEY") or os.getenv("OFFSECGYM_OPENAI_API_KEY")
+            key_name = (
+                "OPENROUTER_API_KEY" if spec.model.provider == "openrouter" else "OPENAI_API_KEY"
+            )
+            api_key = os.getenv(key_name)
+            if spec.model.provider == "openai":
+                api_key = api_key or os.getenv("OFFSECGYM_OPENAI_API_KEY")
             if not api_key:
-                raise ValueError("OPENAI_API_KEY is required for OpenAI model experiments")
+                raise ValueError(f"{key_name} is required for {spec.model.provider} experiments")
 
         async def execute() -> list[dict[str, object]]:
             engine = create_async_engine(settings.database_url)
@@ -115,7 +120,13 @@ def experiment_run(
                     ScriptedExperimentRunner(runtime, events)
                     if spec.orchestrator == "scripted"
                     else MonolithicExperimentRunner(
-                        runtime, events, OpenAIResponsesProvider(api_key or "")
+                        runtime,
+                        events,
+                        (
+                            OpenRouterResponsesProvider(api_key or "")
+                            if spec.model is not None and spec.model.provider == "openrouter"
+                            else OpenAIResponsesProvider(api_key or "")
+                        ),
                     )
                 )
                 specs = [spec]
