@@ -31,8 +31,9 @@ rejects those modes until their prompt and discovery contracts are implemented. 
 The controller records usage after each call and stops before the next call when a ceiling
 is reached. See [Milestone 4](milestone-4.md).
 
-Milestone 5 also supports `memory=structured` with the monolithic orchestrator. It uses
-the same known-routes diagnostic surface and explicit budgets as `memory=transcript`.
-The [structured diagnostic config](../experiments/configs/monolithic-saas-structured.yaml)
-changes only the memory condition and experiment name. The request artifacts and
+Milestone 5 also supports `memory=structured` with the monolithic orchestrator. The
+[transcript baseline](../experiments/configs/monolithic-saas.yaml) and
+[structured worldview](../experiments/configs/monolithic-saas-structured.yaml) configs
+share the same known-routes surface and explicit budgets. They compare agent systems:
+the structured arm also has worldview tools and instructions. The request artifacts and
 `ContextRetrieved` events allow audits of what was actually retained between turns.

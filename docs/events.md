@@ -57,9 +57,12 @@ remain without an event reference. The run/call path makes it discoverable; dura
 artifact indexing and orphan reconciliation remain future controller work.
 
 Milestone 5 adds `WorldFactSubmitted`, `WorldFactAdjudicated`, `CoverageClaimed`,
-`CoverageUpdated`, and `ContextRetrieved`. The submission event binds a v3
-`hypothesized` fact to its run. One adjudication event can change several related fact
-states atomically in the stream, preserving contradiction and corroboration decisions.
+`CoverageUpdated`, and `ContextRetrieved`. New submissions bind a v4 `hypothesized`
+fact to its run; historical v3 submissions remain parseable. V4 adjudication uses
+`evidence_linked` and `multi_evidence_linked` to distinguish genuine citations from
+semantic validation. One adjudication event can change several related fact states
+atomically in the stream, preserving contradiction decisions. Legacy `observed` and
+`corroborated` statuses retain their original event meaning as evidence-link labels.
 Coverage events record ownership and lifecycle. Context retrieval records the selected
 fact IDs and hashes of the query selector and rendered context; the model request
 artifact retains the exact text supplied to the provider.

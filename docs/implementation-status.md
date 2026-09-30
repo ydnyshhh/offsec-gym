@@ -46,8 +46,9 @@
   verification; explicit output-token cap and known-routes diagnostic visibility factor.
 - Explicit model-call budget, bounded and redacted provider HTTP-error artifacts, and
   run-bound v3 validation results/events with legacy v2 read support.
-- Event-backed WorldState with provenance-checked fact claims, adjudication, contradictions,
-  corroboration, coverage, bounded relevance retrieval, and structured-memory model tools.
+- Event-backed WorldState with v4 evidence-link labels that do not claim semantic truth,
+  provenance-checked claims, contradiction links, controller-only supersession, coverage,
+  trust-ranked deduplicated retrieval, and structured-memory model tools.
 - Structured monolithic diagnostic config, worldview CLI inspection, and Docker acceptance
   test through the existing gateway, validator, and evaluator.
 
@@ -63,6 +64,8 @@
 - WorldState currently rebuilds from a full run event scan and serializes claims only
   within one controller process. Indexed projections, atomic cross-controller coverage
   reservations, and worker leases remain Milestone 6 work.
+- Model-authored evidence links are not semantic entailment. Mechanically verified
+  response-field observations and a controlled memory-only comparison remain research work.
 - A managed artifact store and full experiment run manifests remain future controller work.
 - The model-turn protocol still uses OpenAI Responses item shapes. Normalize model output
   and opaque continuation state before adding a second provider.

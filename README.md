@@ -71,7 +71,8 @@ To run the structured-memory diagnostic with the same range and model settings, 
 `experiments/configs/monolithic-saas-structured.yaml`. Set its model name and the same
 API/database environment variables first. `offsecgym experiment worldview RUN_ID`
 prints reconstructed facts and coverage; use `--predicate` or `--kind` to filter facts.
-See [Milestone 5](docs/milestone-5.md).
+The configs compare agent systems with different tools and prompts; their score
+difference is not a memory-only ablation. See [Milestone 5](docs/milestone-5.md).
 
 `range start` prints an instance ID and generation. `range create BUILD_ID` separates
 instance creation from startup; UUID-based lifecycle commands accept instance IDs only.
