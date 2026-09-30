@@ -49,7 +49,8 @@ async def test_checked_identity_survives_object_recency_eviction() -> None:
         facts = await _record(state, events, request, result)
         working.observe(request, result, facts)
         checked.append((identity, workspace, request.action_id, result.evidence_id))
-    for _ in range(6):
+    object_actions = []
+    for _ in range(26):
         document, identity = uuid4(), checked[0][0]
         request = ActionRequest(
             run_id=run_id,
@@ -61,6 +62,7 @@ async def test_checked_identity_survives_object_recency_eviction() -> None:
         )
         result = _result(request, {"error": "forbidden"}, status=403)
         working.observe(request, result, ())
+        object_actions.append(request)
     assert len(working.snapshot()) == 2
     identity_lines, fact_ids = working.render_identities(max_chars=1900)
     identity_text = "\n".join(identity_lines)
@@ -76,6 +78,11 @@ async def test_checked_identity_survives_object_recency_eviction() -> None:
     assert "Previously checked requests" in context.text
     for identity, workspace, _, _ in checked:
         assert f"identity:{identity} role=member workspace={workspace}" in context.text
+    checked_section = context.text.split("Previously checked requests", 1)[1].split(
+        "Active entity/evidence", 1
+    )[0]
+    assert len([line for line in checked_section.splitlines() if line.startswith("- GET")]) >= 24
+    assert str(object_actions[-12].action_id) in checked_section
     compact = await WorldContextBuilder(state, events).build(
         run_id, str(checked[0][0]), max_facts=8, max_chars=850
     )
@@ -103,15 +110,13 @@ def test_checked_action_index_is_exact_bounded_and_separate_from_identities() ->
     assert records[0][0].path not in text
     for request, result in records[1:]:
         assert request.path in text
-        assert f"action={request.action_id} evidence={result.evidence_id}" in text
+        assert f"a={request.action_id} e={result.evidence_id}" in text
         assert result.response_sha256[:16] in text
     repeated = records[1][0].model_copy(update={"action_id": uuid4()})
     result = _result(repeated, {"id": str(uuid4())})
     working.observe(repeated, result, ())
     assert working.fingerprint(repeated) == working.fingerprint(records[1][0])
-    assert f"action={repeated.action_id}" in "\n".join(
-        working.render_checked_actions(max_chars=3000)
-    )
+    assert f"a={repeated.action_id}" in "\n".join(working.render_checked_actions(max_chars=3000))
 
 
 @pytest.mark.asyncio

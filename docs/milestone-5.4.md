@@ -73,3 +73,16 @@ gates clear, freeze M5 even if the model still repeats requests whose prior
 state is visibly available. That residual is a policy/orchestration research
 question for M6. If a gate fails, preserve and annotate these three traces
 before considering any further change.
+
+## Targeted rendering correction after the initial smoke
+
+The [initial batch](diagnostics/kimi-k3-openrouter-m54-initial.md) found that
+the 32-entry action index displayed only about ten full-length lines. Older
+action/evidence pairs were stored but absent from the model request. The
+corrected renderer labels the pinned identities `i0`…`iN`, references those
+aliases in compact checked-action lines, and increases that section's cap to
+4,500 characters while reducing the recent-detail section to 1,000
+characters. It keeps the 7,500-character automatic and 10,000-character
+combined memory ceilings. A unit test verifies at least 24 checked actions
+remain visible with eight identities. The gates above remain unchanged for
+a fresh three-run verification.

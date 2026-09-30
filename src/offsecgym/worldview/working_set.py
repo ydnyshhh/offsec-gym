@@ -169,7 +169,7 @@ class ActiveWorkingSet:
             return [], ()
         lines = ["Checked identities (persistent role/workspace and citation):"]
         selected: list[UUID] = []
-        for identity_id, snapshot in self._identities.items():
+        for index, (identity_id, snapshot) in enumerate(self._identities.items()):
             fields = {fact.predicate: fact for fact in snapshot.facts}
             role = fields.get("role")
             workspace = fields.get("member_of")
@@ -179,7 +179,8 @@ class ActiveWorkingSet:
                 else "unknown"
             )
             line = (
-                f"- identity:{identity_id} role={role.object_value if role else 'unknown'} "
+                f"- i{index} identity:{identity_id} "
+                f"role={role.object_value if role else 'unknown'} "
                 f"workspace={workspace_text} HTTP {snapshot.http_status} "
                 f"action={snapshot.action_id} evidence={snapshot.evidence_id}"
             )
@@ -189,17 +190,24 @@ class ActiveWorkingSet:
             selected.extend(fact.fact_id for fact in (role, workspace) if fact is not None)
         return lines, tuple(selected)
 
-    def render_checked_actions(self, *, max_chars: int, max_entries: int = 16) -> list[str]:
+    def render_checked_actions(self, *, max_chars: int, max_entries: int = 32) -> list[str]:
         if not self._checked:
             return []
-        lines = ["Previously checked requests (latest evidence for each exact fingerprint):"]
+        lines = [
+            "Previously checked requests (iN maps to checked identity; "
+            "a=action_id, e=evidence_id, h=response_sha256 prefix):"
+        ]
+        aliases = {identity_id: f"i{index}" for index, identity_id in enumerate(self._identities)}
         for snapshot in reversed(tuple(self._checked.values())):
-            identity = str(snapshot.identity_id) if snapshot.identity_id else "anonymous"
+            identity = (
+                aliases.get(snapshot.identity_id, str(snapshot.identity_id))
+                if snapshot.identity_id
+                else "anonymous"
+            )
             response = snapshot.response_sha256[:16] if snapshot.response_sha256 else "unknown"
             line = (
-                f"- {snapshot.method} {snapshot.path} as {identity} HTTP {snapshot.http_status} "
-                f"action={snapshot.action_id} evidence={snapshot.evidence_id} "
-                f"response_sha256_prefix={response}"
+                f"- {snapshot.method} {snapshot.path} as {identity} H{snapshot.http_status} "
+                f"a={snapshot.action_id} e={snapshot.evidence_id} h={response}"
             )
             if len("\n".join((*lines, line))) > max_chars:
                 break

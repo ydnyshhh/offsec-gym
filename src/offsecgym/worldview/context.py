@@ -124,12 +124,14 @@ class WorldContextBuilder:
         working_fact_ids: tuple[UUID, ...] = ()
         if working_set is not None:
             identity_lines, identity_fact_ids = working_set.render_identities(
-                max_chars=min(1900, max_chars // 3)
+                max_chars=min(1800, max_chars // 3)
             )
-            checked_lines = working_set.render_checked_actions(max_chars=min(2600, max_chars // 3))
+            checked_lines = working_set.render_checked_actions(
+                max_chars=min(4500, max_chars * 3 // 5)
+            )
             working_lines, working_fact_ids = working_set.render(
-                max_chars=min(2000, max_chars // 3),
-                max_facts=min(12, max_facts),
+                max_chars=min(1000, max_chars // 4),
+                max_facts=min(8, max_facts),
             )
             lines.extend(identity_lines)
             lines.extend(checked_lines)
