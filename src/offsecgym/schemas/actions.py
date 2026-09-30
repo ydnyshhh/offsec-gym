@@ -6,7 +6,7 @@ import json
 from typing import Literal
 from uuid import UUID
 
-from pydantic import Field, field_validator
+from pydantic import Field, field_validator, model_validator
 
 from offsecgym.schemas.common import JsonValue, StrictModel, new_id
 
@@ -68,12 +68,19 @@ class ActionRequest(StrictModel):
     action_id: UUID = Field(default_factory=new_id)
     run_id: UUID
     worker_id: UUID | None = None
+    task_id: UUID | None = None
     identity_id: UUID | None = None
     kind: Literal["http_request"]
     destination: str = Field(min_length=1)
     method: Literal["GET", "POST", "PUT", "PATCH", "DELETE"]
     path: str = Field(min_length=1, max_length=2048)
     json_body: dict[str, JsonValue] | None = None
+
+    @model_validator(mode="after")
+    def bind_worker_task(self) -> ActionRequest:
+        if self.worker_id is not None and self.task_id is None:
+            raise ValueError("worker actions require task_id")
+        return self
 
     @field_validator("json_body", mode="before")
     @classmethod

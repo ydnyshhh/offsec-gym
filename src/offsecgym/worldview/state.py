@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import hashlib
 from collections.abc import Sequence
+from contextlib import asynccontextmanager
 from uuid import UUID, uuid4
 
 from offsecgym.interfaces import EventStore
@@ -14,6 +15,8 @@ from offsecgym.schemas.events import (
     ActionCompleted,
     ActionRequested,
     CoverageClaimed,
+    CoverageLeaseAcquired,
+    CoverageLeaseReleased,
     CoverageUpdated,
     WorldFactAdjudicated,
     WorldFactStateChange,
@@ -32,13 +35,24 @@ class EventWorldState:
         self._locks: dict[UUID, asyncio.Lock] = {}
         self.extractor = ResponseFactExtractor()
 
+    @asynccontextmanager
+    async def _transaction(self, run_id: UUID):
+        """Use the database run lock for shared state; local lock is for test stores."""
+        transaction = getattr(self.events, "run_transaction", None)
+        if transaction is not None:
+            async with transaction(run_id) as writer:
+                yield writer
+        else:
+            async with self._locks.setdefault(run_id, asyncio.Lock()):
+                yield self.events
+
     async def submit_fact(self, fact: WorldFact) -> WorldFact:
         if fact.schema_version != "4" or fact.status != "hypothesized":
             raise ValueError("world facts must enter as v4 hypothesized claims")
         if fact.supersedes_fact_id is not None or fact.superseded_by_fact_id is not None:
             raise ValueError("model claims cannot supersede facts without controller validation")
-        async with self._locks.setdefault(fact.run_id, asyncio.Lock()):
-            history = await self.events.read_run(fact.run_id)
+        async with self._transaction(fact.run_id) as writer:
+            history = await writer.read_run(fact.run_id)
             facts, _ = self._project(history)
             if fact.fact_id in facts:
                 raise ValueError("world fact ID already exists in this run")
@@ -58,7 +72,7 @@ class EventWorldState:
                     and related.object_value == fact.object_value
                 ):
                     raise ValueError("contradictory facts must have different values")
-            await self.events.append(
+            await writer.append(
                 WorldFactSubmitted(run_id=fact.run_id, actor="worldstate", fact=fact)
             )
             return fact
@@ -132,8 +146,8 @@ class EventWorldState:
             or len(fact.source_event_ids) != 1
         ):
             raise ValueError("controller observation requires one completed response source")
-        async with self._locks.setdefault(fact.run_id, asyncio.Lock()):
-            history = await self.events.read_run(fact.run_id)
+        async with self._transaction(fact.run_id) as writer:
+            history = await writer.read_run(fact.run_id)
             facts, _ = self._project(history)
             if fact.fact_id in facts:
                 raise ValueError("world fact ID already exists in this run")
@@ -152,7 +166,7 @@ class EventWorldState:
             )
             if completed is None:
                 raise ValueError("controller observation source must be a 200 response")
-            await self.events.append(
+            await writer.append(
                 WorldFactSubmitted(run_id=fact.run_id, actor="controller", fact=fact)
             )
             older = [
@@ -165,7 +179,7 @@ class EventWorldState:
                 and item.object_value != fact.object_value
             ]
             if older:
-                await self.events.append(
+                await writer.append(
                     WorldFactAdjudicated(
                         run_id=fact.run_id,
                         actor="controller",
@@ -191,8 +205,8 @@ class EventWorldState:
             return fact
 
     async def adjudicate_fact(self, run_id: UUID, fact_id: UUID) -> WorldFact:
-        async with self._locks.setdefault(run_id, asyncio.Lock()):
-            history = await self.events.read_run(run_id)
+        async with self._transaction(run_id) as writer:
+            history = await writer.read_run(run_id)
             facts, _ = self._project(history)
             fact = facts.get(fact_id)
             if fact is None:
@@ -282,7 +296,7 @@ class EventWorldState:
                 reason_code=reason,
                 contradicts_fact_ids=tuple(sorted(links, key=str)),
             )
-            await self.events.append(
+            await writer.append(
                 WorldFactAdjudicated(
                     run_id=run_id,
                     actor="worldstate",
@@ -290,15 +304,15 @@ class EventWorldState:
                     changes=tuple(changes.values()),
                 )
             )
-            updated, _ = self._project(await self.events.read_run(run_id))
+            updated, _ = self._project(await writer.read_run(run_id))
             return updated[fact_id]
 
     async def supersede_fact(
         self, run_id: UUID, old_fact_id: UUID, new_fact_id: UUID, reason_code: str
     ) -> WorldFact:
         """Controller-only disposition; it is not exposed as a model tool."""
-        async with self._locks.setdefault(run_id, asyncio.Lock()):
-            facts, _ = self._project(await self.events.read_run(run_id))
+        async with self._transaction(run_id) as writer:
+            facts, _ = self._project(await writer.read_run(run_id))
             old, new = facts.get(old_fact_id), facts.get(new_fact_id)
             if old is None or new is None or old.fact_id == new.fact_id:
                 raise ValueError("supersession requires two existing distinct facts")
@@ -306,7 +320,7 @@ class EventWorldState:
                 raise ValueError("supersession requires a matching subject and predicate")
             if old.status == "validated" or new.status != "validated":
                 raise ValueError("supersession requires an independently validated replacement")
-            await self.events.append(
+            await writer.append(
                 WorldFactAdjudicated(
                     run_id=run_id,
                     actor="controller",
@@ -321,7 +335,7 @@ class EventWorldState:
                     ),
                 )
             )
-            return self._project(await self.events.read_run(run_id))[0][old_fact_id]
+            return self._project(await writer.read_run(run_id))[0][old_fact_id]
 
     async def query(
         self,
@@ -343,8 +357,8 @@ class EventWorldState:
     async def claim_coverage(self, claim: CoverageClaim) -> CoverageClaim:
         if claim.status != "active":
             raise ValueError("new coverage claim must be active")
-        async with self._locks.setdefault(claim.run_id, asyncio.Lock()):
-            _, claims = self._project(await self.events.read_run(claim.run_id))
+        async with self._transaction(claim.run_id) as writer:
+            _, claims = self._project(await writer.read_run(claim.run_id))
             if claim.claim_id in claims or any(
                 item.status == "active"
                 and item.component.casefold() == claim.component.casefold()
@@ -352,8 +366,18 @@ class EventWorldState:
                 for item in claims.values()
             ):
                 raise ValueError("coverage is already actively claimed")
-            await self.events.append(
+            await writer.append(
                 CoverageClaimed(run_id=claim.run_id, actor="worldstate", claim=claim)
+            )
+            await writer.append(
+                CoverageLeaseAcquired(
+                    run_id=claim.run_id,
+                    actor="worldstate",
+                    claim_id=claim.claim_id,
+                    task_id=claim.task_id,
+                    component=claim.component,
+                    objective=claim.objective,
+                )
             )
             return claim
 
@@ -362,13 +386,22 @@ class EventWorldState:
     ) -> CoverageClaim:
         if status not in {"completed", "released"}:
             raise ValueError("coverage can only be completed or released")
-        async with self._locks.setdefault(run_id, asyncio.Lock()):
-            _, claims = self._project(await self.events.read_run(run_id))
+        async with self._transaction(run_id) as writer:
+            _, claims = self._project(await writer.read_run(run_id))
             claim = claims.get(claim_id)
             if claim is None or claim.task_id != task_id or claim.status != "active":
                 raise ValueError("coverage claim is absent, closed, or owned by another task")
-            await self.events.append(
+            await writer.append(
                 CoverageUpdated(run_id=run_id, actor="worldstate", claim_id=claim_id, status=status)
+            )
+            await writer.append(
+                CoverageLeaseReleased(
+                    run_id=run_id,
+                    actor="worldstate",
+                    claim_id=claim_id,
+                    task_id=task_id,
+                    status=status,
+                )
             )
             return claim.model_copy(update={"status": status})
 

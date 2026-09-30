@@ -176,6 +176,6 @@ async def test_postgres_rebuilds_worldview_and_context_from_events() -> None:
         rebuilt = EventWorldState(events)
         assert (await rebuilt.query(run_id))[0].fact_id == fact.fact_id
         assert (await rebuilt.coverage(run_id))[0] == coverage
-        assert len(await events.read_run(run_id)) == 5
+        assert len(await events.read_run(run_id)) == 6
     finally:
         await engine.dispose()

@@ -21,6 +21,7 @@ class RequestArtifact(StrictModel):
     range_instance_id: UUID
     range_generation: int = Field(ge=0)
     worker_id: UUID | None = None
+    task_id: UUID | None = None
     identity_id: UUID | None = None
     destination: str = Field(min_length=1)
     method: str = Field(min_length=1)
@@ -36,6 +37,8 @@ class Evidence(StrictModel):
     range_instance_id: UUID
     range_generation: int = Field(ge=0)
     request_artifact_id: UUID
+    worker_id: UUID | None = None
+    task_id: UUID | None = None
     identity_id: UUID | None = None
     http_status: int = Field(ge=100, le=599)
     body_b64: str

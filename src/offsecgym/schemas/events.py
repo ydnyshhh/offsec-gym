@@ -10,6 +10,7 @@ from pydantic import Field, TypeAdapter, field_validator, model_validator
 
 from offsecgym.schemas.common import StrictModel, new_id
 from offsecgym.schemas.domain import CandidateFinding, CoverageClaim, ValidationResult, WorldFact
+from offsecgym.schemas.specs import Budget
 
 
 class TraceEvent(StrictModel):
@@ -67,6 +68,7 @@ class ActionRequested(TraceEvent):
     method: str | None = None
     path_sha256: str | None = Field(default=None, pattern=r"^[0-9a-f]{64}$")
     worker_id: UUID | None = None
+    task_id: UUID | None = None
     identity_id: UUID | None = None
     body_sha256: str | None = Field(default=None, pattern=r"^[0-9a-f]{64}$")
     range_instance_id: UUID | None = None
@@ -75,6 +77,8 @@ class ActionRequested(TraceEvent):
 
     @model_validator(mode="after")
     def require_v2_provenance(self) -> ActionRequested:
+        if self.worker_id is not None and self.task_id is None:
+            raise ValueError("worker action event requires task_id")
         if self.schema_version == "2" and (
             self.range_instance_id is None
             or self.range_generation is None
@@ -94,12 +98,16 @@ class ActionRequested(TraceEvent):
 class ActionBlocked(TraceEvent):
     type: Literal["action_blocked"] = "action_blocked"
     action_id: UUID
+    worker_id: UUID | None = None
+    task_id: UUID | None = None
     reason_code: str = Field(min_length=1)
 
 
 class ActionCompleted(TraceEvent):
     type: Literal["action_completed"] = "action_completed"
     action_id: UUID
+    worker_id: UUID | None = None
+    task_id: UUID | None = None
     evidence_id: UUID | None = None
     duration_ms: int = Field(ge=0)
     http_status: int | None = Field(default=None, ge=100, le=599)
@@ -109,6 +117,8 @@ class ActionCompleted(TraceEvent):
 class ActionFailed(TraceEvent):
     type: Literal["action_failed"] = "action_failed"
     action_id: UUID
+    worker_id: UUID | None = None
+    task_id: UUID | None = None
     reason_code: str = Field(min_length=1)
 
 
@@ -118,10 +128,17 @@ class BudgetUpdated(TraceEvent):
     used_actions: int = Field(ge=0)
 
 
+class ControllerBudgetDeclared(TraceEvent):
+    type: Literal["controller_budget_declared"] = "controller_budget_declared"
+    budget: Budget
+
+
 class ModelCallStarted(TraceEvent):
     schema_version: Literal["1", "2"] = "2"
     type: Literal["model_call_started"] = "model_call_started"
     call_id: UUID
+    worker_id: UUID | None = None
+    task_id: UUID | None = None
     provider: str = Field(min_length=1)
     model: str = Field(min_length=1)
     input_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
@@ -130,6 +147,8 @@ class ModelCallStarted(TraceEvent):
 
     @model_validator(mode="after")
     def require_request_artifact(self) -> ModelCallStarted:
+        if self.worker_id is not None and self.task_id is None:
+            raise ValueError("worker model call requires task_id")
         if self.schema_version == "2" and (
             self.request_artifact_id is None or self.request_sha256 != self.input_sha256
         ):
@@ -141,6 +160,8 @@ class ModelCallCompleted(TraceEvent):
     schema_version: Literal["1", "2"] = "2"
     type: Literal["model_call_completed"] = "model_call_completed"
     call_id: UUID
+    worker_id: UUID | None = None
+    task_id: UUID | None = None
     provider_response_id: str | None = None
     provider_status: str = Field(min_length=1)
     tool_call_count: int = Field(ge=0)
@@ -162,6 +183,8 @@ class ModelCallCompleted(TraceEvent):
 class ModelCallFailed(TraceEvent):
     type: Literal["model_call_failed"] = "model_call_failed"
     call_id: UUID
+    worker_id: UUID | None = None
+    task_id: UUID | None = None
     reason_code: str = Field(min_length=1)
     http_status: int | None = Field(default=None, ge=100, le=599)
     response_artifact_id: UUID | None = None
@@ -264,6 +287,86 @@ class CoverageUpdated(TraceEvent):
     status: Literal["completed", "released"]
 
 
+class CoverageLeaseAcquired(TraceEvent):
+    type: Literal["coverage_lease_acquired"] = "coverage_lease_acquired"
+    claim_id: UUID
+    task_id: UUID
+    component: str = Field(min_length=1)
+    objective: str = Field(min_length=1)
+
+
+class CoverageLeaseReleased(TraceEvent):
+    type: Literal["coverage_lease_released"] = "coverage_lease_released"
+    claim_id: UUID
+    task_id: UUID
+    status: Literal["completed", "released"]
+
+
+class ActionReservationAcquired(TraceEvent):
+    type: Literal["action_reservation_acquired"] = "action_reservation_acquired"
+    action_id: UUID
+    fingerprint: str = Field(pattern=r"^[0-9a-f]{64}$")
+    worker_id: UUID | None = None
+    task_id: UUID | None = None
+
+
+class ActionReservationReleased(TraceEvent):
+    type: Literal["action_reservation_released"] = "action_reservation_released"
+    action_id: UUID
+    fingerprint: str = Field(pattern=r"^[0-9a-f]{64}$")
+    worker_id: UUID | None = None
+    task_id: UUID | None = None
+
+
+class ModelBudgetReserved(TraceEvent):
+    type: Literal["model_budget_reserved"] = "model_budget_reserved"
+    call_id: UUID
+    reserved_tokens: int = Field(ge=0)
+    reserved_cost_microusd: int = Field(ge=0)
+    worker_id: UUID | None = None
+    task_id: UUID | None = None
+
+
+class ModelBudgetSettled(TraceEvent):
+    type: Literal["model_budget_settled"] = "model_budget_settled"
+    call_id: UUID
+    actual_tokens: int = Field(ge=0)
+    actual_cost_microusd: int = Field(ge=0)
+    worker_id: UUID | None = None
+    task_id: UUID | None = None
+
+
+class WorkerSpawned(TraceEvent):
+    type: Literal["worker_spawned"] = "worker_spawned"
+    worker_id: UUID
+    task_id: UUID
+    objective: str = Field(min_length=1)
+
+
+class WorkerStarted(TraceEvent):
+    type: Literal["worker_started"] = "worker_started"
+    worker_id: UUID
+    task_id: UUID
+
+
+class WorkerDebriefed(TraceEvent):
+    type: Literal["worker_debriefed"] = "worker_debriefed"
+    worker_id: UUID
+    task_id: UUID
+    new_fact_ids: tuple[UUID, ...] = ()
+    candidate_finding_ids: tuple[UUID, ...] = ()
+    coverage_claim_ids: tuple[UUID, ...] = ()
+    open_questions: tuple[str, ...] = ()
+    recommended_followups: tuple[str, ...] = ()
+
+
+class WorkerFinished(TraceEvent):
+    type: Literal["worker_finished"] = "worker_finished"
+    worker_id: UUID
+    task_id: UUID
+    status: Literal["completed", "budget_exhausted", "failed", "cancelled"]
+
+
 class ContextRetrieved(TraceEvent):
     type: Literal["context_retrieved"] = "context_retrieved"
     query_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
@@ -322,6 +425,7 @@ AnyTraceEvent = Annotated[
     | ActionCompleted
     | ActionFailed
     | BudgetUpdated
+    | ControllerBudgetDeclared
     | ModelCallStarted
     | ModelCallCompleted
     | ModelCallFailed
@@ -330,6 +434,16 @@ AnyTraceEvent = Annotated[
     | WorldFactAdjudicated
     | CoverageClaimed
     | CoverageUpdated
+    | CoverageLeaseAcquired
+    | CoverageLeaseReleased
+    | ActionReservationAcquired
+    | ActionReservationReleased
+    | ModelBudgetReserved
+    | ModelBudgetSettled
+    | WorkerSpawned
+    | WorkerStarted
+    | WorkerDebriefed
+    | WorkerFinished
     | ContextRetrieved
     | FindingSubmitted
     | FindingValidated

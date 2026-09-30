@@ -15,6 +15,7 @@ from offsecgym.schemas.specs import Budget
 
 class AgentTask(StrictModel):
     task_id: UUID
+    worker_id: UUID | None = None
     goal: str = Field(min_length=1)
     allowed_services: tuple[str, ...] = ()
     budget: Budget
@@ -42,6 +43,7 @@ class AgentVisibleRangeContext(StrictModel):
 class AgentContext(StrictModel):
     run_id: UUID
     objective: str = Field(min_length=1)
+    global_budget: Budget | None = None
     range: AgentVisibleRangeContext | None = None
     fact_ids: tuple[UUID, ...] = ()
     evidence_ids: tuple[UUID, ...] = ()
