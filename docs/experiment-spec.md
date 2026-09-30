@@ -16,8 +16,9 @@ and evaluated, including infrastructure failures. Paired vulnerable/patched runs
 same scenario seed and replication block.
 
 For the monolithic baseline, `ModelSpec.provider=openai` selects the first provider
-adapter. `ModelSpec.name` is an explicit model name. `max_model_calls` limits provider
-round trips, and `max_total_tokens` limits observed input plus output tokens. If
+adapter. `ModelSpec.name` is an explicit model name. Monolithic specs must set
+`max_model_calls`; there is no implicit provider-call limit. It limits provider round
+trips, while `max_total_tokens` limits observed input plus output tokens. If
 `max_output_tokens_per_call` is set, it caps one provider response, including reasoning
 tokens; otherwise the remaining total-token allowance is used. At least one of these
 two token limits is required for monolithic runs. The controller stops before a call when

@@ -30,11 +30,18 @@ The event schema requires the event run ID to match the embedded finding. Mutabl
 validation creates a separate replay run with its own start, range-start, action, and
 completion events. `ValidationResult.replay_trace` links that run and its evidence to the
 parent finding verdict.
+New v3 `ValidationResult` records carry their parent run ID. A v3 `FindingValidated`
+event requires that ID to match the event run, and scoring checks that the result and
+candidate finding belong to the same run. Historical v2 results and events remain
+parseable but lack this binding. Referenced-finding existence is not yet checked by the
+event store.
 
 Model turns add `ModelCallStarted`, `ModelCallCompleted`, and `ModelCallFailed`. A call ID
 links start to completion or failure. Completion records provider response ID, input and
 output token counts, and estimated cost when token prices are configured. Failure records
-a stable reason code and optional HTTP status. New v2 start/completion events also bind
+a stable reason code and optional HTTP status. Bounded JSON error bodies from HTTP
+failures are saved as response artifacts when available, with the API key redacted.
+New v2 start/completion events also bind
 request/response artifact IDs and SHA-256 digests. The controller writes the exact provider
 JSON request body and returned response under `model_calls/<run_id>/<call_id>/`, with
 private directories and mode-0600 files. `ModelCallArtifacts.read_verified` checks the
@@ -45,6 +52,9 @@ Rejected model tool calls emit
 `ModelToolRejected` with a stable call reference, tool name, and error class but no
 untrusted argument payload. Its exact arguments are retained in the restricted response
 artifact.
+If the event-store append fails after a request artifact is written, that artifact can
+remain without an event reference. The run/call path makes it discoverable; durable
+artifact indexing and orphan reconciliation remain future controller work.
 
 Request events precede external effects. An allowed action receives exactly one terminal
 completion, blocked, failed, or outcome-unknown resolution. JSONL is an export of the

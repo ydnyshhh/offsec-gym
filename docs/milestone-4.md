@@ -27,7 +27,8 @@ reasoning state, raw tool arguments, and the exact transcript sent on each turn.
 The v2 `ModelCallStarted` and `ModelCallCompleted` events carry artifact IDs and SHA-256
 digests so a reader can verify them. Event payloads contain provider/model names, usage,
 and response ID but no API key or prompt. The API key is only placed in the HTTP header,
-outside the saved request body. The CLI summarizes usage per run. Action and HTTP
+outside the saved request body. Bounded JSON bodies returned with HTTP errors are also
+retained as response artifacts after API-key redaction. The CLI summarizes usage per run. Action and HTTP
 budgets remain enforced by the gateway. The agent enforces model-call, observed token,
 configured cost, and wall-time budgets. A single provider response can overshoot a token
 or cost ceiling because final usage is known only afterward; the controller stops before

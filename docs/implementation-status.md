@@ -44,12 +44,16 @@
   validation; CLI support for 1–20 diagnostic repetitions.
 - Restricted per-call model request/response artifacts with event hashes and replay
   verification; explicit output-token cap and known-routes diagnostic visibility factor.
+- Explicit model-call budget, bounded and redacted provider HTTP-error artifacts, and
+  run-bound v3 validation results/events with legacy v2 read support.
 
 ## Partially implemented
 
 - The gateway enforces action and HTTP request counts. Token, cost, concurrency, and wall
   time ceilings need the experiment controller in later milestones.
 - Event export, projections beyond run sequencing, and crash reconciliation are pending.
+- Request artifacts can remain unreferenced if event append fails. Add artifact indexing
+  and reconciliation before claiming complete crash recovery.
 - Rate limit state is in memory and suitable for a single controller process. Durable,
   distributed reservations are pending.
 - `WorldFact` has typed provenance and relationship fields; WorldState storage, retrieval,
