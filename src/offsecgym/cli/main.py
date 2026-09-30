@@ -86,6 +86,8 @@ def experiment_run(
             raise ValueError("only scripted or monolithic deterministic experiments are supported")
         if spec.orchestrator == "monolithic" and spec.memory != "transcript":
             raise ValueError("the monolithic baseline requires memory=transcript")
+        if spec.orchestrator == "monolithic" and spec.surface_visibility != "known_routes":
+            raise ValueError("the monolithic baseline requires surface_visibility=known_routes")
         if paired and (spec.range.patched or spec.range.patched_properties):
             raise ValueError("--paired requires an unpatched base range")
         settings = Settings()

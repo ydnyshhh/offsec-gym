@@ -35,10 +35,12 @@ budget:
   max_http_requests: 30
   max_model_calls: 20
   max_total_tokens: 30000
+  max_output_tokens_per_call: 25000
   max_wall_seconds: 240
 orchestrator: monolithic
 memory: transcript
 validation: deterministic
+surface_visibility: known_routes
 model:
   provider: openai
   name: REPLACE_WITH_AVAILABLE_MODEL

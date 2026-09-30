@@ -119,14 +119,26 @@ class BudgetUpdated(TraceEvent):
 
 
 class ModelCallStarted(TraceEvent):
+    schema_version: Literal["1", "2"] = "2"
     type: Literal["model_call_started"] = "model_call_started"
     call_id: UUID
     provider: str = Field(min_length=1)
     model: str = Field(min_length=1)
     input_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    request_artifact_id: UUID | None = None
+    request_sha256: str | None = Field(default=None, pattern=r"^[0-9a-f]{64}$")
+
+    @model_validator(mode="after")
+    def require_request_artifact(self) -> ModelCallStarted:
+        if self.schema_version == "2" and (
+            self.request_artifact_id is None or self.request_sha256 != self.input_sha256
+        ):
+            raise ValueError("v2 model-call start requires matching request artifact and digest")
+        return self
 
 
 class ModelCallCompleted(TraceEvent):
+    schema_version: Literal["1", "2"] = "2"
     type: Literal["model_call_completed"] = "model_call_completed"
     call_id: UUID
     provider_response_id: str | None = None
@@ -135,6 +147,16 @@ class ModelCallCompleted(TraceEvent):
     input_tokens: int = Field(ge=0)
     output_tokens: int = Field(ge=0)
     estimated_cost_usd: float | None = Field(default=None, ge=0, allow_inf_nan=False)
+    response_artifact_id: UUID | None = None
+    response_sha256: str | None = Field(default=None, pattern=r"^[0-9a-f]{64}$")
+
+    @model_validator(mode="after")
+    def require_response_artifact(self) -> ModelCallCompleted:
+        if self.schema_version == "2" and (
+            self.response_artifact_id is None or self.response_sha256 is None
+        ):
+            raise ValueError("v2 model-call completion requires response artifact")
+        return self
 
 
 class ModelCallFailed(TraceEvent):
@@ -142,6 +164,14 @@ class ModelCallFailed(TraceEvent):
     call_id: UUID
     reason_code: str = Field(min_length=1)
     http_status: int | None = Field(default=None, ge=100, le=599)
+    response_artifact_id: UUID | None = None
+    response_sha256: str | None = Field(default=None, pattern=r"^[0-9a-f]{64}$")
+
+    @model_validator(mode="after")
+    def require_paired_response_reference(self) -> ModelCallFailed:
+        if (self.response_artifact_id is None) != (self.response_sha256 is None):
+            raise ValueError("failed model-call response artifact ID and digest must be paired")
+        return self
 
 
 class ModelToolRejected(TraceEvent):

@@ -32,14 +32,14 @@ class OpenAIResponsesProvider:
         self.timeout_seconds = timeout_seconds
         self._opener = build_opener(_NoRedirect)
 
-    async def complete(
+    def prepare_request(
         self,
         model: ModelSpec,
         instructions: str,
         input_items: list[dict[str, object]],
         tools: list[dict[str, object]],
         max_output_tokens: int,
-    ) -> ModelTurn:
+    ) -> dict[str, object]:
         if model.provider != "openai":
             raise ProviderRequestError("unsupported_provider")
         payload: dict[str, object] = {
@@ -55,9 +55,12 @@ class OpenAIResponsesProvider:
         }
         if model.reasoning is not None:
             payload["reasoning"] = {"effort": model.reasoning}
-        response = await asyncio.to_thread(self._post, payload)
+        return payload
+
+    async def complete(self, request_payload: dict[str, object]) -> ModelTurn:
+        response = await asyncio.to_thread(self._post, request_payload)
         if response.get("status") == "failed":
-            raise ProviderFailure("provider_response_failed")
+            raise ProviderFailure("provider_response_failed", raw_response=response)
         try:
             usage = response["usage"]
             output = response["output"]
@@ -74,10 +77,11 @@ class OpenAIResponsesProvider:
                         "output_tokens": usage["output_tokens"],
                     },
                     "incomplete_reason": incomplete.get("reason"),
+                    "raw_response": response,
                 }
             )
         except (KeyError, TypeError, AttributeError, ValidationError) as exc:
-            raise ProviderRequestError("invalid_provider_response") from exc
+            raise ProviderRequestError("invalid_provider_response", raw_response=response) from exc
 
     def _post(self, payload: dict[str, object]) -> dict[str, object]:
         request = Request(

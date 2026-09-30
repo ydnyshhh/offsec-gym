@@ -3,14 +3,15 @@
 from __future__ import annotations
 
 import asyncio
-import hashlib
 import json
+from pathlib import Path
 from typing import Literal
 from uuid import UUID, uuid4
 
 from pydantic import Field, ValidationError
 
 from offsecgym.interfaces import EventStore, ToolRegistry
+from offsecgym.providers.artifacts import ModelCallArtifacts
 from offsecgym.providers.base import ModelProvider, ProviderFailure, ProviderRequestError
 from offsecgym.schemas.actions import ActionRequest
 from offsecgym.schemas.common import StrictModel
@@ -172,11 +173,13 @@ class MonolithicSaasAgent:
         model: ModelSpec,
         findings: FindingSink,
         events: EventStore,
+        state_root: Path,
     ) -> None:
         self.provider = provider
         self.model = model
         self.findings = findings
         self.events = events
+        self.artifacts = ModelCallArtifacts(state_root)
 
     async def run(self, task: AgentTask, context: AgentContext, tools: ToolRegistry) -> AgentResult:
         instructions, input_items = build_context(task, context)
@@ -191,25 +194,25 @@ class MonolithicSaasAgent:
             remaining = (
                 task.budget.max_total_tokens - used_tokens
                 if task.budget.max_total_tokens is not None
-                else 4096
+                else None
             )
-            if remaining <= 0 or (
-                task.budget.max_cost_usd is not None and used_cost >= task.budget.max_cost_usd
-            ):
-                raise AgentBudgetExhausted("model_budget_exhausted")
+            if remaining is not None and remaining < 16:
+                raise AgentBudgetExhausted("model_token_budget_exhausted")
+            if task.budget.max_cost_usd is not None and used_cost >= task.budget.max_cost_usd:
+                raise AgentBudgetExhausted("model_cost_budget_exhausted")
+            limits = [
+                limit for limit in (remaining, task.budget.max_output_tokens_per_call) if limit
+            ]
+            if not limits:
+                raise ValueError("model output requires a total or per-call token limit")
+            max_output_tokens = min(limits)
             call_id = uuid4()
-            digest = hashlib.sha256(
-                json.dumps(
-                    {
-                        "model": self.model.model_dump(mode="json"),
-                        "instructions": instructions,
-                        "input": input_items,
-                        "tools": definitions,
-                    },
-                    sort_keys=True,
-                    separators=(",", ":"),
-                ).encode()
-            ).hexdigest()
+            request_payload = self.provider.prepare_request(
+                self.model, instructions, input_items, definitions, max_output_tokens
+            )
+            request_artifact_id, request_sha256 = self.artifacts.write(
+                context.run_id, call_id, "request", request_payload
+            )
             started = await self.events.append(
                 ModelCallStarted(
                     run_id=context.run_id,
@@ -217,14 +220,35 @@ class MonolithicSaasAgent:
                     call_id=call_id,
                     provider=self.model.provider,
                     model=self.model.name,
-                    input_sha256=digest,
+                    input_sha256=request_sha256,
+                    request_artifact_id=request_artifact_id,
+                    request_sha256=request_sha256,
                 )
             )
             try:
-                turn = await self.provider.complete(
-                    self.model, instructions, input_items, definitions, min(4096, remaining)
-                )
+                turn = await self.provider.complete(request_payload)
             except (ProviderFailure, ProviderRequestError) as exc:
+                response_reference: dict[str, object] = {}
+                if exc.raw_response is not None:
+                    try:
+                        artifact_id, response_sha256 = self.artifacts.write(
+                            context.run_id, call_id, "response", exc.raw_response
+                        )
+                    except OSError:
+                        await self.events.append(
+                            ModelCallFailed(
+                                run_id=context.run_id,
+                                actor="controller",
+                                call_id=call_id,
+                                reason_code="model_response_artifact_failed",
+                                causation_id=started.event_id,
+                            )
+                        )
+                        raise
+                    response_reference = {
+                        "response_artifact_id": artifact_id,
+                        "response_sha256": response_sha256,
+                    }
                 await self.events.append(
                     ModelCallFailed(
                         run_id=context.run_id,
@@ -233,6 +257,7 @@ class MonolithicSaasAgent:
                         reason_code=exc.reason_code,
                         http_status=exc.http_status,
                         causation_id=started.event_id,
+                        **response_reference,
                     )
                 )
                 raise
@@ -258,6 +283,21 @@ class MonolithicSaasAgent:
                     )
                 )
                 raise ProviderRequestError("provider_adapter_error") from exc
+            try:
+                response_artifact_id, response_sha256 = self.artifacts.write(
+                    context.run_id, call_id, "response", turn.raw_response
+                )
+            except OSError:
+                await self.events.append(
+                    ModelCallFailed(
+                        run_id=context.run_id,
+                        actor="controller",
+                        call_id=call_id,
+                        reason_code="model_response_artifact_failed",
+                        causation_id=started.event_id,
+                    )
+                )
+                raise
             cost = self._turn_cost(turn.usage.input_tokens, turn.usage.output_tokens)
             used_tokens += turn.usage.input_tokens + turn.usage.output_tokens
             used_cost += cost or 0.0
@@ -274,6 +314,8 @@ class MonolithicSaasAgent:
                     input_tokens=turn.usage.input_tokens,
                     output_tokens=turn.usage.output_tokens,
                     estimated_cost_usd=cost,
+                    response_artifact_id=response_artifact_id,
+                    response_sha256=response_sha256,
                     causation_id=started.event_id,
                 )
             )

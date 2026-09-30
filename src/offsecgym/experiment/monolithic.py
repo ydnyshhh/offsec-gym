@@ -24,9 +24,12 @@ class MonolithicExperimentRunner(ScriptedExperimentRunner):
             and spec.memory == "transcript"
             and spec.validation == "deterministic"
             and spec.model is not None
+            and spec.surface_visibility == "known_routes"
         )
 
     def _agent(self, findings_store: BoundFindingSink, spec: ExperimentSpec):
         if spec.model is None:
             raise ValueError("monolithic agent requires a model")
-        return MonolithicSaasAgent(self.provider, spec.model, findings_store, self.events)
+        return MonolithicSaasAgent(
+            self.provider, spec.model, findings_store, self.events, self.runtime.state.root
+        )

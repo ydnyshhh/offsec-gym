@@ -21,32 +21,47 @@ class ModelTurn(StrictModel):
     output: tuple[dict[str, object], ...]
     usage: ModelUsage
     incomplete_reason: str | None = None
+    raw_response: dict[str, object]
 
 
 class ProviderFailure(RuntimeError):
     """A provider or network failure makes the run unscorable."""
 
-    def __init__(self, reason_code: str, http_status: int | None = None) -> None:
+    def __init__(
+        self,
+        reason_code: str,
+        http_status: int | None = None,
+        raw_response: dict[str, object] | None = None,
+    ) -> None:
         super().__init__(reason_code)
         self.reason_code = reason_code
         self.http_status = http_status
+        self.raw_response = raw_response
 
 
 class ProviderRequestError(RuntimeError):
     """Our request or provider response contract is invalid; this is harness failure."""
 
-    def __init__(self, reason_code: str, http_status: int | None = None) -> None:
+    def __init__(
+        self,
+        reason_code: str,
+        http_status: int | None = None,
+        raw_response: dict[str, object] | None = None,
+    ) -> None:
         super().__init__(reason_code)
         self.reason_code = reason_code
         self.http_status = http_status
+        self.raw_response = raw_response
 
 
 class ModelProvider(Protocol):
-    async def complete(
+    def prepare_request(
         self,
         model: ModelSpec,
         instructions: str,
         input_items: list[dict[str, object]],
         tools: list[dict[str, object]],
         max_output_tokens: int,
-    ) -> ModelTurn: ...
+    ) -> dict[str, object]: ...
+
+    async def complete(self, request_payload: dict[str, object]) -> ModelTurn: ...

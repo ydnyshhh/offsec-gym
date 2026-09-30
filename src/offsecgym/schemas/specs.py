@@ -11,6 +11,7 @@ from offsecgym.schemas.common import StrictModel
 
 class Budget(StrictModel):
     max_total_tokens: int | None = Field(default=None, gt=0)
+    max_output_tokens_per_call: int | None = Field(default=None, ge=16)
     max_model_calls: int | None = Field(default=None, gt=0)
     max_actions: int | None = Field(default=None, gt=0)
     max_http_requests: int | None = Field(default=None, gt=0)
@@ -85,12 +86,24 @@ class ExperimentSpec(StrictModel):
     orchestrator: Literal["scripted", "monolithic", "planner_executor", "ephemeral_workers"]
     memory: Literal["none", "transcript", "summary", "structured"] = "none"
     validation: Literal["deterministic", "self", "independent_model"] = "deterministic"
+    surface_visibility: Literal["known_routes", "openapi", "discoverable", "black_box"] | None = (
+        None
+    )
     model: ModelSpec | None = None
 
     @model_validator(mode="after")
     def require_model_for_llm(self) -> ExperimentSpec:
         if self.orchestrator != "scripted" and self.model is None:
             raise ValueError("model is required for non-scripted orchestrators")
+        if self.orchestrator == "monolithic" and self.surface_visibility is None:
+            raise ValueError("monolithic runs require explicit surface_visibility")
+        if self.orchestrator == "scripted" and self.surface_visibility is not None:
+            raise ValueError("surface_visibility is only supported for model orchestrators")
+        if self.orchestrator == "monolithic" and all(
+            limit is None
+            for limit in (self.budget.max_total_tokens, self.budget.max_output_tokens_per_call)
+        ):
+            raise ValueError("monolithic runs require a total or per-call output token limit")
         if (
             self.orchestrator == "monolithic"
             and self.budget.max_cost_usd is not None

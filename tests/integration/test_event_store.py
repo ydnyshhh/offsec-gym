@@ -101,6 +101,8 @@ async def test_postgres_persists_model_usage_and_provider_failure() -> None:
                 provider="openai",
                 model="mock-model",
                 input_sha256="a" * 64,
+                request_artifact_id=uuid4(),
+                request_sha256="a" * 64,
             )
         )
         completed = await store.append(
@@ -113,6 +115,8 @@ async def test_postgres_persists_model_usage_and_provider_failure() -> None:
                 input_tokens=12,
                 output_tokens=4,
                 estimated_cost_usd=0.00002,
+                response_artifact_id=uuid4(),
+                response_sha256="b" * 64,
                 causation_id=started.event_id,
             )
         )

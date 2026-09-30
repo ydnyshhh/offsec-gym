@@ -24,7 +24,17 @@ class PreviewProvider:
         self.step = 0
         self.invoice_id = None
 
-    async def complete(self, model, instructions, input_items, tools, max_output_tokens):
+    def prepare_request(self, model, instructions, input_items, tools, max_output_tokens):
+        return {
+            "model": model.name,
+            "instructions": instructions,
+            "input": list(input_items),
+            "tools": tools,
+            "max_output_tokens": max_output_tokens,
+        }
+
+    async def complete(self, request_payload):
+        input_items = request_payload["input"]
         if self.step == 0:
             match = re.search(r"Allowed identity IDs: ([0-9a-f-]{36})", input_items[0]["content"])
             assert match is not None
@@ -76,25 +86,39 @@ class PreviewProvider:
             }
             name = "submit_exposure_finding"
         else:
+            output = ({"type": "message", "role": "assistant", "content": []},)
             return ModelTurn(
                 response_id=f"response_{self.step}",
                 status="completed",
-                output=({"type": "message", "role": "assistant", "content": []},),
+                output=output,
                 usage={"input_tokens": 20, "output_tokens": 10},
+                raw_response={
+                    "id": f"response_{self.step}",
+                    "status": "completed",
+                    "output": list(output),
+                    "usage": {"input_tokens": 20, "output_tokens": 10},
+                },
             )
         self.step += 1
+        output = (
+            {
+                "type": "function_call",
+                "call_id": f"call_{self.step}",
+                "name": name,
+                "arguments": json.dumps(args),
+            },
+        )
         return ModelTurn(
             response_id=f"response_{self.step}",
             status="completed",
-            output=(
-                {
-                    "type": "function_call",
-                    "call_id": f"call_{self.step}",
-                    "name": name,
-                    "arguments": json.dumps(args),
-                },
-            ),
+            output=output,
             usage={"input_tokens": 20, "output_tokens": 10},
+            raw_response={
+                "id": f"response_{self.step}",
+                "status": "completed",
+                "output": list(output),
+                "usage": {"input_tokens": 20, "output_tokens": 10},
+            },
         )
 
 
@@ -121,6 +145,7 @@ async def test_monolithic_model_loop_validates_noncanonical_preview(tmp_path: Pa
         budget=Budget(max_actions=10, max_total_tokens=1000, max_model_calls=6),
         orchestrator="monolithic",
         memory="transcript",
+        surface_visibility="known_routes",
         model=ModelSpec(provider="openai", name="mock-model"),
         validation="deterministic",
     )
