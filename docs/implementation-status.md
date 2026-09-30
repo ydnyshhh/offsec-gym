@@ -28,6 +28,12 @@
   requests, request redaction, provenance, and lifecycle generations.
 - Explicit v2 range-start events, effective selective-variant controller metadata,
   build-bound oracle lookup, semantic proof requirements, and classified gateway failures.
+- Event-backed scripted SaaS solver that discovers targets through the same gateway and
+  agent-visible context used by future agents; it has no access to hidden oracle files.
+- Provenance-first deterministic validator with typed proof handlers and fresh-instance
+  replay for the refund state transition.
+- Root-cause-deduplicated evaluator, failure-excluding run metrics, and paired scripted
+  experiment CLI with PostgreSQL event persistence.
 
 ## Partially implemented
 
@@ -42,8 +48,8 @@
 
 ## Next milestone
 
-Milestone 3: scripted oracle agent, deterministic finding validator, and evaluator using
-the same gateway and evidence contracts as later model agents.
+Milestone 4: provider abstraction, typed model tool use, and a baseline LLM agent on the
+same gateway, candidate, validator, and evaluator contracts.
 
 ## Known architectural debt
 

@@ -8,7 +8,8 @@ Licensed under Apache-2.0; see [LICENSE](LICENSE).
 
 Milestones 2 and 2.5 add a seeded multi-tenant SaaS range with five security properties,
 isolated instance credentials, typed hidden ground truth and attack graphs, generation-bound
-evidence, and live oracle tests. The platform does not yet call a model or evaluate agent findings.
+evidence, and live oracle tests. Milestone 3 adds a scripted agent, independent deterministic
+validation with isolated replay, and root-cause-based evaluation. Model agents remain future work.
 
 ## Development
 
@@ -44,6 +45,19 @@ uv run offsecgym range start examples/saas-range.yaml --seed 42
 uv run offsecgym range start examples/saas-range-patched.yaml
 uv run offsecgym range metadata INSTANCE_ID
 ```
+
+To run and score the scripted vulnerable/patched pair, set a dedicated PostgreSQL control
+database URL, apply migrations, and run the experiment:
+
+```sh
+export OFFSECGYM_DATABASE_URL='postgresql+asyncpg://USER:PASSWORD@HOST/DB'
+uv run alembic upgrade head
+uv run offsecgym experiment run experiments/configs/scripted-saas.yaml --paired
+```
+
+The command prints each run ID and evaluation. Vulnerable runs should validate five distinct
+root causes; patched runs should submit no vulnerability findings. The agent receives only
+its projected context and gateway responses. See [Milestone 3](docs/milestone-3.md).
 
 `range start` prints an instance ID and generation. `range create BUILD_ID` separates
 instance creation from startup; UUID-based lifecycle commands accept instance IDs only.

@@ -7,9 +7,9 @@ Sequence number zero is reserved for an event draft and must not be persisted.
 
 Initial event types: `run_started`, `range_started`, `action_requested`,
 `action_blocked`, `action_completed`, `action_failed`, `budget_updated`, and
-`run_completed`. Later event versions cover worker assignments, model calls,
-world-fact adjudication, findings, and
-validation. Every event payload is parsed through a discriminated union; unknown types
+`run_completed`, `finding_submitted`, and `finding_validated`. Later event versions cover
+worker assignments, model calls, and world-fact adjudication. Every event payload is
+parsed through a discriminated union; unknown types
 or unsupported schema versions are rejected. Legacy v1 action requests and range-start
 events remain parseable when explicitly marked v1. New construction defaults to v2 for
 `RangeStarted` and `ActionRequested`. New v2 `RangeStarted` requires a build ID, instance

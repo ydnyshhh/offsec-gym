@@ -18,5 +18,10 @@ Use matched range seeds, randomized run order within blocks, fixed tool/validato
 settings for a comparison, and separate reporting of latency and cost. Infrastructure
 failures stay in the run table and are not silently dropped from denominators. Analysis
 scripts produce tidy Parquet tables and final figures; notebooks are exploratory only.
-Milestone 2.5 supplies evaluation-compatible contracts; the evaluator and metric pipeline
-are scheduled for Milestone 3.
+Milestone 3 computes candidate count, validated count, distinct true positives by root
+cause, rejected false positives, undiscovered false negatives, duplicates, inconclusive
+verdicts, precision, and recall. Precision has no value when a run has no positive or
+false-positive findings; recall has no value when the variant has no active properties.
+Runs with unavailable validation or range infrastructure remain visible with
+`environment_failed` status and no agent score denominators. Parquet exports and broader
+coverage/cost metrics remain future work.

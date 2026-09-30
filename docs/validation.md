@@ -31,7 +31,11 @@ Verdicts are `validated`, `rejected`, or `inconclusive`. Missing proof is reject
 unavailable replay infrastructure is inconclusive. Keep each check and its reason code in
 `ValidationResult`. Oracle data and validator credentials are inaccessible to the solver.
 
-Milestone 2.5 supplies these contracts and tests, not production verdict logic. Build the
-deterministic validator and scripted solver before LLM experiments. Later
+Milestone 3 implements these checks for the SaaS range. It requires an exact request
+artifact/path hash, response evidence digest, matching v2 request and completion events,
+and a verified build-bound oracle. Redacted query/body values cannot prove a claim through
+this first deterministic path. Mutable refund claims require ordered paid/refunded evidence
+and a successful replay in a fresh instance. An observed replay mismatch is rejected;
+unavailable replay is inconclusive. Later
 validation ablations may compare solver self-judgment, fresh-model review, deterministic
 checks, and hybrid review over the *same stored candidates*.
