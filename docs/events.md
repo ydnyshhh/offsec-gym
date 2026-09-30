@@ -56,6 +56,14 @@ If the event-store append fails after a request artifact is written, that artifa
 remain without an event reference. The run/call path makes it discoverable; durable
 artifact indexing and orphan reconciliation remain future controller work.
 
+Milestone 5 adds `WorldFactSubmitted`, `WorldFactAdjudicated`, `CoverageClaimed`,
+`CoverageUpdated`, and `ContextRetrieved`. The submission event binds a v3
+`hypothesized` fact to its run. One adjudication event can change several related fact
+states atomically in the stream, preserving contradiction and corroboration decisions.
+Coverage events record ownership and lifecycle. Context retrieval records the selected
+fact IDs and hashes of the query selector and rendered context; the model request
+artifact retains the exact text supplied to the provider.
+
 Request events precede external effects. An allowed action receives exactly one terminal
 completion, blocked, failed, or outcome-unknown resolution. JSONL is an export of the
 authoritative PostgreSQL stream. Projections are rebuildable from that stream. The current

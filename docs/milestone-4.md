@@ -17,8 +17,8 @@ models. Malformed calls receive a tool error; three malformed calls end as a sco
 `agent_failed` run. See the [official OpenAI function-calling guide](https://developers.openai.com/api/docs/guides/function-calling)
 for the function-call and `function_call_output` exchange.
 
-This baseline requires `memory=transcript`; other memory conditions are reserved for
-later milestones.
+The Milestone 4 baseline uses `memory=transcript`. Milestone 5 adds a separate
+[`memory=structured`](milestone-5.md) condition through the same runner and gateway.
 
 Each provider request is first written to `model_calls/<run_id>/<call_id>/request.json`.
 The returned response is written to `response.json` before `ModelCallCompleted` is

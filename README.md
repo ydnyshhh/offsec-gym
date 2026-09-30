@@ -11,6 +11,7 @@ isolated instance credentials, typed hidden ground truth and attack graphs, gene
 evidence, and live oracle tests. Milestone 3 adds a scripted agent, independent deterministic
 validation with isolated replay, and root-cause-based evaluation. Milestone 4 adds a
 monolithic model baseline through the same gateway, finding, and scoring contracts.
+Milestone 5 adds event-backed structured worldview memory and bounded context retrieval.
 
 ## Development
 
@@ -65,6 +66,12 @@ For the monolithic baseline, edit the model name in
 run `offsecgym experiment run experiments/configs/monolithic-saas.yaml --repetitions 10`.
 The same PostgreSQL setup is required. See [Milestone 4](docs/milestone-4.md) for budget
 and failure semantics.
+
+To run the structured-memory diagnostic with the same range and model settings, use
+`experiments/configs/monolithic-saas-structured.yaml`. Set its model name and the same
+API/database environment variables first. `offsecgym experiment worldview RUN_ID`
+prints reconstructed facts and coverage; use `--predicate` or `--kind` to filter facts.
+See [Milestone 5](docs/milestone-5.md).
 
 `range start` prints an instance ID and generation. `range create BUILD_ID` separates
 instance creation from startup; UUID-based lifecycle commands accept instance IDs only.

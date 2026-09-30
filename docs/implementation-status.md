@@ -46,6 +46,10 @@
   verification; explicit output-token cap and known-routes diagnostic visibility factor.
 - Explicit model-call budget, bounded and redacted provider HTTP-error artifacts, and
   run-bound v3 validation results/events with legacy v2 read support.
+- Event-backed WorldState with provenance-checked fact claims, adjudication, contradictions,
+  corroboration, coverage, bounded relevance retrieval, and structured-memory model tools.
+- Structured monolithic diagnostic config, worldview CLI inspection, and Docker acceptance
+  test through the existing gateway, validator, and evaluator.
 
 ## Partially implemented
 
@@ -56,17 +60,18 @@
   and reconciliation before claiming complete crash recovery.
 - Rate limit state is in memory and suitable for a single controller process. Durable,
   distributed reservations are pending.
-- `WorldFact` has typed provenance and relationship fields; WorldState storage, retrieval,
-  and adjudication are not implemented yet.
+- WorldState currently rebuilds from a full run event scan and serializes claims only
+  within one controller process. Indexed projections, atomic cross-controller coverage
+  reservations, and worker leases remain Milestone 6 work.
 - A managed artifact store and full experiment run manifests remain future controller work.
 - The model-turn protocol still uses OpenAI Responses item shapes. Normalize model output
   and opaque continuation state before adding a second provider.
 
 ## Next milestone
 
-Complete the Milestone 4 live diagnostic batch after configuring an API credential and
-available model. Inspect 10–20 runs individually for harness failures before research
-comparisons. Then begin Milestone 5 structured worldview work.
+Complete live transcript and structured-memory diagnostic batches after configuring an
+API credential and available model. Inspect 10–20 runs per condition for harness
+failures before research comparisons. Then begin Milestone 6 worker coordination.
 
 ## Known architectural debt
 

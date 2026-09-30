@@ -30,3 +30,9 @@ rejects those modes until their prompt and discovery contracts are implemented. 
 `max_cost_usd` is set, both token prices per million must be configured in `ModelSpec`.
 The controller records usage after each call and stops before the next call when a ceiling
 is reached. See [Milestone 4](milestone-4.md).
+
+Milestone 5 also supports `memory=structured` with the monolithic orchestrator. It uses
+the same known-routes diagnostic surface and explicit budgets as `memory=transcript`.
+The [structured diagnostic config](../experiments/configs/monolithic-saas-structured.yaml)
+changes only the memory condition and experiment name. The request artifacts and
+`ContextRetrieved` events allow audits of what was actually retained between turns.
