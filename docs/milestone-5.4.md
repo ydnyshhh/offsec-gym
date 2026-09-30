@@ -92,4 +92,8 @@ identity retention, typed-ID integrity, retrieval carryover, late input, and
 validated-finding gates. It still had three unchanged workspace-list rereads
 without the prior exact request visible, and one finding cited a clearly
 labeled second invoice as corroboration, which misses the literal same-asset
-gate. M5 remains open; M6 was not started.
+gate. The gates remain failed in the permanent diagnostic record. M5 is frozen
+at code commit `0f27533` as the accepted comparison baseline: bounded history
+can evict old checked actions, and the evidence contract lacks explicit
+`primary` versus `corroborating` roles. Further Kimi tuning for the three
+rereads is outside the baseline.

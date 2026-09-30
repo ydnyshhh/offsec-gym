@@ -190,6 +190,32 @@ async def test_unknown_instance_does_not_create_orphan_artifacts(tmp_path: Path)
 
 
 @pytest.mark.asyncio
+async def test_run_mismatch_cannot_reserve_another_runs_budget(tmp_path: Path) -> None:
+    instance_id = uuid4()
+    runtime = FakeRuntime(tmp_path, instance_id)
+    events = MemoryEvents()
+    gateway = ComposeActionGateway(runtime, events, min_interval_seconds=0)
+    context_run, foreign_run = uuid4(), uuid4()
+    context = ExperimentContext(
+        run_id=context_run,
+        range_instance_id=instance_id,
+        range_generation=0,
+        budget=Budget(max_actions=1),
+    )
+    foreign = ActionRequest(
+        run_id=foreign_run,
+        kind="http_request",
+        destination="saas",
+        method="GET",
+        path="/api/me",
+    )
+    result = await gateway.execute(foreign, context)
+    assert result.status == "blocked" and result.reason_code == "run_mismatch"
+    assert [event.type for event in events.events] == ["action_requested", "action_blocked"]
+    assert foreign_run not in gateway.controller.usage
+
+
+@pytest.mark.asyncio
 async def test_build_integrity_failure_is_not_an_agent_action_failure(tmp_path: Path) -> None:
     instance_id = uuid4()
     runtime = FakeRuntime(tmp_path, instance_id)
@@ -222,8 +248,16 @@ async def test_build_integrity_failure_is_not_an_agent_action_failure(tmp_path: 
     runtime.state.verify_build_integrity = fail_after_request
     with pytest.raises(BuildIntegrityError, match="bundle digest changed"):
         await gateway.execute(action, context)
-    assert [event.type for event in events.events] == ["action_requested", "action_failed"]
-    assert events.events[-1].reason_code == "build_integrity_failed"
+    assert [event.type for event in events.events] == [
+        "action_attempt_reserved",
+        "action_requested",
+        "action_reservation_acquired",
+        "action_failed",
+        "action_reservation_released",
+    ]
+    assert next(event for event in events.events if event.type == "action_failed").reason_code == (
+        "build_integrity_failed"
+    )
 
 
 @pytest.mark.asyncio
@@ -277,5 +311,17 @@ async def test_gateway_distinguishes_environment_failure_modes(
     )
     result = await gateway.execute(action, context)
     assert result.status == "failed" and result.reason_code == reason
-    assert [event.type for event in events.events] == ["action_requested", "action_failed"]
-    assert events.events[-1].reason_code == reason
+    types = [event.type for event in events.events]
+    if mode == "unavailable":
+        assert types == ["action_attempt_reserved", "action_requested", "action_failed"]
+    else:
+        assert types == [
+            "action_attempt_reserved",
+            "action_requested",
+            "action_reservation_acquired",
+            "action_failed",
+            "action_reservation_released",
+        ]
+    assert next(event for event in events.events if event.type == "action_failed").reason_code == (
+        reason
+    )

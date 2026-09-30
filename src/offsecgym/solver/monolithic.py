@@ -42,6 +42,8 @@ from offsecgym.solver.scripted import (
     ExperimentInfrastructureError,
     FindingSink,
 )
+from offsecgym.storage.controller import PostgresControllerState, cost_microusd
+from offsecgym.storage.event_store import PostgresEventStore
 from offsecgym.worldview import EventWorldState, WorldContextBuilder
 from offsecgym.worldview.ledger import EntityLedger
 from offsecgym.worldview.state import WorldStateIntegrityError
@@ -346,6 +348,9 @@ class MonolithicSaasAgent:
         self.model = model
         self.findings = findings
         self.events = events
+        self.controller = (
+            PostgresControllerState(events) if isinstance(events, PostgresEventStore) else None
+        )
         self.artifacts = ModelCallArtifacts(state_root)
         self.memory = memory
         self.world = EventWorldState(events) if memory == "structured" else None
@@ -421,18 +426,44 @@ class MonolithicSaasAgent:
             request_artifact_id, request_sha256 = self.artifacts.write(
                 context.run_id, call_id, "request", request_payload
             )
-            started = await self.events.append(
-                ModelCallStarted(
-                    run_id=context.run_id,
-                    actor="controller",
-                    call_id=call_id,
-                    provider=self.model.provider,
-                    model=self.model.name,
-                    input_sha256=request_sha256,
-                    request_artifact_id=request_artifact_id,
-                    request_sha256=request_sha256,
-                )
+            started_event = ModelCallStarted(
+                run_id=context.run_id,
+                actor="controller",
+                call_id=call_id,
+                worker_id=task.worker_id,
+                task_id=task.task_id,
+                provider=self.model.provider,
+                model=self.model.name,
+                input_sha256=request_sha256,
+                request_artifact_id=request_artifact_id,
+                request_sha256=request_sha256,
             )
+            if self.controller is not None:
+                # A conservative preflight bound until the provider reports token usage.
+                estimated_input = (
+                    len(json.dumps(request_payload, ensure_ascii=False).encode("utf-8")) + 1024
+                )
+                try:
+                    reason = await self.controller.reserve_model_call(
+                        context.run_id,
+                        call_id,
+                        context.global_budget or task.budget,
+                        estimated_tokens=estimated_input + max_output_tokens,
+                        estimated_cost_microusd=cost_microusd(
+                            self._turn_cost(estimated_input, max_output_tokens)
+                        ),
+                        worker_id=task.worker_id,
+                        task_id=task.task_id,
+                        started_event=started_event,
+                    )
+                except ValueError as exc:
+                    raise ExperimentInfrastructureError("controller_budget_mismatch") from exc
+                if reason:
+                    raise AgentBudgetExhausted(reason)
+                started = started_event
+            else:
+                started = await self.events.append(started_event)
+            turn = None
             try:
                 turn = await self.provider.complete(request_payload)
             except (ProviderFailure, ProviderRequestError) as exc:
@@ -448,6 +479,8 @@ class MonolithicSaasAgent:
                                 run_id=context.run_id,
                                 actor="controller",
                                 call_id=call_id,
+                                worker_id=task.worker_id,
+                                task_id=task.task_id,
                                 reason_code="model_response_artifact_failed",
                                 causation_id=started.event_id,
                             )
@@ -462,6 +495,8 @@ class MonolithicSaasAgent:
                         run_id=context.run_id,
                         actor="controller",
                         call_id=call_id,
+                        worker_id=task.worker_id,
+                        task_id=task.task_id,
                         reason_code=exc.reason_code,
                         http_status=exc.http_status,
                         causation_id=started.event_id,
@@ -475,6 +510,8 @@ class MonolithicSaasAgent:
                         run_id=context.run_id,
                         actor="controller",
                         call_id=call_id,
+                        worker_id=task.worker_id,
+                        task_id=task.task_id,
                         reason_code="model_call_cancelled",
                         causation_id=started.event_id,
                     )
@@ -486,11 +523,33 @@ class MonolithicSaasAgent:
                         run_id=context.run_id,
                         actor="controller",
                         call_id=call_id,
+                        worker_id=task.worker_id,
+                        task_id=task.task_id,
                         reason_code="provider_adapter_error",
                         causation_id=started.event_id,
                     )
                 )
                 raise ProviderRequestError("provider_adapter_error") from exc
+            finally:
+                if self.controller is not None:
+                    actual_tokens = (
+                        turn.usage.input_tokens + turn.usage.output_tokens if turn else 0
+                    )
+                    actual_cost = (
+                        cost_microusd(
+                            self._turn_cost(turn.usage.input_tokens, turn.usage.output_tokens)
+                        )
+                        if turn
+                        else 0
+                    )
+                    await self.controller.settle_model_call(
+                        context.run_id,
+                        call_id,
+                        actual_tokens=actual_tokens,
+                        actual_cost_microusd=actual_cost,
+                        worker_id=task.worker_id,
+                        task_id=task.task_id,
+                    )
             try:
                 response_artifact_id, response_sha256 = self.artifacts.write(
                     context.run_id, call_id, "response", turn.raw_response
@@ -501,6 +560,8 @@ class MonolithicSaasAgent:
                         run_id=context.run_id,
                         actor="controller",
                         call_id=call_id,
+                        worker_id=task.worker_id,
+                        task_id=task.task_id,
                         reason_code="model_response_artifact_failed",
                         causation_id=started.event_id,
                     )
@@ -514,6 +575,8 @@ class MonolithicSaasAgent:
                     run_id=context.run_id,
                     actor="controller",
                     call_id=call_id,
+                    worker_id=task.worker_id,
+                    task_id=task.task_id,
                     provider_response_id=turn.response_id,
                     provider_status=turn.status,
                     tool_call_count=sum(
@@ -572,6 +635,7 @@ class MonolithicSaasAgent:
                         args,
                         context.run_id,
                         task.task_id,
+                        task.worker_id,
                         completed.event_id,
                         tools,
                         observations,
@@ -640,6 +704,7 @@ class MonolithicSaasAgent:
         args: StrictModel,
         run_id: UUID,
         task_id: UUID,
+        worker_id: UUID | None,
         model_event_id: UUID,
         tools: ToolRegistry,
         observations: list[UUID],
@@ -661,6 +726,8 @@ class MonolithicSaasAgent:
             body = json.loads(args.body_json) if args.body_json is not None else None
             action = ActionRequest(
                 run_id=run_id,
+                worker_id=worker_id,
+                task_id=task_id,
                 kind="http_request",
                 destination="saas",
                 method=args.method,

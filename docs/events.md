@@ -16,7 +16,7 @@ events remain parseable when explicitly marked v1. New construction defaults to 
 ID, and generation; `range_id` is only a legacy v1 field. Future reset, stop, and destroy
 events must use the same explicit instance/generation vocabulary.
 New v2 `ActionRequested` events require a request artifact ID, instance ID, and generation;
-they also record the worker ID when present. Their path and body fields are hashes, not raw
+they also record the worker and task IDs when present. Their path and body fields are hashes, not raw
 secrets. Each action admitted with an existing instance and current generation produces an
 instance-scoped, mode-0600 request artifact even when policy blocks it. Invalid instance
 contexts and stale generations are rejected before any instance artifact is created.
@@ -67,8 +67,20 @@ Coverage events record ownership and lifecycle. Context retrieval records the se
 fact IDs and hashes of the query selector and rendered context; the model request
 artifact retains the exact text supplied to the provider.
 
+Milestone 6.0 adds `ControllerBudgetDeclared`, `ActionAttemptReserved`,
+`ActionReservationAcquired/Released`, `ModelBudgetReserved/Settled`,
+`CoverageLeaseAcquired/Released`, and `WorkerSpawned/Started/Debriefed/Finished`.
+The first reservation binds a canonical global budget to the run. An action
+attempt and its `ActionRequested` event commit together; allowed HTTP dispatch
+has a separate fingerprint lease and HTTP counter. A model reservation and its
+`ModelCallStarted` event commit together. Worker and model events carry both
+worker and task IDs when a worker owns them. `project_controller_events`
+reconstructs usage, ownership, and worker state from these events. Historical
+events without these fields remain parseable.
+
 Request events precede external effects. An allowed action receives exactly one terminal
 completion, blocked, failed, or outcome-unknown resolution. JSONL is an export of the
-authoritative PostgreSQL stream. Projections are rebuildable from that stream. The current
-gateway reads the full stream before each action for budgets and duplicates; this requires
-an indexed projection and atomic reservations before multi-agent runs.
+authoritative PostgreSQL stream. Projections are rebuildable from that stream. The gateway
+uses PostgreSQL controller state for budget and active-request decisions; it no longer
+reads the full stream before each action. WorldState still rebuilds facts and coverage
+from the stream, but writes occur under the same cross-process run transaction.

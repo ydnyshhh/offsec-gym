@@ -44,11 +44,11 @@ required for these milestones. Dependencies are locked in `uv.lock`.
 
 ## Control database
 
-The `events` table is the authoritative history. `runs` currently serializes each run's
+The `events` table is the authoritative history. `runs` serializes each run's
 sequence numbers; it is not a substitute for events. `PostgresEventStore.append` locks the
 run row, allocates a monotonically increasing sequence, and writes the event in one database
-transaction. Reusing an event ID returns the existing event; future projections must update
-in the same transaction and be rebuildable from events.
+transaction. Reusing an event ID returns the existing event. M6.0 budget and
+reservation projections update in that transaction and are rebuildable from events.
 
 Current tables:
 
@@ -56,9 +56,13 @@ Current tables:
 | --- | --- | --- |
 | `runs` | `run_id` | Per-run sequence allocation and creation timestamp |
 | `events` | `event_id`; unique `(run_id, sequence_number)` | Typed, versioned payload and ordered history |
+| `run_usage` | `run_id` | Frozen budget hash, atomic counters, and last dispatch time |
+| `action_reservations` | `(run_id, action_id)` | Attempt IDs and unique active request fingerprints |
+| `model_reservations` | `(run_id, call_id)` | Provisional usage and settlement state |
+| `worker_slots` | `(run_id, worker_id)` | Spawn and active worker ownership |
 
-Later migrations add `range_instances`, `actions`, `artifacts`, `budgets`, `workers`,
-`worker_tasks`, `model_calls`, `world_facts`, `hypotheses`, `coverage_claims`, `findings`,
+Later migrations may add `range_instances`, `artifacts`, `worker_tasks`, `world_facts`,
+`hypotheses`, `coverage_claims`, `findings`,
 and `validation_runs`. IDs, lifecycle states, and timestamps use relational columns;
 versioned extensions use bounded JSONB. Large HTTP evidence and screenshots live in a
 per-run artifact store, referenced by digest and evidence ID. Credentials never appear in

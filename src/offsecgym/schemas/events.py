@@ -310,6 +310,13 @@ class ActionReservationAcquired(TraceEvent):
     task_id: UUID | None = None
 
 
+class ActionAttemptReserved(TraceEvent):
+    type: Literal["action_attempt_reserved"] = "action_attempt_reserved"
+    action_id: UUID
+    worker_id: UUID | None = None
+    task_id: UUID | None = None
+
+
 class ActionReservationReleased(TraceEvent):
     type: Literal["action_reservation_released"] = "action_reservation_released"
     action_id: UUID
@@ -437,6 +444,7 @@ AnyTraceEvent = Annotated[
     | CoverageLeaseAcquired
     | CoverageLeaseReleased
     | ActionReservationAcquired
+    | ActionAttemptReserved
     | ActionReservationReleased
     | ModelBudgetReserved
     | ModelBudgetSettled

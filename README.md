@@ -18,6 +18,10 @@ Milestone 5.3 adds bounded document/ticket details, a recent entity/evidence wor
 set, and exact `get_entity` lookup; see [Milestone 5.3](docs/milestone-5.3.md).
 Milestone 5.4 adds pinned checked identities, a bounded checked-action index, and
 bounded worldview-tool carryover; see [Milestone 5.4](docs/milestone-5.4.md).
+The corrected M5.4 code at `0f27533` is the frozen comparison baseline, with
+its two failed research gates preserved in the [diagnostic](docs/diagnostics/kimi-k3-openrouter-m54.md).
+Milestone 6.0 adds atomic PostgreSQL controller reservations and worker
+lifecycle contracts; see [Milestone 6.0](docs/milestone-6.0.md).
 
 ## Development
 
@@ -104,12 +108,12 @@ can be replayed with `offsecgym experiment revalidate RUN_ID --legacy-m5v1`.
 The [M5.2 diagnostic](docs/diagnostics/kimi-k3-openrouter-m52.md) records the
 matched pinned-provider traces and the predeclared progression gates.
 The [M5.3 diagnostic](docs/diagnostics/kimi-k3-openrouter-m53.md) records three
-structured runs and the gate misses. M5 is not yet frozen; no 10+10 expansion
-or M6 progression was started.
+structured runs and the gate misses. No 10+10 expansion was run.
 The [M5.4 initial](docs/diagnostics/kimi-k3-openrouter-m54-initial.md) and
 [corrected](docs/diagnostics/kimi-k3-openrouter-m54.md) three-run diagnostics
 separate identity, action-history, retrieval, and policy behavior. The
-corrected batch still missed two predeclared gates, so M5 remains open.
+corrected batch still missed two predeclared gates. Those limitations are
+accepted for the frozen M5 comparison baseline; no additional Kimi tuning is planned.
 
 `range start` prints an instance ID and generation. `range create BUILD_ID` separates
 instance creation from startup; UUID-based lifecycle commands accept instance IDs only.

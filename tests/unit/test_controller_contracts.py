@@ -6,6 +6,7 @@ import pytest
 
 from offsecgym.schemas.actions import ActionRequest
 from offsecgym.schemas.events import (
+    ActionAttemptReserved,
     ActionReservationAcquired,
     ActionReservationReleased,
     ModelBudgetReserved,
@@ -64,6 +65,13 @@ def test_controller_events_round_trip_and_project_state() -> None:
             objective="billing",
         ),
         WorkerStarted(run_id=run_id, actor="coordinator", worker_id=worker_id, task_id=task_id),
+        ActionAttemptReserved(
+            run_id=run_id,
+            actor="controller",
+            action_id=action_id,
+            worker_id=worker_id,
+            task_id=task_id,
+        ),
         ActionReservationAcquired(
             run_id=run_id,
             actor="controller",

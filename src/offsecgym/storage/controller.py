@@ -14,6 +14,8 @@ from sqlalchemy.dialects.postgresql import insert as pg_insert
 
 from offsecgym.schemas.actions import ActionRequest
 from offsecgym.schemas.events import (
+    ActionAttemptReserved,
+    ActionRequested,
     ActionReservationAcquired,
     ActionReservationReleased,
     ControllerBudgetDeclared,
@@ -113,10 +115,16 @@ class PostgresControllerState:
         async with self.events.run_transaction(run_id) as tx:
             return dict(await self._usage(tx))
 
-    async def reserve_action(
-        self, action: ActionRequest, budget: Budget, *, min_interval_seconds: float = 0
+    async def reserve_request(
+        self,
+        action: ActionRequest,
+        budget: Budget,
+        requested_event: ActionRequested | None = None,
     ) -> str | None:
-        fingerprint = request_fingerprint(action)
+        if requested_event is not None and (
+            requested_event.run_id != action.run_id or requested_event.action_id != action.action_id
+        ):
+            raise ValueError("action request event does not match reservation")
         async with self.events.run_transaction(action.run_id) as tx:
             usage = await self._usage(tx, budget)
             if (
@@ -130,6 +138,69 @@ class PostgresControllerState:
                 return "duplicate_action"
             if budget.max_actions is not None and usage["used_actions"] >= budget.max_actions:
                 return "action_budget_exhausted"
+            await tx.connection.execute(
+                insert(action_reservations).values(
+                    run_id=action.run_id,
+                    action_id=action.action_id,
+                    fingerprint=request_fingerprint(action),
+                    worker_id=action.worker_id,
+                    task_id=action.task_id,
+                    released_at=datetime.now(UTC),
+                )
+            )
+            await tx.connection.execute(
+                update(run_usage)
+                .where(run_usage.c.run_id == action.run_id)
+                .values(used_actions=usage["used_actions"] + 1)
+            )
+            await tx.append(
+                ActionAttemptReserved(
+                    run_id=action.run_id,
+                    actor="controller",
+                    action_id=action.action_id,
+                    worker_id=action.worker_id,
+                    task_id=action.task_id,
+                )
+            )
+            if requested_event is not None:
+                await tx.append(requested_event)
+        return None
+
+    async def reserve_action(
+        self,
+        action: ActionRequest,
+        budget: Budget,
+        *,
+        min_interval_seconds: float = 0,
+        record_attempt: bool = True,
+    ) -> str | None:
+        if record_attempt:
+            reason = await self.reserve_request(action, budget)
+            if reason:
+                return reason
+        fingerprint = request_fingerprint(action)
+        async with self.events.run_transaction(action.run_id) as tx:
+            usage = await self._usage(tx, budget)
+            row = (
+                (
+                    await tx.connection.execute(
+                        select(action_reservations).where(
+                            action_reservations.c.run_id == action.run_id,
+                            action_reservations.c.action_id == action.action_id,
+                        )
+                    )
+                )
+                .mappings()
+                .one_or_none()
+            )
+            if row is None or row["released_at"] is None:
+                return "action_not_pending"
+            if (
+                row["fingerprint"] != fingerprint
+                or row["worker_id"] != action.worker_id
+                or row["task_id"] != action.task_id
+            ):
+                raise ValueError("action dispatch does not match reserved request")
             if (
                 budget.max_http_requests is not None
                 and usage["used_http_requests"] >= budget.max_http_requests
@@ -151,19 +222,17 @@ class PostgresControllerState:
             if active:
                 return "action_already_reserved"
             await tx.connection.execute(
-                insert(action_reservations).values(
-                    run_id=action.run_id,
-                    action_id=action.action_id,
-                    fingerprint=fingerprint,
-                    worker_id=action.worker_id,
-                    task_id=action.task_id,
+                update(action_reservations)
+                .where(
+                    action_reservations.c.run_id == action.run_id,
+                    action_reservations.c.action_id == action.action_id,
                 )
+                .values(released_at=None)
             )
             await tx.connection.execute(
                 update(run_usage)
                 .where(run_usage.c.run_id == action.run_id)
                 .values(
-                    used_actions=usage["used_actions"] + 1,
                     used_http_requests=usage["used_http_requests"] + 1,
                     last_dispatch_at=now,
                 )
@@ -499,10 +568,14 @@ class LocalActionReservations:
         self.lock = asyncio.Lock()
         self.usage: dict[UUID, dict[str, object]] = {}
         self.action_ids: set[tuple[UUID, UUID]] = set()
+        self.pending: dict[tuple[UUID, UUID], str] = {}
         self.active: dict[tuple[UUID, str], UUID] = {}
 
-    async def reserve_action(
-        self, action: ActionRequest, budget: Budget, *, min_interval_seconds: float = 0
+    async def reserve_request(
+        self,
+        action: ActionRequest,
+        budget: Budget,
+        requested_event: ActionRequested | None = None,
     ) -> str | None:
         async with self.lock:
             usage = self.usage.setdefault(
@@ -513,6 +586,39 @@ class LocalActionReservations:
                 return "duplicate_action"
             if budget.max_actions is not None and usage["used_actions"] >= budget.max_actions:
                 return "action_budget_exhausted"
+            self.action_ids.add((action.run_id, action.action_id))
+            self.pending[(action.run_id, action.action_id)] = request_fingerprint(action)
+            usage["used_actions"] += 1
+            await self.events.append(
+                ActionAttemptReserved(
+                    run_id=action.run_id,
+                    actor="controller",
+                    action_id=action.action_id,
+                    worker_id=action.worker_id,
+                    task_id=action.task_id,
+                )
+            )
+            if requested_event is not None:
+                await self.events.append(requested_event)
+            return None
+
+    async def reserve_action(
+        self,
+        action: ActionRequest,
+        budget: Budget,
+        *,
+        min_interval_seconds: float = 0,
+        record_attempt: bool = True,
+    ) -> str | None:
+        if record_attempt:
+            reason = await self.reserve_request(action, budget)
+            if reason:
+                return reason
+        async with self.lock:
+            usage = self.usage[action.run_id]
+            fingerprint = request_fingerprint(action)
+            if self.pending.get((action.run_id, action.action_id)) != fingerprint:
+                return "action_not_pending"
             if (
                 budget.max_http_requests is not None
                 and usage["used_http_requests"] >= budget.max_http_requests
@@ -522,12 +628,10 @@ class LocalActionReservations:
             last = usage["last_dispatch_at"]
             if last is not None and now - last < timedelta(seconds=min_interval_seconds):
                 return "rate_limited"
-            fingerprint = request_fingerprint(action)
             if (action.run_id, fingerprint) in self.active:
                 return "action_already_reserved"
-            self.action_ids.add((action.run_id, action.action_id))
+            del self.pending[(action.run_id, action.action_id)]
             self.active[(action.run_id, fingerprint)] = action.action_id
-            usage["used_actions"] += 1
             usage["used_http_requests"] += 1
             usage["last_dispatch_at"] = now
             await self.events.append(

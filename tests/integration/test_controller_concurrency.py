@@ -9,20 +9,31 @@ from uuid import uuid4
 import pytest
 from sqlalchemy.ext.asyncio import create_async_engine
 
+from offsecgym.providers.base import ModelTurn
 from offsecgym.schemas.actions import ActionRequest
-from offsecgym.schemas.domain import CoverageClaim, EntityRef, WorldFact
+from offsecgym.schemas.domain import (
+    AgentContext,
+    AgentTask,
+    AgentVisibleRangeContext,
+    CoverageClaim,
+    EntityRef,
+    WorldFact,
+)
 from offsecgym.schemas.events import (
+    ActionAttemptReserved,
     ActionReservationAcquired,
     ActionReservationReleased,
     CoverageLeaseAcquired,
     ModelBudgetReserved,
     ModelBudgetSettled,
+    ModelCallCompleted,
     ModelCallStarted,
     WorkerFinished,
     WorkerSpawned,
     WorkerStarted,
 )
-from offsecgym.schemas.specs import Budget
+from offsecgym.schemas.specs import Budget, ModelSpec
+from offsecgym.solver.monolithic import MonolithicSaasAgent
 from offsecgym.storage.controller import PostgresControllerState
 from offsecgym.storage.event_store import PostgresEventStore
 from offsecgym.storage.projection import project_controller_events
@@ -71,26 +82,24 @@ async def test_same_request_has_exactly_one_active_owner(controllers) -> None:
     actions[1] = actions[1].model_copy(update={"json_body": {"b": 2, "a": 1}})
     outcomes = await asyncio.gather(
         *(
-            controller.reserve_action(action, Budget(max_actions=20))
+            controller.reserve_action(action, Budget(max_actions=21))
             for controller, action in zip((first, second) * 10, actions, strict=True)
         )
     )
     assert outcomes.count(None) == 1
     assert outcomes.count("action_already_reserved") == 19
-    assert (await first.snapshot(run_id))["used_actions"] == 1
+    assert (await first.snapshot(run_id))["used_actions"] == 20
+    assert (await first.snapshot(run_id))["used_http_requests"] == 1
     winner = actions[outcomes.index(None)]
     with pytest.raises(ValueError, match="absent or already released"):
         await second.release_action(winner.model_copy(update={"worker_id": uuid4()}))
     await second.release_action(winner)
-    assert (
-        await first.reserve_action(
-            actions[1 if winner != actions[1] else 0], Budget(max_actions=20)
-        )
-        is None
-    )
+    later = winner.model_copy(update={"action_id": uuid4()})
+    assert await first.reserve_action(later, Budget(max_actions=21)) is None
     trace = await events.read_run(run_id)
     assert len([event for event in trace if isinstance(event, ActionReservationAcquired)]) == 2
     assert len([event for event in trace if isinstance(event, ActionReservationReleased)]) == 1
+    assert len([event for event in trace if isinstance(event, ActionAttemptReserved)]) == 21
 
 
 @pytest.mark.postgres
@@ -170,6 +179,70 @@ async def test_model_start_and_budget_reservation_commit_together(controllers) -
         "model_budget_reserved",
         "model_call_started",
     ]
+
+
+@pytest.mark.postgres
+async def test_model_agent_uses_shared_budget_and_worker_attribution(controllers, tmp_path) -> None:
+    _, _, events, _ = controllers
+    run_id, worker_id, task_id = uuid4(), uuid4(), uuid4()
+    budget = Budget(
+        max_actions=2, max_model_calls=2, max_total_tokens=20000, max_output_tokens_per_call=128
+    )
+
+    class OneTurnProvider:
+        def prepare_request(self, model, instructions, input_items, tools, max_output_tokens):
+            return {
+                "model": model.name,
+                "instructions": instructions,
+                "input": input_items,
+                "max_output_tokens": max_output_tokens,
+            }
+
+        async def complete(self, request_payload):
+            return ModelTurn(
+                response_id="synthetic",
+                status="completed",
+                output=(),
+                usage={"input_tokens": 20, "output_tokens": 10},
+                raw_response={
+                    "id": "synthetic",
+                    "status": "completed",
+                    "output": [],
+                    "usage": {"input_tokens": 20, "output_tokens": 10},
+                },
+            )
+
+    agent = MonolithicSaasAgent(
+        OneTurnProvider(),
+        ModelSpec(provider="openai", name="synthetic"),
+        None,
+        events,
+        tmp_path,
+    )
+    task = AgentTask(task_id=task_id, worker_id=worker_id, goal="Inspect billing", budget=budget)
+    context = AgentContext(
+        run_id=run_id,
+        objective=task.goal,
+        global_budget=budget,
+        range=AgentVisibleRangeContext(
+            range_instance_id=uuid4(), range_generation=0, family="saas"
+        ),
+    )
+    result = await agent.run(task, context, None)
+    assert result.status == "completed"
+    trace = await events.read_run(run_id)
+    model_events = [
+        item
+        for item in trace
+        if isinstance(
+            item, (ModelBudgetReserved, ModelCallStarted, ModelBudgetSettled, ModelCallCompleted)
+        )
+    ]
+    assert len(model_events) == 4
+    assert all(item.worker_id == worker_id and item.task_id == task_id for item in model_events)
+    usage = await PostgresControllerState(events).snapshot(run_id)
+    assert usage["used_model_calls"] == 1
+    assert usage["used_tokens"] == 30 and usage["reserved_tokens"] == 0
 
 
 @pytest.mark.postgres

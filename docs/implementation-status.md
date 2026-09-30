@@ -57,19 +57,31 @@
 - Pinned checked-identity facts, a 32-entry exact request fingerprint index,
   compact checked-action rendering, and a combined automatic-context/world-tool
   carryover ceiling. Both M5.4 three-run smoke batches are recorded.
+- M5.4 frozen comparison baseline at `0f27533`, with both failed gates and
+  accepted limitations kept in the corrected diagnostic.
+- PostgreSQL run transactions for shared WorldState writes and atomic coverage
+  claims; persistent action-fingerprint reservations, action/HTTP/model/token/cost
+  accounting, a declared immutable global budget, worker slots, and
+  reconstructable controller lifecycle events.
+- Concurrent fake-worker PostgreSQL acceptance tests across independent event
+  store instances. They verify unique active reservations, bounded action/model/
+  worker counts, and reconstruction from the event stream.
 
 ## Partially implemented
 
-- The gateway enforces action and HTTP request counts. Token, cost, concurrency, and wall
-  time ceilings need the experiment controller in later milestones.
-- Event export, projections beyond run sequencing, and crash reconciliation are pending.
+- Model token and cost reservations use a conservative request-size preflight
+  estimate, then settle to provider-reported usage. Hidden tokenizer overhead or
+  a provider exceeding its output cap can still make the actual use exceed a
+  preflight reservation. Wall time remains enforced at the experiment runner.
+- Event export and crash reconciliation are pending. The M6 controller accounting
+  and ownership state has a replay projection.
 - Request artifacts can remain unreferenced if event append fails. Add artifact indexing
   and reconciliation before claiming complete crash recovery.
-- Rate limit state is in memory and suitable for a single controller process. Durable,
-  distributed reservations are pending.
-- WorldState currently rebuilds from a full run event scan and serializes claims only
-  within one controller process. Indexed projections, atomic cross-controller coverage
-  reservations, and worker leases remain Milestone 6 work.
+- WorldState still rebuilds facts and coverage from a full run event scan, but
+  PostgreSQL writes now serialize under the run row lock. Indexed projections
+  remain future work.
+- Action and coverage reservations need controller crash reconciliation. An
+  interrupted owner can leave an active reservation until explicit recovery.
 - Model-authored evidence links are not semantic entailment. Mechanically verified
   response-field observations and a controlled memory-only comparison remain research work.
 - A managed artifact store and full experiment run manifests remain future controller work.
@@ -78,14 +90,12 @@
 
 ## Next milestone
 
-The [corrected M5.4 diagnostic](diagnostics/kimi-k3-openrouter-m54.md) cleared
-identity retention, typed-ID, retrieval-size, late-input, and finding gates.
-It missed the gate allowing at most one memory-eviction-driven unchanged
-repeat: three old workspace listings were absent from automatic context at
-repeat time. One explicitly labeled second-invoice corroboration also missed
-the literal same-asset citation gate. M5 remains open under the predeclared
-stopping rule. Keep large-N monolithic comparisons and Milestone 6 worker
-coordination deferred until those boundaries are resolved.
+Build M6.1 sequential coordinator and ephemeral workers on the M6.0 shared
+controller primitives. Require bounded worker packets and typed debriefs, then
+compare them with the frozen M5 monolithic structured baseline under matched
+model, range, visibility, provider, validator, and global budget. Add actual
+concurrency only after sequential traces behave sensibly. See
+[Milestone 6.0](milestone-6.0.md).
 
 ## Known architectural debt
 
@@ -98,9 +108,9 @@ coordination deferred until those boundaries are resolved.
   is tested separately. A full Docker plus PostgreSQL path remains future acceptance work.
 - Build and instance operations assume one trusted local controller; concurrent controllers
   and crash recovery need coordination and reconciliation.
-- The gateway holds a run-wide lock and scans the complete run event history before every
-  action. Replace this O(N²) accounting path with durable atomic budget reservations and
-  projections before multi-agent experiments.
+- The range runtime still uses a process-local instance guard around gateway
+  dispatch and reset. M6.2 needs a cross-process reset/dispatch barrier before
+  concurrent workers share a live instance.
 - Existing Milestone 2 generated `.offsecgym` manifests require a fresh state directory
   and rebuild after stopping/destroying old live instances.
 - The first SaaS API is one service with an in-process SQLite fixture; service-level

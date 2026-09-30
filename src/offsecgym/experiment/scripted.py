@@ -207,7 +207,9 @@ class ScriptedExperimentRunner:
                 allowed_services=("saas",),
                 budget=spec.budget,
             )
-            agent_context = AgentContext(run_id=run_id, objective=task.goal, range=visible)
+            agent_context = AgentContext(
+                run_id=run_id, objective=task.goal, range=visible, global_budget=spec.budget
+            )
             tools = BoundGatewayTools(gateway, experiment)
             phase = "agent"
             try:
