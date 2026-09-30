@@ -55,7 +55,8 @@ own valid preview citation; acceptance does not waive the research gate.
 
 ## Decision
 
-**M5 is not frozen, and M6 was not started.** The corrected M5.4 system fixed
+**M5 is frozen as the accepted M6 comparison baseline at commit `0f27533`.**
+The corrected M5.4 system fixed
 identity eviction and explicit retrieval carryover and exposed substantially
 more checked actions within the same context ceiling. The remaining
 memory-side failures are three early workspace-list checks that were no longer
@@ -63,7 +64,16 @@ visible at a later identical request. One had left the 32-entry store; two
 were outside the 25-entry rendered subset. The separate same-asset citation
 gate also failed on clearly labeled second-object corroboration.
 
+The failed gates above remain failed: three eviction-driven unchanged rereads
+exceeded the one-repeat threshold, and a second invoice was used as explicitly
+labeled corroboration outside the literal same-asset evidence rule. Bounded
+checked-action history can evict older work. The evidence contract has no
+explicit `primary` versus `corroborating` role, so a valid systemic example
+cannot be represented without failing that literal rule. These are accepted
+limitations for the M5 baseline, not retroactive gate passes. We will not
+tune Kimi further just to remove these three rereads.
+
 No further memory tuning or large-N monolithic comparison is part of this
-patch. The original and corrected event streams, raw model turns, and gateway
+baseline. The original and corrected event streams, raw model turns, and gateway
 artifacts remain in the local diagnostic PostgreSQL database and
 `.offsecgym/`; they are not committed to Git.
