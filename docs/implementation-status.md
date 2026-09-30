@@ -51,6 +51,9 @@
   trust-ranked deduplicated retrieval, and structured-memory model tools.
 - Structured monolithic diagnostic config, worldview CLI inspection, and Docker acceptance
   test through the existing gateway, validator, and evaluator.
+- Controller-extracted identity/object facts, canonical finding categories, bounded
+  document/ticket excerpts, a recent entity/evidence working set, and exact `get_entity`
+  lookup. The M5.3 three-run diagnostic is recorded separately.
 
 ## Partially implemented
 
@@ -72,9 +75,11 @@
 
 ## Next milestone
 
-Complete live transcript and structured-memory diagnostic batches after configuring an
-API credential and available model. Inspect 10–20 runs per condition for harness
-failures before research comparisons. Then begin Milestone 6 worker coordination.
+The [M5.3 diagnostic](diagnostics/kimi-k3-openrouter-m53.md) missed the
+unchanged-repeat, repeated `/api/me`, and late-input gates. Preserve compact
+checked-identity/action state and bound explicit retrieval carryover, then
+predeclare and run another small structured smoke test. M5 remains open; defer
+large-N monolithic comparisons and Milestone 6 worker coordination.
 
 ## Known architectural debt
 

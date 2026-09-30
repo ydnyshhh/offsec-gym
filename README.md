@@ -14,6 +14,8 @@ monolithic model baseline through the same gateway, finding, and scoring contrac
 Milestone 5 adds event-backed structured worldview memory and bounded context retrieval.
 Milestone 5.2 adds controller-verified response facts, exact entity IDs, and canonical
 finding categories; see [Milestone 5.2](docs/milestone-5.2.md).
+Milestone 5.3 adds bounded document/ticket details, a recent entity/evidence working
+set, and exact `get_entity` lookup; see [Milestone 5.3](docs/milestone-5.3.md).
 
 ## Development
 
@@ -99,6 +101,9 @@ upstream to `moonshotai` with fallbacks disabled. The historical M5-v1 findings
 can be replayed with `offsecgym experiment revalidate RUN_ID --legacy-m5v1`.
 The [M5.2 diagnostic](docs/diagnostics/kimi-k3-openrouter-m52.md) records the
 matched pinned-provider traces and the predeclared progression gates.
+The [M5.3 diagnostic](docs/diagnostics/kimi-k3-openrouter-m53.md) records three
+structured runs and the gate misses. M5 is not yet frozen; no 10+10 expansion
+or M6 progression was started.
 
 `range start` prints an instance ID and generation. `range create BUILD_ID` separates
 instance creation from startup; UUID-based lifecycle commands accept instance IDs only.

@@ -60,3 +60,7 @@ expansion is planned here.
 If all gates clear, freeze M5 and move to M6 coordinator and ephemeral workers,
 using stable monolithic systems as controls. If any gate fails, preserve the
 traces and document the remaining failure before changing the system again.
+
+The [three-run diagnostic](diagnostics/kimi-k3-openrouter-m53.md) missed the
+unchanged-repeat, `/api/me` repeat, and late-input gates. M5 remains open; the
+traces and provider-limited first run are preserved.
