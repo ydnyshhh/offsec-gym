@@ -40,3 +40,13 @@ def test_saas_seed_override_changes_build_id(tmp_path: Path, monkeypatch) -> Non
     alternate = runner.invoke(app, ["range", "build", str(path), "--seed", "43"])
     assert default.exit_code == alternate.exit_code == 0
     assert default.output != alternate.output
+
+
+def test_scripted_saas_spec_and_database_requirement(monkeypatch) -> None:
+    path = Path(__file__).parents[2] / "experiments" / "configs" / "scripted-saas.yaml"
+    validated = runner.invoke(app, ["spec", "validate", str(path), "--kind", "experiment"])
+    assert validated.exit_code == 0, validated.output
+    monkeypatch.delenv("OFFSECGYM_DATABASE_URL", raising=False)
+    run = runner.invoke(app, ["experiment", "run", str(path), "--paired"])
+    assert run.exit_code == 2
+    assert "OFFSECGYM_DATABASE_URL is required" in run.output

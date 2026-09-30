@@ -24,6 +24,7 @@ class AgentVisibleRangeContext(StrictModel):
     """Explicitly projected, unprivileged context; no controller roster by default."""
 
     range_instance_id: UUID
+    range_generation: int = Field(default=0, ge=0)
     family: str = Field(min_length=1)
     visibility_policy: Literal["opaque_accounts", "known_roles", "white_box_accounts"] = (
         "opaque_accounts"
@@ -255,6 +256,7 @@ def agent_visible_context(
     """Apply a visibility policy; never cast controller metadata into agent context."""
     return AgentVisibleRangeContext(
         range_instance_id=metadata.instance_id,
+        range_generation=metadata.generation,
         family=metadata.family,
         visibility_policy=visibility_policy,
         identity_ids=(

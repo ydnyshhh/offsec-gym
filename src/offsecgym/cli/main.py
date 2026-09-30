@@ -3,23 +3,30 @@
 from __future__ import annotations
 
 import asyncio
+import json
 from pathlib import Path
 from uuid import UUID
 
 import typer
 import yaml
 from pydantic import ValidationError
+from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy.ext.asyncio import create_async_engine
 
 from offsecgym import __version__
 from offsecgym.config import Settings
+from offsecgym.experiment import ScriptedExperimentRunner
 from offsecgym.runtime.compose import ComposeRangeRuntime, DockerCommandError
 from offsecgym.schemas.specs import ExperimentSpec, RangeSpec
+from offsecgym.storage.event_store import PostgresEventStore
 
 app = typer.Typer(help="Synthetic-range research platform")
 range_app = typer.Typer(help="Build and manage isolated synthetic ranges")
 spec_app = typer.Typer(help="Versioned input specifications")
+experiment_app = typer.Typer(help="Run deterministic synthetic-range experiments")
 app.add_typer(range_app, name="range")
 app.add_typer(spec_app, name="spec")
+app.add_typer(experiment_app, name="experiment")
 
 
 @app.command()
@@ -58,6 +65,73 @@ def _runtime() -> ComposeRangeRuntime:
 def _fail(exc: Exception) -> None:
     typer.echo(f"range error: {exc}", err=True)
     raise typer.Exit(2) from exc
+
+
+@experiment_app.command("run")
+def experiment_run(
+    path: Path,
+    paired: bool = typer.Option(False, help="Also run the fully patched sibling"),
+) -> None:
+    """Run the scripted SaaS solver, validator, replay, and evaluator."""
+    try:
+        spec = _load_spec(path, ExperimentSpec)
+        if spec.orchestrator != "scripted" or spec.validation != "deterministic":
+            raise ValueError("Milestone 3 supports scripted/deterministic experiments")
+        if paired and (spec.range.patched or spec.range.patched_properties):
+            raise ValueError("--paired requires an unpatched base range")
+        settings = Settings()
+        if settings.database_url is None:
+            raise ValueError("OFFSECGYM_DATABASE_URL is required for experiment events")
+        if not settings.database_url.startswith("postgresql+asyncpg://"):
+            raise ValueError("OFFSECGYM_DATABASE_URL must use postgresql+asyncpg")
+
+        async def execute() -> list[dict[str, object]]:
+            engine = create_async_engine(settings.database_url)
+            try:
+                runner = ScriptedExperimentRunner(
+                    ComposeRangeRuntime(settings.state_dir), PostgresEventStore(engine)
+                )
+                specs = [spec]
+                if paired:
+                    specs.append(
+                        spec.model_copy(
+                            update={"range": spec.range.model_copy(update={"patched": True})}
+                        )
+                    )
+                outcomes = [await runner.run(item) for item in specs]
+                return [
+                    {
+                        "run_id": str(outcome.run_id),
+                        "build_id": str(outcome.build_id) if outcome.build_id else None,
+                        "variant": (
+                            "patched"
+                            if item.range.patched
+                            else "selective"
+                            if item.range.patched_properties
+                            else "vulnerable"
+                        ),
+                        "evaluation": outcome.evaluation.model_dump(mode="json"),
+                        "failure_reason": outcome.failure_reason,
+                    }
+                    for item, outcome in zip(specs, outcomes, strict=True)
+                ]
+            finally:
+                await engine.dispose()
+
+        runs = asyncio.run(execute())
+    except (
+        OSError,
+        yaml.YAMLError,
+        ValidationError,
+        ValueError,
+        DockerCommandError,
+        SQLAlchemyError,
+    ) as exc:
+        typer.echo(f"experiment error: {exc}", err=True)
+        raise typer.Exit(2) from exc
+    typer.echo(json.dumps({"runs": runs}, indent=2))
+    if any(run["evaluation"]["status"] != "completed" for run in runs):
+        raise typer.Exit(1)
 
 
 @range_app.command("build")
