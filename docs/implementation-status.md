@@ -116,11 +116,14 @@
 
 ## Next milestone
 
-The [M6.2.1 matched scheduling diagnostic](diagnostics/kimi-k3-openrouter-m621.md)
-is complete. Its concurrency gates passed, but fixed pre-worker packets had no
-object targets and both arms scored 0/5. A future research protocol should
-provide equivalent useful prerequisite state to both arms before testing
-dependency-aware scheduling. Preserve the frozen M6.1.3 and M6.2.1 results.
+The [M6.2.2 matched bootstrap diagnostic](diagnostics/kimi-k3-openrouter-m622.md)
+is complete. Its deterministic GET-only prerequisite state and normalized
+packets matched across arms, and concurrency accounting passed. Both arms
+attempted only three of five non-identity objectives and had two strict
+contract violations, so the behavioral gates failed. The sequential arm
+also exhausted usable token headroom before its public and refund workers
+made a model call. Preserve the frozen M6.1.3, M6.2.1, and M6.2.2 results.
+Dependency-aware scheduling is a separate future protocol.
 
 ## Known architectural debt
 

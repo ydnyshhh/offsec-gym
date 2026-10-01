@@ -80,3 +80,9 @@ this live protocol: both arms used 17 bootstrap GETs, observed 8 identities,
 snapshot hash. Packet target, checked-action, bounded-context, and replay
 gates passed in that check. The live pair is the first test of whether the
 unchanged model workers use this state productively.
+
+The [one-pair live diagnostic](diagnostics/kimi-k3-openrouter-m622.md) is
+complete. Bootstrap and packet-equivalence gates passed, with clean shared
+controller replay and real parallel overlap. Both arms missed the
+four-of-five objective-action gate and had two strict-contract violations;
+those failed gates are retained as observed.

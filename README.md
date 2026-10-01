@@ -46,6 +46,10 @@ source-action fact ordering, and crashed-worker reconciliation. The
 matched sequential and parallel worker scheduling. It observed clean
 concurrency accounting and shorter elapsed time in one parallel run, with
 0/5 validated roots in both arms because fixed initial packets lacked targets.
+The [M6.2.2 matched bootstrap diagnostic](docs/diagnostics/kimi-k3-openrouter-m622.md)
+gave both arms the same audited prerequisite state and identical bounded
+packets. Each arm attempted three of five domain objectives and had two
+strict-contract violations; the result is frozen with those failed gates.
 
 ## Development
 
