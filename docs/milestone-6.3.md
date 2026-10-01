@@ -51,3 +51,10 @@ lock. The live task budget has no dollar cap, matching M6.2.3.
 Report validated root-cause recall and false findings without a score gate.
 If a gate fails, freeze that observation and diagnose it before any comparison.
 One live smoke follows fake-worker concurrency tests; no automatic rerun.
+
+## Frozen outcome
+
+The one live run is recorded in
+[the M6.3.0 diagnostic](diagnostics/kimi-k3-openrouter-m63.md). It passed
+accounting/replay and the launched-worker trajectory gate, but failed the
+public-funding and 4/5 objective-route gates. It is frozen without rerun.
