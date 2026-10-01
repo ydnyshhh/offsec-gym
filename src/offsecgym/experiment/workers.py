@@ -23,6 +23,8 @@ class WorkerExperimentRunner(MonolithicExperimentRunner):
                 "matched_parallel_workers",
                 "bootstrapped_sequential_workers",
                 "bootstrapped_parallel_workers",
+                "escrowed_sequential_workers",
+                "escrowed_parallel_workers",
             }
             and spec.memory == "structured"
             and spec.validation == "deterministic"
@@ -75,7 +77,12 @@ class WorkerExperimentRunner(MonolithicExperimentRunner):
             **(
                 {
                     "parallel": spec.orchestrator
-                    in {"matched_parallel_workers", "bootstrapped_parallel_workers"}
+                    in {
+                        "matched_parallel_workers",
+                        "bootstrapped_parallel_workers",
+                        "escrowed_parallel_workers",
+                    },
+                    "escrow": spec.orchestrator.startswith("escrowed_"),
                 }
                 if coordinator_type is MatchedWorkerCoordinator
                 else {}

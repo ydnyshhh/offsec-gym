@@ -69,9 +69,10 @@ def _fixed_slice(budget: Budget, index: int, count: int) -> Budget:
 class MatchedWorkerCoordinator(SequentialWorkerCoordinator):
     """Prepare identical policy packets, then vary only the execution semaphore."""
 
-    def __init__(self, *args, parallel: bool, **kwargs) -> None:
+    def __init__(self, *args, parallel: bool, escrow: bool = False, **kwargs) -> None:
         super().__init__(*args, **kwargs)
         self.parallel = parallel
+        self.escrow = escrow
 
     async def _debrief_owned(
         self, run_id: UUID, task_id: UUID, worker_id: UUID, after: int
@@ -321,6 +322,13 @@ class MatchedWorkerCoordinator(SequentialWorkerCoordinator):
             )
             planned.append(
                 _PlannedWorker(kind, task_id, worker_id, objective, slice_budget, packet)
+            )
+        if self.escrow:
+            await self.controller.declare_worker_escrows(
+                context.run_id,
+                [(item.worker_id, item.task_id, item.objective, item.budget) for item in planned],
+                budget,
+                context.global_budget,
             )
         semaphore = asyncio.Semaphore(count if self.parallel else 1)
         for item in planned:

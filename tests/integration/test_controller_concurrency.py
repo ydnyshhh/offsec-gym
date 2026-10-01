@@ -35,6 +35,7 @@ from offsecgym.schemas.events import (
     ModelCallStarted,
     ModelToolRejected,
     WorkerBlocked,
+    WorkerBudgetEscrowDeclared,
     WorkerContractViolated,
     WorkerDebriefed,
     WorkerFinished,
@@ -413,6 +414,191 @@ async def test_worker_slots_and_model_reservations_remain_bounded(controllers) -
         for item in trace
         if isinstance(item, (ModelBudgetReserved, ModelBudgetSettled))
     )
+
+
+@pytest.mark.postgres
+async def test_hard_worker_escrows_are_atomic_and_replayable(controllers) -> None:
+    first, second, events, _ = controllers
+    run_id = uuid4()
+    worker_budget = Budget(
+        max_model_calls=4,
+        max_total_tokens=200,
+        max_actions=4,
+        max_http_requests=4,
+        max_workers=2,
+        max_concurrency=2,
+    )
+    workers = [(uuid4(), uuid4()) for _ in range(2)]
+    slices = [
+        Budget(max_model_calls=2, max_total_tokens=100, max_actions=2, max_http_requests=2)
+        for _ in workers
+    ]
+    await first.declare_worker_escrows(
+        run_id,
+        [
+            (worker_id, task_id, "invoice testing", slice_budget)
+            for (worker_id, task_id), slice_budget in zip(workers, slices, strict=True)
+        ],
+        worker_budget,
+        worker_budget,
+    )
+    with pytest.raises(ValueError, match="declared once"):
+        await second.declare_worker_escrows(
+            run_id,
+            [(workers[0][0], workers[0][1], "invoice testing", slices[0])],
+            worker_budget,
+            worker_budget,
+        )
+    for worker_id, task_id in workers:
+        assert (
+            await first.spawn_worker(run_id, worker_id, task_id, "invoice", worker_budget) is None
+        )
+        assert await second.start_worker(run_id, worker_id, task_id, worker_budget) is None
+
+    calls = [uuid4() for _ in range(3)]
+    results = await asyncio.gather(
+        first.reserve_model_call(
+            run_id,
+            calls[0],
+            worker_budget,
+            reserved_input_tokens=60,
+            reserved_output_tokens=20,
+            request_bytes=100,
+            worker_id=workers[0][0],
+            task_id=workers[0][1],
+        ),
+        second.reserve_model_call(
+            run_id,
+            calls[1],
+            worker_budget,
+            reserved_input_tokens=60,
+            reserved_output_tokens=20,
+            request_bytes=100,
+            worker_id=workers[0][0],
+            task_id=workers[0][1],
+        ),
+    )
+    assert results.count(None) == 1
+    assert results.count("worker_token_escrow_exhausted") == 1
+    assert (
+        await second.reserve_model_call(
+            run_id,
+            calls[2],
+            worker_budget,
+            reserved_input_tokens=60,
+            reserved_output_tokens=20,
+            request_bytes=100,
+            worker_id=workers[1][0],
+            task_id=workers[1][1],
+        )
+        is None
+    )
+    accounts = await first.worker_escrow_snapshot(run_id)
+    assert len(accounts) == 2
+    assert {row["reserved_tokens"] for row in accounts} == {80}
+    assert {row["used_model_calls"] for row in accounts} == {1}
+    for call_id, result in zip(calls[:2], results, strict=True):
+        if result is None:
+            await second.settle_model_call(
+                run_id,
+                call_id,
+                actual_input_tokens=50,
+                actual_output_tokens=10,
+                worker_id=workers[0][0],
+                task_id=workers[0][1],
+            )
+    await first.settle_model_call(
+        run_id,
+        calls[2],
+        actual_input_tokens=50,
+        actual_output_tokens=10,
+        worker_id=workers[1][0],
+        task_id=workers[1][1],
+    )
+    accounts = await first.worker_escrow_snapshot(run_id)
+    assert {row["used_tokens"] for row in accounts} == {60}
+    assert {row["reserved_tokens"] for row in accounts} == {0}
+
+    actions = [
+        ActionRequest(
+            run_id=run_id,
+            worker_id=workers[0][0],
+            task_id=workers[0][1],
+            kind="http_request",
+            destination="saas",
+            method="GET",
+            path=f"/api/invoices/{index}",
+        )
+        for index in range(3)
+    ]
+    outcomes = await asyncio.gather(
+        *(
+            controller.reserve_action(action, worker_budget)
+            for controller, action in zip((first, second), actions[:2], strict=True)
+        )
+    )
+    assert outcomes == [None, None]
+    assert await first.reserve_action(actions[2], worker_budget) == "worker_action_escrow_exhausted"
+    for action in actions[:2]:
+        await first.release_action(action)
+    trace = await events.read_run(run_id)
+    projection = project_controller_events(trace)
+    assert len([event for event in trace if isinstance(event, WorkerBudgetEscrowDeclared)]) == 2
+    for account in accounts:
+        replay = projection.worker_escrows[account["worker_id"]]
+        assert replay.used_model_calls == account["used_model_calls"]
+        assert replay.used_tokens == account["used_tokens"]
+    assert projection.worker_escrows[workers[0][0]].used_actions == 2
+    assert not projection.active_actions and not projection.model_reservations
+
+
+@pytest.mark.postgres
+async def test_stale_worker_recovery_settles_its_escrow(controllers) -> None:
+    first, _, events, _ = controllers
+    run_id, worker_id, task_id, call_id = (uuid4() for _ in range(4))
+    budget = Budget(
+        max_model_calls=2,
+        max_total_tokens=100,
+        max_actions=1,
+        max_http_requests=1,
+        max_workers=1,
+        max_concurrency=1,
+    )
+    await first.declare_worker_escrows(
+        run_id, [(worker_id, task_id, "invoice", budget)], budget, budget
+    )
+    assert await first.spawn_worker(run_id, worker_id, task_id, "invoice", budget) is None
+    assert await first.start_worker(run_id, worker_id, task_id, budget) is None
+    assert (
+        await first.reserve_model_call(
+            run_id,
+            call_id,
+            budget,
+            reserved_input_tokens=60,
+            reserved_output_tokens=20,
+            request_bytes=100,
+            worker_id=worker_id,
+            task_id=task_id,
+        )
+        is None
+    )
+    trace = await events.read_run(run_id)
+    start = next(item for item in trace if isinstance(item, WorkerStarted))
+    assert start.lease_expires_at is not None
+    assert (
+        await first.reconcile_stale_workers(
+            run_id, now=start.lease_expires_at + timedelta(seconds=1)
+        )
+        == 1
+    )
+    account = (await first.worker_escrow_snapshot(run_id))[0]
+    assert account["used_model_calls"] == 1
+    assert account["reserved_tokens"] == account["used_tokens"] == 0
+    projection = project_controller_events(await events.read_run(run_id))
+    replay = projection.worker_escrows[worker_id]
+    assert replay.used_model_calls == 1
+    assert replay.reserved_tokens == replay.used_tokens == 0
+    assert not projection.model_reservations and projection.active_workers == 0
 
 
 @pytest.mark.postgres

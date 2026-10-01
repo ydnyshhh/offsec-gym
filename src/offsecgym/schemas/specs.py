@@ -111,6 +111,8 @@ class ExperimentSpec(StrictModel):
         "matched_parallel_workers",
         "bootstrapped_sequential_workers",
         "bootstrapped_parallel_workers",
+        "escrowed_sequential_workers",
+        "escrowed_parallel_workers",
     ]
     memory: Literal["none", "transcript", "summary", "structured"] = "none"
     validation: Literal["deterministic", "self", "independent_model"] = "deterministic"
@@ -134,6 +136,8 @@ class ExperimentSpec(StrictModel):
             "matched_parallel_workers",
             "bootstrapped_sequential_workers",
             "bootstrapped_parallel_workers",
+            "escrowed_sequential_workers",
+            "escrowed_parallel_workers",
         }:
             if self.memory != "structured":
                 raise ValueError("ephemeral workers require structured memory")
@@ -144,7 +148,11 @@ class ExperimentSpec(StrictModel):
             expected_concurrency = (
                 6
                 if self.orchestrator
-                in {"matched_parallel_workers", "bootstrapped_parallel_workers"}
+                in {
+                    "matched_parallel_workers",
+                    "bootstrapped_parallel_workers",
+                    "escrowed_parallel_workers",
+                }
                 else 1
             )
             if self.budget.max_workers != 6 or self.budget.max_concurrency != expected_concurrency:
@@ -161,6 +169,8 @@ class ExperimentSpec(StrictModel):
         bootstrapped = self.orchestrator in {
             "bootstrapped_sequential_workers",
             "bootstrapped_parallel_workers",
+            "escrowed_sequential_workers",
+            "escrowed_parallel_workers",
         }
         if bootstrapped:
             if self.bootstrap_budget is None:
@@ -169,6 +179,8 @@ class ExperimentSpec(StrictModel):
                 raise ValueError(
                     "bootstrapped workers require explicit worker action and HTTP limits"
                 )
+            if self.orchestrator.startswith("escrowed_") and self.budget.max_total_tokens is None:
+                raise ValueError("escrowed workers require an explicit total token limit")
         elif self.bootstrap_budget is not None:
             raise ValueError("bootstrap budget is only valid for bootstrapped workers")
         if self.orchestrator == "scripted" and self.surface_visibility is not None:
@@ -180,6 +192,8 @@ class ExperimentSpec(StrictModel):
             "matched_parallel_workers",
             "bootstrapped_sequential_workers",
             "bootstrapped_parallel_workers",
+            "escrowed_sequential_workers",
+            "escrowed_parallel_workers",
         } and all(
             limit is None
             for limit in (self.budget.max_total_tokens, self.budget.max_output_tokens_per_call)
@@ -194,6 +208,8 @@ class ExperimentSpec(StrictModel):
                 "matched_parallel_workers",
                 "bootstrapped_sequential_workers",
                 "bootstrapped_parallel_workers",
+                "escrowed_sequential_workers",
+                "escrowed_parallel_workers",
             }
             and self.budget.max_cost_usd is not None
             and self.model is not None

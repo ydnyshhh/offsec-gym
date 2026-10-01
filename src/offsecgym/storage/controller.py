@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import hashlib
 import json
+from collections.abc import Sequence
 from contextlib import asynccontextmanager
 from datetime import UTC, datetime, timedelta
 from math import ceil
@@ -34,6 +35,7 @@ from offsecgym.schemas.events import (
     ModelCallFailed,
     ModelCallStarted,
     WorkerBlocked,
+    WorkerBudgetEscrowDeclared,
     WorkerContractViolated,
     WorkerDebriefed,
     WorkerFinished,
@@ -50,6 +52,7 @@ from offsecgym.storage.tables import (
     action_reservations,
     model_reservations,
     run_usage,
+    worker_budget_accounts,
     worker_slots,
 )
 
@@ -202,6 +205,131 @@ class PostgresControllerState:
         async with self.events.run_transaction(run_id) as tx:
             return dict(await self._usage(tx))
 
+    async def worker_escrow_snapshot(self, run_id: UUID) -> list[dict[str, object]]:
+        async with self.events.run_transaction(run_id) as tx:
+            rows = await tx.connection.execute(
+                select(worker_budget_accounts).where(worker_budget_accounts.c.run_id == run_id)
+            )
+            return [dict(row) for row in rows.mappings()]
+
+    @staticmethod
+    async def _worker_escrow(tx: RunTransaction, worker_id: UUID | None, task_id: UUID | None):
+        if worker_id is None:
+            return None
+        row = (
+            (
+                await tx.connection.execute(
+                    select(worker_budget_accounts).where(
+                        worker_budget_accounts.c.run_id == tx.run_id,
+                        worker_budget_accounts.c.worker_id == worker_id,
+                    )
+                )
+            )
+            .mappings()
+            .one_or_none()
+        )
+        if row is not None:
+            if row["task_id"] != task_id:
+                raise ValueError("worker escrow task ownership mismatch")
+            return row
+        enabled = (
+            await tx.connection.execute(
+                select(worker_budget_accounts.c.worker_id)
+                .where(worker_budget_accounts.c.run_id == tx.run_id)
+                .limit(1)
+            )
+        ).first()
+        if enabled:
+            raise ValueError("worker has no declared escrow account")
+        return None
+
+    async def declare_worker_escrows(
+        self,
+        run_id: UUID,
+        planned: Sequence[tuple[UUID, UUID, str, Budget]],
+        worker_budget: Budget,
+        global_budget: Budget,
+    ) -> None:
+        if not planned or len({item[0] for item in planned}) != len(planned):
+            raise ValueError("worker escrows require distinct worker IDs")
+        if len({item[1] for item in planned}) != len(planned):
+            raise ValueError("worker escrows require distinct task IDs")
+        fields = (
+            ("max_total_tokens", "max_total_tokens"),
+            ("max_model_calls", "max_model_calls"),
+            ("max_actions", "max_actions"),
+            ("max_http_requests", "max_http_requests"),
+        )
+        for field, ceiling in fields:
+            limits = [getattr(item[3], field) for item in planned]
+            worker_cap = getattr(worker_budget, ceiling)
+            global_cap = getattr(global_budget, ceiling)
+            if any(limit is None or limit <= 0 for limit in limits) or worker_cap is None:
+                raise ValueError(f"worker escrow requires explicit positive {field}")
+            if sum(limits) > worker_cap or (global_cap is not None and worker_cap > global_cap):
+                raise ValueError(f"worker escrow {field} exceeds experiment budget")
+        if worker_budget.max_cost_usd is not None:
+            costs = [item[3].max_cost_usd for item in planned]
+            if any(cost is None for cost in costs) or sum(
+                cost_microusd(cost) for cost in costs
+            ) > cost_microusd(worker_budget.max_cost_usd):
+                raise ValueError("worker escrow cost exceeds experiment budget")
+        async with self.events.run_transaction(run_id) as tx:
+            usage = await self._usage(tx, global_budget)
+            existing = (
+                await tx.connection.execute(
+                    select(worker_budget_accounts.c.worker_id)
+                    .where(worker_budget_accounts.c.run_id == run_id)
+                    .limit(1)
+                )
+            ).first()
+            if existing or usage["spawned_workers"] or usage["used_model_calls"]:
+                raise ValueError("worker escrows must be declared once before worker execution")
+            if (
+                global_budget.max_actions is not None
+                and usage["used_actions"] + sum(item[3].max_actions for item in planned)
+                > global_budget.max_actions
+            ) or (
+                global_budget.max_http_requests is not None
+                and usage["used_http_requests"] + sum(item[3].max_http_requests for item in planned)
+                > global_budget.max_http_requests
+            ):
+                raise ValueError("bootstrap use leaves insufficient worker action escrow")
+            for worker_id, task_id, objective, slice_budget in planned:
+                await tx.connection.execute(
+                    insert(worker_budget_accounts).values(
+                        run_id=run_id,
+                        worker_id=worker_id,
+                        task_id=task_id,
+                        token_limit=slice_budget.max_total_tokens,
+                        model_call_limit=slice_budget.max_model_calls,
+                        action_limit=slice_budget.max_actions,
+                        http_limit=slice_budget.max_http_requests,
+                        cost_limit_microusd=(
+                            cost_microusd(slice_budget.max_cost_usd)
+                            if slice_budget.max_cost_usd is not None
+                            else None
+                        ),
+                        used_tokens=0,
+                        reserved_tokens=0,
+                        used_model_calls=0,
+                        used_actions=0,
+                        used_http_requests=0,
+                        used_cost_microusd=0,
+                        reserved_cost_microusd=0,
+                    )
+                )
+                await tx.append(
+                    WorkerBudgetEscrowDeclared(
+                        run_id=run_id,
+                        actor="controller",
+                        worker_id=worker_id,
+                        task_id=task_id,
+                        objective=objective,
+                        budget=slice_budget,
+                    )
+                )
+
     @staticmethod
     async def _worker_slot_active(
         tx: RunTransaction, worker_id: UUID | None, task_id: UUID | None
@@ -216,7 +344,17 @@ class PostgresControllerState:
                 )
             )
         ).one_or_none()
-        return row is None or (row.task_id == task_id and row.status == "started")
+        if row is None:
+            account = (
+                await tx.connection.execute(
+                    select(worker_budget_accounts.c.worker_id).where(
+                        worker_budget_accounts.c.run_id == tx.run_id,
+                        worker_budget_accounts.c.worker_id == worker_id,
+                    )
+                )
+            ).first()
+            return account is None
+        return row.task_id == task_id and row.status == "started"
 
     async def reserve_request(
         self,
@@ -232,6 +370,7 @@ class PostgresControllerState:
             usage = await self._usage(tx, budget)
             if not await self._worker_slot_active(tx, action.worker_id, action.task_id):
                 return "worker_lease_expired"
+            escrow = await self._worker_escrow(tx, action.worker_id, action.task_id)
             if (
                 await tx.connection.execute(
                     select(action_reservations.c.action_id).where(
@@ -243,6 +382,8 @@ class PostgresControllerState:
                 return "duplicate_action"
             if budget.max_actions is not None and usage["used_actions"] >= budget.max_actions:
                 return "action_budget_exhausted"
+            if escrow is not None and escrow["used_actions"] >= escrow["action_limit"]:
+                return "worker_action_escrow_exhausted"
             await tx.connection.execute(
                 insert(action_reservations).values(
                     run_id=action.run_id,
@@ -258,6 +399,15 @@ class PostgresControllerState:
                 .where(run_usage.c.run_id == action.run_id)
                 .values(used_actions=usage["used_actions"] + 1)
             )
+            if escrow is not None:
+                await tx.connection.execute(
+                    update(worker_budget_accounts)
+                    .where(
+                        worker_budget_accounts.c.run_id == action.run_id,
+                        worker_budget_accounts.c.worker_id == action.worker_id,
+                    )
+                    .values(used_actions=escrow["used_actions"] + 1)
+                )
             await tx.append(
                 ActionAttemptReserved(
                     run_id=action.run_id,
@@ -288,6 +438,7 @@ class PostgresControllerState:
             usage = await self._usage(tx, budget)
             if not await self._worker_slot_active(tx, action.worker_id, action.task_id):
                 return "worker_lease_expired"
+            escrow = await self._worker_escrow(tx, action.worker_id, action.task_id)
             row = (
                 (
                     await tx.connection.execute(
@@ -313,6 +464,8 @@ class PostgresControllerState:
                 and usage["used_http_requests"] >= budget.max_http_requests
             ):
                 return "http_budget_exhausted"
+            if escrow is not None and escrow["used_http_requests"] >= escrow["http_limit"]:
+                return "worker_http_escrow_exhausted"
             now = datetime.now(UTC)
             last = usage["last_dispatch_at"]
             if last is not None and now - last < timedelta(seconds=min_interval_seconds):
@@ -344,6 +497,15 @@ class PostgresControllerState:
                     last_dispatch_at=now,
                 )
             )
+            if escrow is not None:
+                await tx.connection.execute(
+                    update(worker_budget_accounts)
+                    .where(
+                        worker_budget_accounts.c.run_id == action.run_id,
+                        worker_budget_accounts.c.worker_id == action.worker_id,
+                    )
+                    .values(used_http_requests=escrow["used_http_requests"] + 1)
+                )
             await tx.append(
                 ActionReservationAcquired(
                     run_id=action.run_id,
@@ -435,6 +597,7 @@ class PostgresControllerState:
             usage = await self._usage(tx, budget)
             if not await self._worker_slot_active(tx, worker_id, task_id):
                 return "worker_lease_expired"
+            escrow = await self._worker_escrow(tx, worker_id, task_id)
             if (
                 await tx.connection.execute(
                     select(model_reservations.c.call_id).where(
@@ -450,6 +613,8 @@ class PostgresControllerState:
                 > budget.max_model_calls
             ):
                 return "model_call_budget_exhausted"
+            if escrow is not None and escrow["used_model_calls"] >= escrow["model_call_limit"]:
+                return "worker_model_call_escrow_exhausted"
             if (
                 budget.max_total_tokens is not None
                 and usage["used_tokens"]
@@ -459,6 +624,12 @@ class PostgresControllerState:
                 > budget.max_total_tokens
             ):
                 return "model_token_budget_exhausted"
+            if (
+                escrow is not None
+                and escrow["used_tokens"] + escrow["reserved_tokens"] + estimated_tokens
+                > escrow["token_limit"]
+            ):
+                return "worker_token_escrow_exhausted"
             cost_limit = cost_microusd(budget.max_cost_usd)
             if budget.max_cost_usd is not None and (
                 usage["used_cost_microusd"]
@@ -468,6 +639,15 @@ class PostgresControllerState:
                 > cost_limit
             ):
                 return "model_cost_budget_exhausted"
+            if (
+                escrow is not None
+                and escrow["cost_limit_microusd"] is not None
+                and escrow["used_cost_microusd"]
+                + escrow["reserved_cost_microusd"]
+                + estimated_cost_microusd
+                > escrow["cost_limit_microusd"]
+            ):
+                return "worker_cost_escrow_exhausted"
             await tx.connection.execute(
                 insert(model_reservations).values(
                     run_id=run_id,
@@ -492,6 +672,21 @@ class PostgresControllerState:
                     ),
                 )
             )
+            if escrow is not None:
+                await tx.connection.execute(
+                    update(worker_budget_accounts)
+                    .where(
+                        worker_budget_accounts.c.run_id == run_id,
+                        worker_budget_accounts.c.worker_id == worker_id,
+                    )
+                    .values(
+                        used_model_calls=escrow["used_model_calls"] + 1,
+                        reserved_tokens=escrow["reserved_tokens"] + estimated_tokens,
+                        reserved_cost_microusd=(
+                            escrow["reserved_cost_microusd"] + estimated_cost_microusd
+                        ),
+                    )
+                )
             await tx.append(
                 ModelBudgetReserved(
                     run_id=run_id,
@@ -530,6 +725,7 @@ class PostgresControllerState:
             usage = await self._usage(tx)
             if not await self._worker_slot_active(tx, worker_id, task_id):
                 raise ValueError("worker lease is no longer active")
+            escrow = await self._worker_escrow(tx, worker_id, task_id)
             row = (
                 (
                     await tx.connection.execute(
@@ -568,6 +764,22 @@ class PostgresControllerState:
                     ),
                 )
             )
+            if escrow is not None:
+                await tx.connection.execute(
+                    update(worker_budget_accounts)
+                    .where(
+                        worker_budget_accounts.c.run_id == run_id,
+                        worker_budget_accounts.c.worker_id == worker_id,
+                    )
+                    .values(
+                        used_tokens=escrow["used_tokens"] + actual_tokens,
+                        reserved_tokens=escrow["reserved_tokens"] - row["reserved_tokens"],
+                        used_cost_microusd=escrow["used_cost_microusd"] + actual_cost_microusd,
+                        reserved_cost_microusd=(
+                            escrow["reserved_cost_microusd"] - row["reserved_cost_microusd"]
+                        ),
+                    )
+                )
             await tx.append(
                 ModelBudgetSettled(
                     schema_version=("2" if row["reserved_input_tokens"] is not None else "1"),
@@ -594,6 +806,7 @@ class PostgresControllerState:
     ) -> str | None:
         async with self.events.run_transaction(run_id) as tx:
             usage = await self._usage(tx, budget)
+            await self._worker_escrow(tx, worker_id, task_id)
             now = datetime.now(UTC)
             expires = now + timedelta(seconds=self.WORKER_LEASE_SECONDS)
             if budget.max_workers is not None and usage["spawned_workers"] >= budget.max_workers:
@@ -1060,6 +1273,23 @@ class PostgresControllerState:
                             - sum(model["reserved_cost_microusd"] for model in model_rows),
                         )
                     )
+                    escrow = await self._worker_escrow(tx, worker_id, task_id)
+                    if escrow is not None:
+                        await tx.connection.execute(
+                            update(worker_budget_accounts)
+                            .where(
+                                worker_budget_accounts.c.run_id == run_id,
+                                worker_budget_accounts.c.worker_id == worker_id,
+                            )
+                            .values(
+                                used_tokens=escrow["used_tokens"] + recovered_tokens,
+                                reserved_tokens=escrow["reserved_tokens"]
+                                - sum(model["reserved_tokens"] for model in model_rows),
+                                used_cost_microusd=(escrow["used_cost_microusd"] + recovered_cost),
+                                reserved_cost_microusd=escrow["reserved_cost_microusd"]
+                                - sum(model["reserved_cost_microusd"] for model in model_rows),
+                            )
+                        )
                     await tx.connection.execute(
                         update(worker_slots)
                         .where(

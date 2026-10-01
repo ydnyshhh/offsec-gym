@@ -29,6 +29,7 @@ from offsecgym.schemas.events import (
 )
 from offsecgym.schemas.evidence import RequestArtifact
 from offsecgym.schemas.specs import BootstrapBudget, Budget, ExperimentSpec, ModelSpec, RangeSpec
+from offsecgym.storage.controller import PostgresControllerState
 from offsecgym.storage.event_store import PostgresEventStore
 from offsecgym.storage.projection import project_controller_events
 from offsecgym.worldview import EventWorldState
@@ -245,5 +246,85 @@ async def test_bootstrap_snapshot_and_packet_gates_match_across_schedulers(tmp_p
             )
         assert snapshots[0] == snapshots[1]
         assert packets_by_arm[0] == packets_by_arm[1]
+    finally:
+        await engine.dispose()
+
+
+@pytest.mark.postgres
+@pytest.mark.docker
+async def test_escrowed_bootstrap_accounts_match_across_schedulers(tmp_path: Path) -> None:
+    url = os.getenv("OFFSECGYM_TEST_DATABASE_URL")
+    if not url:
+        pytest.skip("OFFSECGYM_TEST_DATABASE_URL is not set")
+    docker = subprocess.run(
+        ["docker", "info", "--format", "{{.ServerVersion}}"],
+        capture_output=True,
+        text=True,
+        timeout=10,
+        check=False,
+    )
+    if docker.returncode:
+        if os.getenv("OFFSECGYM_REQUIRE_DOCKER") == "1":
+            pytest.fail(f"Docker required by CI: {docker.stderr[-400:]}")
+        pytest.skip("Docker daemon is unavailable")
+    engine = create_async_engine(url)
+    runtime = ComposeRangeRuntime(tmp_path)
+    events = PostgresEventStore(engine)
+    controller = PostgresControllerState(events)
+    signatures = []
+    try:
+        for mode in ("sequential", "parallel"):
+            config = (
+                Path(__file__).parents[2]
+                / "experiments"
+                / "configs"
+                / f"kimi-k3-m623-escrowed-{mode}.yaml"
+            )
+            spec = ExperimentSpec.model_validate(yaml.safe_load(config.read_text()))
+            outcome = await WorkerExperimentRunner(runtime, events, BlockProvider()).run(spec)
+            trace = await events.read_run(outcome.run_id)
+            completed = next(
+                event for event in trace if isinstance(event, PrerequisiteBootstrapCompleted)
+            )
+            accounts = await controller.worker_escrow_snapshot(outcome.run_id)
+            assert len(accounts) == 6
+            assert sorted(row["model_call_limit"] for row in accounts) == [3, 3, 3, 3, 4, 4]
+            assert {row["token_limit"] for row in accounts} == {20000}
+            assert {row["action_limit"] for row in accounts} == {10}
+            assert {row["http_limit"] for row in accounts} == {10}
+            assert all(row["used_model_calls"] >= 1 for row in accounts)
+            assert all(row["used_tokens"] <= row["token_limit"] for row in accounts)
+            assert all(row["reserved_tokens"] == 0 for row in accounts)
+            assert all(row["used_actions"] <= row["action_limit"] for row in accounts)
+            assert len([event for event in trace if isinstance(event, WorkerFinished)]) == 6
+            projection = project_controller_events(trace)
+            assert not projection.active_actions and not projection.model_reservations
+            assert len(projection.worker_escrows) == 6
+            for account in accounts:
+                replay = projection.worker_escrows[account["worker_id"]]
+                assert replay.used_tokens == account["used_tokens"]
+                assert replay.used_model_calls == account["used_model_calls"]
+                assert replay.used_actions == account["used_actions"]
+                assert replay.used_http_requests == account["used_http_requests"]
+            packets = [event.packet for event in trace if isinstance(event, WorkerPacketPrepared)]
+            signatures.append(
+                (
+                    completed.snapshot_hash,
+                    sorted(
+                        (
+                            packet.objective,
+                            packet.contract,
+                            packet.budget_slice,
+                            tuple((e.entity_type, e.entity_id) for e in packet.relevant_entities),
+                            tuple(
+                                (a.fingerprint, a.method, a.path, a.identity_id)
+                                for a in packet.prior_checked_actions
+                            ),
+                        )
+                        for packet in packets
+                    ),
+                )
+            )
+        assert signatures[0] == signatures[1]
     finally:
         await engine.dispose()

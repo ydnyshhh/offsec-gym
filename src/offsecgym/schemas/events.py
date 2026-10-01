@@ -428,6 +428,28 @@ class WorkerSpawned(TraceEvent):
     lease_expires_at: datetime | None = None
 
 
+class WorkerBudgetEscrowDeclared(TraceEvent):
+    type: Literal["worker_budget_escrow_declared"] = "worker_budget_escrow_declared"
+    worker_id: UUID
+    task_id: UUID
+    objective: str = Field(min_length=1)
+    budget: Budget
+
+    @model_validator(mode="after")
+    def require_fixed_limits(self) -> WorkerBudgetEscrowDeclared:
+        if any(
+            value is None
+            for value in (
+                self.budget.max_total_tokens,
+                self.budget.max_model_calls,
+                self.budget.max_actions,
+                self.budget.max_http_requests,
+            )
+        ):
+            raise ValueError("worker escrow declaration requires fixed compute limits")
+        return self
+
+
 class WorkerScheduled(TraceEvent):
     type: Literal["worker_scheduled"] = "worker_scheduled"
     worker_id: UUID
@@ -604,6 +626,7 @@ AnyTraceEvent = Annotated[
     | ModelBudgetReserved
     | ModelBudgetSettled
     | WorkerSpawned
+    | WorkerBudgetEscrowDeclared
     | WorkerScheduled
     | WorkerStarted
     | WorkerHeartbeat

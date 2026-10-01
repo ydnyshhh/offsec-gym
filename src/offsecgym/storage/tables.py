@@ -98,3 +98,23 @@ worker_slots = Table(
     Column("lease_expires_at", DateTime(timezone=True)),
     Column("last_heartbeat_at", DateTime(timezone=True)),
 )
+
+worker_budget_accounts = Table(
+    "worker_budget_accounts",
+    metadata,
+    Column("run_id", UUID(as_uuid=True), ForeignKey("runs.run_id"), primary_key=True),
+    Column("worker_id", UUID(as_uuid=True), primary_key=True),
+    Column("task_id", UUID(as_uuid=True), nullable=False),
+    Column("token_limit", BigInteger, nullable=False),
+    Column("model_call_limit", Integer, nullable=False),
+    Column("action_limit", Integer, nullable=False),
+    Column("http_limit", Integer, nullable=False),
+    Column("cost_limit_microusd", BigInteger),
+    Column("used_tokens", BigInteger, nullable=False, default=0),
+    Column("reserved_tokens", BigInteger, nullable=False, default=0),
+    Column("used_model_calls", Integer, nullable=False, default=0),
+    Column("used_actions", Integer, nullable=False, default=0),
+    Column("used_http_requests", Integer, nullable=False, default=0),
+    Column("used_cost_microusd", BigInteger, nullable=False, default=0),
+    Column("reserved_cost_microusd", BigInteger, nullable=False, default=0),
+)

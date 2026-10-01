@@ -19,6 +19,7 @@ from offsecgym.schemas.events import (
     ModelBudgetReserved,
     ModelBudgetSettled,
     WorkerBlocked,
+    WorkerBudgetEscrowDeclared,
     WorkerContractViolated,
     WorkerDebriefed,
     WorkerFinished,
@@ -32,6 +33,19 @@ from offsecgym.schemas.events import (
     WorkerStarted,
 )
 from offsecgym.schemas.specs import Budget
+
+
+@dataclass
+class WorkerEscrowProjection:
+    task_id: UUID
+    budget: Budget
+    used_tokens: int = 0
+    reserved_tokens: int = 0
+    used_model_calls: int = 0
+    used_actions: int = 0
+    used_http_requests: int = 0
+    used_cost_microusd: int = 0
+    reserved_cost_microusd: int = 0
 
 
 @dataclass
@@ -64,6 +78,18 @@ class ControllerProjection:
     model_reservations: dict[UUID, tuple[int, int, UUID | None, UUID | None, int | None]] = field(
         default_factory=dict
     )
+    worker_escrows: dict[UUID, WorkerEscrowProjection] = field(default_factory=dict)
+
+
+def _escrow_for(
+    state: ControllerProjection, worker_id: UUID | None, task_id: UUID | None
+) -> WorkerEscrowProjection | None:
+    if worker_id is None or not state.worker_escrows:
+        return None
+    account = state.worker_escrows.get(worker_id)
+    if account is None or account.task_id != task_id:
+        raise ValueError("worker event has no matching escrow account")
+    return account
 
 
 def project_controller_events(trace: Sequence[AnyTraceEvent]) -> ControllerProjection:
@@ -73,17 +99,50 @@ def project_controller_events(trace: Sequence[AnyTraceEvent]) -> ControllerProje
             if state.budget is not None:
                 raise ValueError("run budget declared more than once")
             state.budget = event.budget
+        elif isinstance(event, WorkerBudgetEscrowDeclared):
+            if event.worker_id in state.worker_escrows or state.spawned_workers:
+                raise ValueError("worker escrow declared after spawn or duplicated")
+            if state.budget is None:
+                raise ValueError("worker escrow has no declared global budget")
+            state.worker_escrows[event.worker_id] = WorkerEscrowProjection(
+                task_id=event.task_id, budget=event.budget
+            )
+            for field in (
+                "max_total_tokens",
+                "max_model_calls",
+                "max_actions",
+                "max_http_requests",
+            ):
+                ceiling = getattr(state.budget, field)
+                if (
+                    ceiling is not None
+                    and sum(
+                        getattr(account.budget, field) for account in state.worker_escrows.values()
+                    )
+                    > ceiling
+                ):
+                    raise ValueError("worker escrow declarations exceed global budget")
         elif isinstance(event, ActionAttemptReserved):
             if event.action_id in state.action_owners:
                 raise ValueError("duplicate action attempt in event stream")
             state.used_actions += 1
             state.action_owners[event.action_id] = (event.worker_id, event.task_id)
+            escrow = _escrow_for(state, event.worker_id, event.task_id)
+            if escrow is not None:
+                escrow.used_actions += 1
+                if escrow.used_actions > escrow.budget.max_actions:
+                    raise ValueError("worker action escrow exceeded")
         elif isinstance(event, ActionReservationAcquired):
             if event.fingerprint in state.active_actions:
                 raise ValueError("duplicate active action reservation in event stream")
             if state.action_owners.get(event.action_id) != (event.worker_id, event.task_id):
                 raise ValueError("action dispatch has no matching attributed attempt")
             state.used_http_requests += 1
+            escrow = _escrow_for(state, event.worker_id, event.task_id)
+            if escrow is not None:
+                escrow.used_http_requests += 1
+                if escrow.used_http_requests > escrow.budget.max_http_requests:
+                    raise ValueError("worker HTTP escrow exceeded")
             state.active_actions[event.fingerprint] = event.action_id
             state.last_dispatch_at = event.occurred_at
         elif isinstance(event, ActionReservationReleased):
@@ -111,6 +170,15 @@ def project_controller_events(trace: Sequence[AnyTraceEvent]) -> ControllerProje
             state.used_model_calls += 1
             state.reserved_tokens += event.reserved_tokens
             state.reserved_cost_microusd += event.reserved_cost_microusd
+            escrow = _escrow_for(state, event.worker_id, event.task_id)
+            if escrow is not None:
+                escrow.used_model_calls += 1
+                escrow.reserved_tokens += event.reserved_tokens
+                escrow.reserved_cost_microusd += event.reserved_cost_microusd
+                if escrow.used_model_calls > escrow.budget.max_model_calls or (
+                    escrow.used_tokens + escrow.reserved_tokens > escrow.budget.max_total_tokens
+                ):
+                    raise ValueError("worker model escrow exceeded")
             state.model_reservations[event.call_id] = (
                 event.reserved_tokens,
                 event.reserved_cost_microusd,
@@ -137,6 +205,14 @@ def project_controller_events(trace: Sequence[AnyTraceEvent]) -> ControllerProje
             state.reserved_cost_microusd -= reservation[1]
             state.used_tokens += event.actual_tokens
             state.used_cost_microusd += event.actual_cost_microusd
+            escrow = _escrow_for(state, event.worker_id, event.task_id)
+            if escrow is not None:
+                escrow.reserved_tokens -= reservation[0]
+                escrow.reserved_cost_microusd -= reservation[1]
+                escrow.used_tokens += event.actual_tokens
+                escrow.used_cost_microusd += event.actual_cost_microusd
+                if escrow.used_tokens + escrow.reserved_tokens > escrow.budget.max_total_tokens:
+                    raise ValueError("worker actual token usage exceeded escrow")
         elif isinstance(event, WorkerScheduled):
             if event.worker_id in state.worker_scheduled:
                 raise ValueError("worker scheduled more than once")

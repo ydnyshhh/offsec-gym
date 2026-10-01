@@ -106,6 +106,8 @@ def experiment_run(
                 "matched_parallel_workers",
                 "bootstrapped_sequential_workers",
                 "bootstrapped_parallel_workers",
+                "escrowed_sequential_workers",
+                "escrowed_parallel_workers",
             }
             or spec.validation != "deterministic"
         ):
@@ -129,6 +131,8 @@ def experiment_run(
             "matched_parallel_workers",
             "bootstrapped_sequential_workers",
             "bootstrapped_parallel_workers",
+            "escrowed_sequential_workers",
+            "escrowed_parallel_workers",
         }:
             if spec.model is None or spec.model.provider not in {"openai", "openrouter"}:
                 raise ValueError("the monolithic runner supports provider=openai or openrouter")
@@ -160,6 +164,8 @@ def experiment_run(
                             "matched_parallel_workers",
                             "bootstrapped_sequential_workers",
                             "bootstrapped_parallel_workers",
+                            "escrowed_sequential_workers",
+                            "escrowed_parallel_workers",
                         }
                         else MonolithicExperimentRunner
                     )
