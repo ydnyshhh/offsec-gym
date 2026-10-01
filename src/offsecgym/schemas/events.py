@@ -392,6 +392,29 @@ class ModelBudgetReserved(TraceEvent):
         return self
 
 
+class ModelReservationRejected(TraceEvent):
+    type: Literal["model_reservation_rejected"] = "model_reservation_rejected"
+    call_id: UUID
+    worker_id: UUID | None = None
+    task_id: UUID | None = None
+    reason_code: str = Field(min_length=1)
+    actual_used_tokens: int = Field(ge=0)
+    reserved_tokens: int = Field(ge=0)
+    requested_input_tokens: int = Field(ge=0)
+    requested_output_tokens: int = Field(ge=0)
+    used_model_calls: int = Field(ge=0)
+    global_token_limit: int | None = Field(default=None, ge=0)
+    global_call_limit: int | None = Field(default=None, ge=0)
+    worker_used_tokens: int | None = Field(default=None, ge=0)
+    worker_reserved_tokens: int | None = Field(default=None, ge=0)
+    worker_token_limit: int | None = Field(default=None, ge=0)
+    worker_used_model_calls: int | None = Field(default=None, ge=0)
+    worker_call_limit: int | None = Field(default=None, ge=0)
+    requested_cost_microusd: int = Field(ge=0)
+    global_cost_limit_microusd: int | None = Field(default=None, ge=0)
+    worker_cost_limit_microusd: int | None = Field(default=None, ge=0)
+
+
 class ModelBudgetSettled(TraceEvent):
     schema_version: Literal["1", "2"] = "2"
     type: Literal["model_budget_settled"] = "model_budget_settled"
@@ -624,6 +647,7 @@ AnyTraceEvent = Annotated[
     | ActionAttemptReserved
     | ActionReservationReleased
     | ModelBudgetReserved
+    | ModelReservationRejected
     | ModelBudgetSettled
     | WorkerSpawned
     | WorkerBudgetEscrowDeclared

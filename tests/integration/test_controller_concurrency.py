@@ -33,6 +33,7 @@ from offsecgym.schemas.events import (
     ModelBudgetSettled,
     ModelCallCompleted,
     ModelCallStarted,
+    ModelReservationRejected,
     ModelToolRejected,
     WorkerBlocked,
     WorkerBudgetEscrowDeclared,
@@ -400,6 +401,12 @@ async def test_worker_slots_and_model_reservations_remain_bounded(controllers) -
     assert len([item for item in trace if isinstance(item, WorkerStarted)]) == 2
     assert len([item for item in trace if isinstance(item, WorkerFinished)]) == 1
     assert len([item for item in trace if isinstance(item, ModelBudgetReserved)]) == 2
+    rejections = [item for item in trace if isinstance(item, ModelReservationRejected)]
+    assert len(rejections) == 6
+    assert all(item.reason_code == "model_call_budget_exhausted" for item in rejections)
+    assert {item.call_id for item in rejections} == {
+        call_id for call_id, outcome in zip(calls, reserved, strict=True) if outcome is not None
+    }
     assert len([item for item in trace if isinstance(item, ModelBudgetSettled)]) == 2
     for item in trace:
         if isinstance(item, ModelBudgetReserved):

@@ -34,6 +34,7 @@ from offsecgym.schemas.events import (
     ModelCallCompleted,
     ModelCallFailed,
     ModelCallStarted,
+    ModelReservationRejected,
     WorkerBlocked,
     WorkerBudgetEscrowDeclared,
     WorkerContractViolated,
@@ -595,8 +596,43 @@ class PostgresControllerState:
             raise ValueError("worker model reservation requires task_id")
         async with self.events.run_transaction(run_id) as tx:
             usage = await self._usage(tx, budget)
+
+            async def reject(reason: str, escrow=None) -> str:
+                await tx.append(
+                    ModelReservationRejected(
+                        run_id=run_id,
+                        actor="controller",
+                        call_id=call_id,
+                        worker_id=worker_id,
+                        task_id=task_id,
+                        reason_code=reason,
+                        actual_used_tokens=usage["used_tokens"],
+                        reserved_tokens=usage["reserved_tokens"],
+                        requested_input_tokens=reserved_input_tokens,
+                        requested_output_tokens=reserved_output_tokens,
+                        used_model_calls=usage["used_model_calls"],
+                        global_token_limit=budget.max_total_tokens,
+                        global_call_limit=budget.max_model_calls,
+                        worker_used_tokens=escrow["used_tokens"] if escrow else None,
+                        worker_reserved_tokens=escrow["reserved_tokens"] if escrow else None,
+                        worker_token_limit=escrow["token_limit"] if escrow else None,
+                        worker_used_model_calls=escrow["used_model_calls"] if escrow else None,
+                        worker_call_limit=escrow["model_call_limit"] if escrow else None,
+                        requested_cost_microusd=estimated_cost_microusd,
+                        global_cost_limit_microusd=(
+                            cost_microusd(budget.max_cost_usd)
+                            if budget.max_cost_usd is not None
+                            else None
+                        ),
+                        worker_cost_limit_microusd=(
+                            escrow["cost_limit_microusd"] if escrow else None
+                        ),
+                    )
+                )
+                return reason
+
             if not await self._worker_slot_active(tx, worker_id, task_id):
-                return "worker_lease_expired"
+                return await reject("worker_lease_expired")
             escrow = await self._worker_escrow(tx, worker_id, task_id)
             if (
                 await tx.connection.execute(
@@ -606,15 +642,15 @@ class PostgresControllerState:
                     )
                 )
             ).first():
-                return "duplicate_model_call"
+                return await reject("duplicate_model_call", escrow)
             if (
                 budget.max_model_calls is not None
                 and usage["used_model_calls"] + 1 + protected_future_model_calls
                 > budget.max_model_calls
             ):
-                return "model_call_budget_exhausted"
+                return await reject("model_call_budget_exhausted", escrow)
             if escrow is not None and escrow["used_model_calls"] >= escrow["model_call_limit"]:
-                return "worker_model_call_escrow_exhausted"
+                return await reject("worker_model_call_escrow_exhausted", escrow)
             if (
                 budget.max_total_tokens is not None
                 and usage["used_tokens"]
@@ -623,13 +659,13 @@ class PostgresControllerState:
                 + protected_future_tokens
                 > budget.max_total_tokens
             ):
-                return "model_token_budget_exhausted"
+                return await reject("model_token_budget_exhausted", escrow)
             if (
                 escrow is not None
                 and escrow["used_tokens"] + escrow["reserved_tokens"] + estimated_tokens
                 > escrow["token_limit"]
             ):
-                return "worker_token_escrow_exhausted"
+                return await reject("worker_token_escrow_exhausted", escrow)
             cost_limit = cost_microusd(budget.max_cost_usd)
             if budget.max_cost_usd is not None and (
                 usage["used_cost_microusd"]
@@ -638,7 +674,7 @@ class PostgresControllerState:
                 + protected_future_cost_microusd
                 > cost_limit
             ):
-                return "model_cost_budget_exhausted"
+                return await reject("model_cost_budget_exhausted", escrow)
             if (
                 escrow is not None
                 and escrow["cost_limit_microusd"] is not None
@@ -647,7 +683,7 @@ class PostgresControllerState:
                 + estimated_cost_microusd
                 > escrow["cost_limit_microusd"]
             ):
-                return "worker_cost_escrow_exhausted"
+                return await reject("worker_cost_escrow_exhausted", escrow)
             await tx.connection.execute(
                 insert(model_reservations).values(
                     run_id=run_id,
