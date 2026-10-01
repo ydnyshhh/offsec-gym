@@ -221,12 +221,19 @@ class WorkerPacketBuilder:
         seen_evidence: set[tuple[UUID, UUID]] = set()
         recency: dict[UUID, int] = {}
         adjacency: dict[UUID, set[UUID]] = defaultdict(set)
+        identity_workspace: dict[UUID, UUID] = {}
+        identity_role: dict[UUID, str] = {}
         completed = {item.action_id: item for item in trace if isinstance(item, ActionCompleted)}
         for index, fact in enumerate(facts):
             if fact.subject.entity_type not in relevant_types:
                 continue
             key = (fact.subject.entity_type, fact.subject.entity_id)
             recency[fact.subject.entity_id] = index
+            if fact.subject.entity_type == "identity":
+                if fact.predicate == "member_of" and isinstance(fact.object_value, EntityRef):
+                    identity_workspace[fact.subject.entity_id] = fact.object_value.entity_id
+                elif fact.predicate == "role" and isinstance(fact.object_value, str):
+                    identity_role[fact.subject.entity_id] = fact.object_value
             if isinstance(fact.object_value, EntityRef):
                 adjacency[fact.subject.entity_id].add(fact.object_value.entity_id)
                 adjacency[fact.object_value.entity_id].add(fact.subject.entity_id)
@@ -259,18 +266,29 @@ class WorkerPacketBuilder:
         primary_ids = {
             item.entity_id for item in entities_all if item.entity_type == relevant_types[0]
         }
+        workspace_ids = {
+            item.entity_id for item in entities_all if item.entity_type == "workspace"
+        } | set(identity_workspace.values())
+        target_workspaces = {
+            related
+            for entity_id in primary_ids
+            for related in adjacency[entity_id]
+            if related in workspace_ids
+        }
         evidence_count: dict[UUID, int] = defaultdict(int)
         for item in evidence:
             evidence_count[item.entity_id] += 1
 
         def entity_score(item: WorkerEntity) -> tuple[int, int, int, str]:
             linked = len(adjacency[item.entity_id] & primary_ids)
-            role = int(
-                item.entity_type == "identity"
-                and any(text.startswith(("role=", "member_of=")) for text in item.details)
-            )
+            membership = identity_workspace.get(item.entity_id)
+            role = identity_role.get(item.entity_id)
             return (
-                linked * 8 + evidence_count[item.entity_id] * 4 + role * 3,
+                linked * 8
+                + evidence_count[item.entity_id] * 4
+                + int(membership in target_workspaces) * 30
+                + int(membership is not None) * 15
+                + int(role in {"member", "workspace_admin"}) * 10,
                 recency.get(item.entity_id, -1),
                 len(item.details),
                 str(item.entity_id),
@@ -286,7 +304,20 @@ class WorkerPacketBuilder:
         }
         entities: list[WorkerEntity] = []
         for kind in relevant_types[1:]:
-            entities.extend(buckets[kind][:2])
+            if kind == "identity":
+                diverse: list[WorkerEntity] = []
+                seen_workspaces: set[UUID] = set()
+                for item in buckets[kind]:
+                    workspace_id = identity_workspace.get(item.entity_id)
+                    if workspace_id is not None and workspace_id not in seen_workspaces:
+                        diverse.append(item)
+                        seen_workspaces.add(workspace_id)
+                    if len(diverse) == 2:
+                        break
+                diverse.extend(item for item in buckets[kind] if item not in diverse)
+                entities.extend(diverse[:2])
+            else:
+                entities.extend(buckets[kind][:2])
         entities.extend(buckets[relevant_types[0]][: max(0, 8 - len(entities))])
         if len(entities) < 8:
             selected_ids = {item.entity_id for item in entities}

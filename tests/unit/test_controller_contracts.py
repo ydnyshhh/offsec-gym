@@ -210,15 +210,54 @@ async def test_packet_retains_objective_entities_and_exact_post_body(tmp_path) -
             fact_id=uuid4(),
             run_id=run_id,
             kind="observation",
-            subject=EntityRef(entity_type=kind, entity_id=entity_id),
-            predicate="role" if kind == "identity" else "status",
-            object_value="member" if kind == "identity" else "known",
+            subject=EntityRef(entity_type="invoice", entity_id=entity_id),
+            predicate="status",
+            object_value="known",
             source_worker_id=source_worker,
             confidence=1,
         )
-        for kind, count in (("invoice", 12), ("identity", 3))
-        for entity_id in (uuid4() for _ in range(count))
+        for entity_id in (uuid4() for _ in range(12))
     ]
+    workspaces = [uuid4() for _ in range(3)]
+    for workspace_id in workspaces:
+        member_id = uuid4()
+        facts.extend(
+            (
+                WorldFact(
+                    fact_id=uuid4(),
+                    run_id=run_id,
+                    kind="observation",
+                    subject=EntityRef(entity_type="identity", entity_id=member_id),
+                    predicate="role",
+                    object_value="member",
+                    source_worker_id=source_worker,
+                    confidence=1,
+                ),
+                WorldFact(
+                    fact_id=uuid4(),
+                    run_id=run_id,
+                    kind="relationship",
+                    subject=EntityRef(entity_type="identity", entity_id=member_id),
+                    predicate="member_of",
+                    object_value=EntityRef(entity_type="workspace", entity_id=workspace_id),
+                    source_worker_id=source_worker,
+                    confidence=1,
+                ),
+            )
+        )
+    for _ in range(2):
+        facts.append(
+            WorldFact(
+                fact_id=uuid4(),
+                run_id=run_id,
+                kind="observation",
+                subject=EntityRef(entity_type="identity", entity_id=uuid4()),
+                predicate="role",
+                object_value="support",
+                source_worker_id=source_worker,
+                confidence=1,
+            )
+        )
     facts.append(
         WorldFact(
             fact_id=uuid4(),
@@ -230,6 +269,18 @@ async def test_packet_retains_objective_entities_and_exact_post_body(tmp_path) -
             source_worker_id=source_worker,
             source_action_ids=(action_id,),
             evidence_ids=(evidence_id,),
+            confidence=1,
+        )
+    )
+    facts.append(
+        WorldFact(
+            fact_id=uuid4(),
+            run_id=run_id,
+            kind="relationship",
+            subject=EntityRef(entity_type="invoice", entity_id=target_id),
+            predicate="workspace",
+            object_value=EntityRef(entity_type="workspace", entity_id=workspaces[0]),
+            source_worker_id=source_worker,
             confidence=1,
         )
     )
@@ -261,6 +312,14 @@ async def test_packet_retains_objective_entities_and_exact_post_body(tmp_path) -
     )
     assert target_id in {item.entity_id for item in packet.relevant_entities}
     assert len([item for item in packet.relevant_entities if item.entity_type == "identity"]) >= 2
+    selected_memberships = {
+        item.split("=", 1)[1].split(" [", 1)[0]
+        for entity in packet.relevant_entities
+        if entity.entity_type == "identity"
+        for item in entity.details
+        if item.startswith("member_of=")
+    }
+    assert len(selected_memberships) >= 2
     checked = packet.prior_checked_actions[0]
     assert checked.body_sha256 == hashlib.sha256(canonical.encode()).hexdigest()
     assert checked.body_json == canonical
