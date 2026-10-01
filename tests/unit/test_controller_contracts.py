@@ -25,7 +25,7 @@ from offsecgym.schemas.events import (
     parse_event,
 )
 from offsecgym.schemas.specs import Budget, ModelSpec
-from offsecgym.solver.workers import WorkerPacketBuilder
+from offsecgym.solver.workers import WorkerPacketBuilder, worker_budget
 from offsecgym.storage.controller import request_fingerprint
 from offsecgym.storage.projection import project_controller_events
 
@@ -138,6 +138,21 @@ async def test_worker_packet_trims_growth_before_exceeding_handoff_cap(tmp_path)
         or packet.omitted_hypotheses > 36
         or packet.omitted_coverage > 0
     )
+
+
+def test_worker_budget_partitions_tokens_and_calls_without_exceeding_global() -> None:
+    global_budget = Budget(
+        max_model_calls=20,
+        max_actions=60,
+        max_http_requests=60,
+        max_total_tokens=120000,
+        max_output_tokens_per_call=8192,
+    )
+    slices = [worker_budget(global_budget, index) for index in range(6)]
+    assert [item.max_model_calls for item in slices] == [4, 4, 3, 3, 3, 3]
+    assert sum(item.max_total_tokens for item in slices) == 120000
+    assert all(item.max_total_tokens == 20000 for item in slices)
+    assert sum(item.max_actions for item in slices) == 60
 
 
 def test_worker_actions_require_task_attribution() -> None:

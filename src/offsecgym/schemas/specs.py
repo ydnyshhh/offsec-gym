@@ -117,6 +117,8 @@ class ExperimentSpec(StrictModel):
                 raise ValueError("ephemeral workers require at least six actions")
             if self.budget.max_http_requests is not None and self.budget.max_http_requests < 6:
                 raise ValueError("ephemeral workers require at least six HTTP requests")
+            if self.budget.max_total_tokens is not None and self.budget.max_total_tokens < 6:
+                raise ValueError("ephemeral workers require at least six total tokens")
         if self.orchestrator == "scripted" and self.surface_visibility is not None:
             raise ValueError("surface_visibility is only supported for model orchestrators")
         if self.orchestrator in {"monolithic", "ephemeral_workers"} and all(

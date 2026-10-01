@@ -66,10 +66,14 @@ def worker_budget(global_budget: Budget, index: int) -> Budget:
     if not 0 <= index < count:
         raise ValueError("worker index is outside the fixed decomposition")
     return Budget(
+        max_total_tokens=_share(global_budget.max_total_tokens, index, count),
         max_output_tokens_per_call=global_budget.max_output_tokens_per_call,
         max_model_calls=_share(global_budget.max_model_calls, index, count),
         max_actions=_share(global_budget.max_actions, index, count),
         max_http_requests=_share(global_budget.max_http_requests, index, count),
+        max_cost_usd=(
+            global_budget.max_cost_usd / count if global_budget.max_cost_usd is not None else None
+        ),
     )
 
 

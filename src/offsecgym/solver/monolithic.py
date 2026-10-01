@@ -342,7 +342,9 @@ def build_context(
         if packet.task_id != task.task_id or packet.worker_id != task.worker_id:
             raise ValueError("worker packet does not match assigned task")
         prompt += (
-            " Use the bounded handoff below as prior state. Checked actions are exact "
+            f" Worker token slice: {task.budget.max_total_tokens}; "
+            "the global token limit remains shared across workers. "
+            "Use the bounded handoff below as prior state. Checked actions are exact "
             "requests already attempted; avoid repeating them unless new evidence "
             "warrants a recheck. "
             "Preserve entity-to-evidence associations.\nWorker packet: " + packet.model_dump_json()
@@ -606,12 +608,16 @@ class MonolithicSaasAgent:
                     causation_id=started.event_id,
                 )
             )
-            if (
+            token_slice_exhausted = (
                 task.budget.max_total_tokens is not None
                 and used_tokens >= task.budget.max_total_tokens
-            ):
+            )
+            cost_slice_exhausted = (
+                task.budget.max_cost_usd is not None and used_cost >= task.budget.max_cost_usd
+            )
+            if token_slice_exhausted and task.worker_id is None:
                 raise AgentBudgetExhausted("model_token_budget_exhausted")
-            if task.budget.max_cost_usd is not None and used_cost >= task.budget.max_cost_usd:
+            if cost_slice_exhausted and task.worker_id is None:
                 raise AgentBudgetExhausted("model_cost_budget_exhausted")
             if turn.status == "incomplete" and turn.incomplete_reason == "max_output_tokens":
                 raise AgentBudgetExhausted("model_output_budget_exhausted")
@@ -712,6 +718,10 @@ class MonolithicSaasAgent:
                     "http_budget_exhausted",
                 }:
                     raise AgentBudgetExhausted(output["reason_code"])
+            if token_slice_exhausted:
+                raise AgentBudgetExhausted("worker_token_slice_exhausted")
+            if cost_slice_exhausted:
+                raise AgentBudgetExhausted("worker_cost_slice_exhausted")
         raise AgentBudgetExhausted("model_call_budget_exhausted")
 
     async def _dispatch(

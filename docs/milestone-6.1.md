@@ -19,13 +19,15 @@ from the event stream. No previous worker's raw model transcript is carried.
 Request paths come from restricted range artifacts and are checked against
 their request event and run instance.
 
-The six workers divide the global model-call, action, and HTTP request counts
-deterministically; earlier workers receive the remainder. The per-call output
-limit is unchanged. Token and cost limits stay global and are reserved by the
-M6.0 PostgreSQL controller before every model call. This avoids artificial
-20,000-token local partitions whose output reservation could stop a worker
-despite remaining global compute. The packet gives each worker bounded local
-counts, and the prompt states the global token limit.
+The six workers divide the global model-call, action, HTTP request, token, and
+configured cost budgets deterministically; earlier workers receive the
+remainder. The per-call output limit is unchanged. Local token slices stop a
+worker using provider-reported actual usage; the M6.0 PostgreSQL controller
+still reserves provisional tokens and cost against the same global limit
+before every model call. This leaves budget for later tasks. A worker may
+overshoot its local slice on its final turn, so the global reservation remains
+the concurrency boundary. The packet and prompt state the local slice and
+global token limit.
 
 Every worker uses the M5 structured model tool protocol. Model calls, actions,
 controller-observed facts, model-authored facts, and v3 finding submission
