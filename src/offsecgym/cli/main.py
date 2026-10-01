@@ -93,7 +93,7 @@ def experiment_run(
     paired: bool = typer.Option(False, help="Also run the fully patched sibling"),
     repetitions: int = typer.Option(1, min=1, max=20, help="Diagnostic repetitions per variant"),
 ) -> None:
-    """Run a scripted, monolithic, or sequential-worker SaaS experiment."""
+    """Run a scripted, monolithic, or worker SaaS experiment."""
     try:
         spec = _load_spec(path, ExperimentSpec)
         if (
@@ -107,7 +107,7 @@ def experiment_run(
             }
             or spec.validation != "deterministic"
         ):
-            raise ValueError("only scripted, monolithic, or sequential-worker runs are supported")
+            raise ValueError("only scripted, monolithic, or worker runs are supported")
         if spec.orchestrator == "monolithic" and spec.memory not in {"transcript", "structured"}:
             raise ValueError("the monolithic baseline requires memory=transcript or structured")
         if spec.orchestrator == "monolithic" and spec.surface_visibility != "known_routes":

@@ -1,4 +1,4 @@
-"""Run fixed sequential workers through the ordinary experiment lifecycle."""
+"""Run sequential or matched workers through the ordinary experiment lifecycle."""
 
 from offsecgym.experiment.monolithic import MonolithicExperimentRunner
 from offsecgym.experiment.scripted import BoundFindingSink
