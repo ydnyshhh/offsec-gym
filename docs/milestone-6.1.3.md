@@ -56,3 +56,8 @@ and blocked reasons without a score gate or a statistical comparison. Freeze
 the sequential behavior after this batch even if score is poor, preserving
 failed gates exactly. Defer parallel M6.2 until its independent concurrency
 blockers are resolved.
+
+The [three-run diagnostic](diagnostics/kimi-k3-openrouter-m613.md) is complete.
+The refund POST, context, accounting, and one-turn gates passed; the
+action-or-block gate failed in all three runs. The sequential implementation
+is frozen at `cb27fe4` with those failures preserved.

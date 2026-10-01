@@ -35,6 +35,11 @@ budget and context gates but missed objective-action and refund-exploration gate
 and the known ticket-list route under a separately predeclared verification.
 The [M6.1.2 diagnostic](docs/diagnostics/kimi-k3-openrouter-m612.md) confirmed
 those handoff fixes but retained failed objective-action and refund gates.
+[M6.1.3](docs/milestone-6.1.3.md) adds a typed worker objective contract and
+action-required turn. Its [three-run diagnostic](docs/diagnostics/kimi-k3-openrouter-m613.md)
+met the refund POST and bounded-context gates but exposed three contract
+failures when preparatory discovery or verification conflicted with the
+detail-only route rule. The sequential baseline is frozen with these failures.
 
 ## Development
 
