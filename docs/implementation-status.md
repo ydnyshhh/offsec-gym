@@ -70,6 +70,11 @@
   typed debriefs, worker-attributed findings, matched Kimi control/worker configs,
   and trace-derived orchestration metrics. Fake-provider PostgreSQL and Docker
   tests verify the lifecycle and one validated cross-worker state handoff.
+- The matched M6.1 live diagnostic is recorded for three monolithic controls
+  and three sequential-worker runs on the current atomic controller. All six
+  traces scored validly, stayed within global budgets, and replayed controller
+  counters. Worker runs had earlier first valid findings but lower root-cause
+  recall and weak late-worker exploration; see the diagnostic for exact traces.
 
 ## Partially implemented
 
@@ -96,10 +101,10 @@
 
 ## Next milestone
 
-Run the matched M6.1 three-control/three-worker diagnostic using current
-controller code, then inspect packet utility, repetition, attribution, and
-validated findings before M6.2 concurrency. See
-[Milestone 6.1](milestone-6.1.md).
+Investigate the M6.1 late-worker budget and handoff behavior with a
+predeclared follow-up before M6.2 concurrency. The completed matched
+[diagnostic](diagnostics/kimi-k3-openrouter-m61.md) separates infrastructure
+acceptance from research outcomes.
 
 ## Known architectural debt
 

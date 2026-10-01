@@ -66,8 +66,14 @@ an invoice entity and evidence discovered by the identity worker, submitting
 an attributed finding, and receiving one validated result. The coordinator
 made zero model calls. These tests validate plumbing, not a score advantage.
 
-The next diagnostic is three current-code monolithic controls and three
-sequential-worker runs with the paired configs, then manual trace inspection.
-M6.2 must resolve response-fact ordering by source action completion sequence,
-cross-process range guards, and stale reservation recovery before parallel
-workers are enabled.
+The [six-run Kimi diagnostic](diagnostics/kimi-k3-openrouter-m61.md) is complete:
+three current-code monolithic controls and three sequential-worker runs with
+the paired configs. Sequential workers reached the first valid finding earlier
+in each pair and repeated fewer exact requests, but recovered fewer distinct
+root causes and left late workers with little or no exploration. The packet
+handoffs were bounded and attributable; cost is unavailable because prices
+were not configured. These are trace observations, not a statistical score
+comparison. Investigate late-worker budget and handoff behavior with a
+predeclared follow-up before enabling M6.2 parallelism. M6.2 must also resolve
+response-fact ordering by source action completion sequence, cross-process
+range guards, and stale reservation recovery.
