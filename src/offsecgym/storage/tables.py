@@ -95,4 +95,6 @@ worker_slots = Table(
     Column("worker_id", UUID(as_uuid=True), primary_key=True),
     Column("task_id", UUID(as_uuid=True), nullable=False),
     Column("status", String(24), nullable=False),
+    Column("lease_expires_at", DateTime(timezone=True)),
+    Column("last_heartbeat_at", DateTime(timezone=True)),
 )

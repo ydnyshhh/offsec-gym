@@ -105,8 +105,9 @@
 - WorldState still rebuilds facts and coverage from a full run event scan, but
   PostgreSQL writes now serialize under the run row lock. Indexed projections
   remain future work.
-- Action and coverage reservations need controller crash reconciliation. An
-  interrupted owner can leave an active reservation until explicit recovery.
+- Worker-owned action, model, and coverage reservations have lease-based crash
+  reconciliation in [M6.2.0](milestone-6.2.0.md). Generic non-worker
+  reservations still need an ownership and expiry policy.
 - Model-authored evidence links are not semantic entailment. Mechanically verified
   response-field observations and a controlled memory-only comparison remain research work.
 - A managed artifact store and full experiment run manifests remain future controller work.
@@ -115,11 +116,11 @@
 
 ## Next milestone
 
-Investigate retrieval-only worker turns as a separate trajectory-policy
-question with a new frozen protocol. The [M6.1.2 diagnostic](diagnostics/kimi-k3-openrouter-m612.md)
-still has failed objective-action and refund gates, so sequential orchestration
-is not frozen for M6.2. Earlier [M6.1](diagnostics/kimi-k3-openrouter-m61.md)
-and [M6.1.1](diagnostics/kimi-k3-openrouter-m611.md) diagnostics remain frozen.
+Run the M6.2.1 sequential-versus-parallel scheduling comparison with the
+exact [M6.1.3](milestone-6.1.3.md) worker policy, including its recorded failed
+gates. [M6.2.0](milestone-6.2.0.md) closes the concurrency infrastructure
+blockers; it does not alter that frozen research result. Packet timing and
+budget slices need an explicit matching protocol before live comparisons.
 
 ## Known architectural debt
 
@@ -132,9 +133,8 @@ and [M6.1.1](diagnostics/kimi-k3-openrouter-m611.md) diagnostics remain frozen.
   is tested separately. A full Docker plus PostgreSQL path remains future acceptance work.
 - Build and instance operations assume one trusted local controller; concurrent controllers
   and crash recovery need coordination and reconciliation.
-- The range runtime still uses a process-local instance guard around gateway
-  dispatch and reset. M6.2 needs a cross-process reset/dispatch barrier before
-  concurrent workers share a live instance.
+- The range runtime uses an OS file lock across processes sharing one local
+  state directory. Cross-host coordination is not supported.
 - Existing Milestone 2 generated `.offsecgym` manifests require a fresh state directory
   and rebuild after stopping/destroying old live instances.
 - The first SaaS API is one service with an in-process SQLite fixture; service-level

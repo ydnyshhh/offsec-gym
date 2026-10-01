@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import hashlib
 import json
 from pathlib import Path
 from typing import Literal
@@ -201,6 +202,12 @@ class FinishCoverageArgs(StrictModel):
 class TaskBlockedArgs(StrictModel):
     reason: str = Field(min_length=1, max_length=512)
     missing_prerequisite: str = Field(min_length=1, max_length=512)
+
+
+class ToolRejection(ValueError):
+    def __init__(self, reason_code: str) -> None:
+        self.reason_code = reason_code
+        super().__init__(reason_code)
 
 
 TOOL_MODELS: dict[str, type[StrictModel]] = {
@@ -703,32 +710,51 @@ class MonolithicSaasAgent:
                 call_ref = call.get("call_id")
                 if not isinstance(call_ref, str) or not call_ref:
                     return AgentResult(task_id=task.task_id, status="failed")
+                raw_args: object = None
                 try:
                     raw_args = json.loads(call["arguments"])
                     if task.worker_id is not None and call_name in {
                         "claim_coverage",
                         "finish_coverage",
                     }:
-                        raise ValueError("worker coverage is owned by the coordinator")
+                        raise ToolRejection("worker_coverage_owned_by_coordinator")
                     schemas = TOOL_MODELS | WORLD_TOOL_MODELS if structured else TOOL_MODELS
                     if contract is not None:
                         schemas = schemas | {"task_blocked": TaskBlockedArgs}
                     if action_required and call_name not in {"http_request", "task_blocked"}:
-                        raise ValueError("action_required_tool_only")
+                        raise ToolRejection("worker_action_required")
                     schema = schemas[call_name]
                     args = schema.model_validate(raw_args)
                     if contract is not None and isinstance(args, HTTPArgs):
                         if args.method not in contract.permitted_methods:
-                            raise ValueError("method_not_permitted_by_worker_contract")
+                            raise ToolRejection(
+                                "state_change_not_authorized"
+                                if args.method in {"POST", "PUT", "PATCH", "DELETE"}
+                                else "worker_method_not_permitted"
+                            )
                         if action_required and not contract.matches_objective_action(
                             args.method, args.path
                         ):
-                            raise ValueError("objective_action_required")
+                            template = contract.route_family.split(" ", 1)[1]
+                            prefix, _, suffix = template.partition("{id}")
+                            if (
+                                prefix
+                                and args.path.startswith(prefix)
+                                and args.path.endswith(suffix)
+                            ):
+                                target = args.path[
+                                    len(prefix) : len(args.path) - len(suffix) or None
+                                ]
+                                try:
+                                    UUID(target)
+                                except ValueError as exc:
+                                    raise ToolRejection("invalid_target_uuid") from exc
+                            raise ToolRejection("worker_route_mismatch")
                     if call_name == "task_blocked":
                         assert isinstance(args, TaskBlockedArgs)
                         assert task.worker_id is not None
                         if objective_met:
-                            raise ValueError("objective_already_exercised")
+                            raise ToolRejection("task_already_exercised")
                         await self.events.append(
                             WorkerBlocked(
                                 run_id=context.run_id,
@@ -789,7 +815,20 @@ class MonolithicSaasAgent:
                         recent_question = f"{args.predicate} {args.value_text}"
                 except (ValueError, KeyError, TypeError, ValidationError) as exc:
                     invalid_calls += 1
-                    output = {"error": "invalid_tool_call", "detail": type(exc).__name__}
+                    reason_code = (
+                        exc.reason_code
+                        if isinstance(exc, ToolRejection)
+                        else "invalid_tool_json"
+                        if isinstance(exc, json.JSONDecodeError)
+                        else "invalid_tool_arguments"
+                        if isinstance(exc, ValidationError)
+                        else "unknown_tool"
+                        if isinstance(exc, KeyError)
+                        else "invalid_tool_call"
+                    )
+                    output = {"error": "invalid_tool_call", "reason_code": reason_code}
+                    proposed_method = raw_args.get("method") if isinstance(raw_args, dict) else None
+                    proposed_path = raw_args.get("path") if isinstance(raw_args, dict) else None
                     await self.events.append(
                         ModelToolRejected(
                             run_id=context.run_id,
@@ -799,7 +838,19 @@ class MonolithicSaasAgent:
                             tool_name=(
                                 call_name[:128] if isinstance(call_name, str) else "unknown"
                             ),
-                            reason_code=type(exc).__name__,
+                            reason_code=reason_code,
+                            worker_id=task.worker_id,
+                            task_id=task.task_id if task.worker_id is not None else None,
+                            proposed_method=(
+                                proposed_method[:8]
+                                if isinstance(proposed_method, str) and proposed_method
+                                else None
+                            ),
+                            proposed_path_sha256=(
+                                hashlib.sha256(proposed_path.encode()).hexdigest()
+                                if isinstance(proposed_path, str)
+                                else None
+                            ),
                             causation_id=completed.event_id,
                         )
                     )

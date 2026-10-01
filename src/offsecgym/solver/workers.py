@@ -6,6 +6,7 @@ import asyncio
 import hashlib
 import json
 from collections import defaultdict
+from contextlib import suppress
 from dataclasses import dataclass
 from pathlib import Path
 from uuid import UUID, uuid4
@@ -26,6 +27,7 @@ from offsecgym.schemas.events import (
     WorkerContractViolated,
     WorkerDebriefed,
     WorkerObjectiveAction,
+    WorkerOriented,
     WorkerPacketPrepared,
     WorldFactSubmitted,
 )
@@ -576,6 +578,17 @@ class SequentialWorkerCoordinator:
         self.world = EventWorldState(events)
         self.packet_builder = WorkerPacketBuilder(events, state_root)
 
+    async def _heartbeat_worker(
+        self, run_id: UUID, worker_id: UUID, task_id: UUID, owner: asyncio.Task
+    ) -> None:
+        while True:
+            await asyncio.sleep(self.controller.WORKER_HEARTBEAT_SECONDS)
+            try:
+                await self.controller.heartbeat_worker(run_id, worker_id, task_id)
+            except Exception:
+                owner.cancel()
+                raise
+
     async def _debrief(
         self, run_id: UUID, task_id: UUID, worker_id: UUID, after: int
     ) -> WorkerDebrief:
@@ -643,16 +656,22 @@ class SequentialWorkerCoordinator:
                 component=kind,
                 objective=objective,
             )
-            await self.world.claim_coverage(claim)
+            guard = self.controller.worker_guard(context.run_id, worker_id)
+            await guard.__aenter__()
+            claimed = False
+            spawned = False
             try:
-                packet = await self.packet_builder.build(
-                    context, task_id, worker_id, objective, relevant_types, budget, floor
-                )
                 reason = await self.controller.spawn_worker(
                     context.run_id, worker_id, task_id, objective, context.global_budget
                 )
                 if reason:
                     raise AgentBudgetExhausted(reason)
+                spawned = True
+                await self.world.claim_coverage(claim)
+                claimed = True
+                packet = await self.packet_builder.build(
+                    context, task_id, worker_id, objective, relevant_types, budget, floor
+                )
                 packet_event = await self.events.append(
                     WorkerPacketPrepared(
                         run_id=context.run_id,
@@ -668,9 +687,17 @@ class SequentialWorkerCoordinator:
                 if reason:
                     raise ExperimentInfrastructureError(reason)
             except BaseException:
-                await self.world.update_coverage(
-                    context.run_id, claim.claim_id, task_id, "released"
-                )
+                try:
+                    if claimed:
+                        await self.world.update_coverage(
+                            context.run_id, claim.claim_id, task_id, "released"
+                        )
+                    if spawned:
+                        await self.controller.abort_spawned_worker(
+                            context.run_id, worker_id, task_id, "worker_setup_failed"
+                        )
+                finally:
+                    await guard.__aexit__(None, None, None)
                 raise
             start_sequence = (await self.events.read_run(context.run_id))[-1].sequence_number
             worker_task = AgentTask(
@@ -696,7 +723,13 @@ class SequentialWorkerCoordinator:
                 memory="structured",
             )
             status = "completed"
+            heartbeat: asyncio.Task | None = None
             try:
+                owner = asyncio.current_task()
+                assert owner is not None
+                heartbeat = asyncio.create_task(
+                    self._heartbeat_worker(context.run_id, worker_id, task_id, owner)
+                )
                 result = await agent.run(
                     worker_task,
                     worker_context,
@@ -723,52 +756,73 @@ class SequentialWorkerCoordinator:
                 status = "failed"
                 raise
             finally:
-                outcomes = [
-                    item
-                    for item in await self.events.read_run(context.run_id)
-                    if item.sequence_number > start_sequence
-                    and isinstance(item, (WorkerObjectiveAction, WorkerBlocked))
-                    and item.worker_id == worker_id
-                ]
-                if not outcomes and status != "cancelled":
+                try:
+                    if heartbeat is not None:
+                        heartbeat.cancel()
+                        with suppress(asyncio.CancelledError):
+                            await heartbeat
+                    worker_delta = [
+                        item
+                        for item in await self.events.read_run(context.run_id)
+                        if item.sequence_number > start_sequence
+                    ]
+                    outcomes = [
+                        item
+                        for item in worker_delta
+                        if isinstance(item, (WorkerObjectiveAction, WorkerBlocked))
+                        and item.worker_id == worker_id
+                    ]
+                    if not outcomes and status != "cancelled":
+                        await self.events.append(
+                            WorkerContractViolated(
+                                run_id=context.run_id,
+                                actor="controller",
+                                worker_id=worker_id,
+                                task_id=task_id,
+                                reason_code=(
+                                    "task_block_required"
+                                    if any(
+                                        isinstance(item, WorkerOriented)
+                                        and item.worker_id == worker_id
+                                        for item in worker_delta
+                                    )
+                                    else f"objective_unattempted_{status}"
+                                ),
+                            )
+                        )
+                        status = "failed"
+                    await self.world.update_coverage(
+                        context.run_id,
+                        claim.claim_id,
+                        task_id,
+                        "completed"
+                        if any(isinstance(item, WorkerObjectiveAction) for item in outcomes)
+                        else "released",
+                    )
+                    for claim in await self.world.coverage(context.run_id):
+                        if claim.task_id == task_id and claim.status == "active":
+                            await self.world.update_coverage(
+                                context.run_id, claim.claim_id, task_id, "released"
+                            )
+                    debrief = await self._debrief(
+                        context.run_id, task_id, worker_id, start_sequence
+                    )
                     await self.events.append(
-                        WorkerContractViolated(
+                        WorkerDebriefed(
                             run_id=context.run_id,
-                            actor="controller",
+                            actor="coordinator",
                             worker_id=worker_id,
                             task_id=task_id,
-                            reason_code=f"objective_unattempted_{status}",
+                            new_fact_ids=debrief.new_fact_ids,
+                            candidate_finding_ids=debrief.candidate_finding_ids,
+                            coverage_claim_ids=debrief.completed_coverage_ids,
+                            open_questions=debrief.open_questions,
+                            recommended_followups=debrief.recommended_followups,
                         )
                     )
-                    status = "failed"
-                await self.world.update_coverage(
-                    context.run_id,
-                    claim.claim_id,
-                    task_id,
-                    "completed"
-                    if any(isinstance(item, WorkerObjectiveAction) for item in outcomes)
-                    else "released",
-                )
-                for claim in await self.world.coverage(context.run_id):
-                    if claim.task_id == task_id and claim.status == "active":
-                        await self.world.update_coverage(
-                            context.run_id, claim.claim_id, task_id, "released"
-                        )
-                debrief = await self._debrief(context.run_id, task_id, worker_id, start_sequence)
-                await self.events.append(
-                    WorkerDebriefed(
-                        run_id=context.run_id,
-                        actor="coordinator",
-                        worker_id=worker_id,
-                        task_id=task_id,
-                        new_fact_ids=debrief.new_fact_ids,
-                        candidate_finding_ids=debrief.candidate_finding_ids,
-                        coverage_claim_ids=debrief.completed_coverage_ids,
-                        open_questions=debrief.open_questions,
-                        recommended_followups=debrief.recommended_followups,
-                    )
-                )
-                await self.controller.finish_worker(context.run_id, worker_id, task_id, status)
+                    await self.controller.finish_worker(context.run_id, worker_id, task_id, status)
+                finally:
+                    await guard.__aexit__(None, None, None)
             any_failed |= status == "failed"
             usage = await self.controller.snapshot(context.run_id)
             global_budget = context.global_budget

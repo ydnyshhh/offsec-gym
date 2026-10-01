@@ -22,6 +22,8 @@ from offsecgym.schemas.events import (
     WorkerContractViolated,
     WorkerDebriefed,
     WorkerFinished,
+    WorkerHeartbeat,
+    WorkerLeaseRecovered,
     WorkerObjectiveAction,
     WorkerOriented,
     WorkerPacketPrepared,
@@ -53,6 +55,8 @@ class ControllerProjection:
     worker_tasks: dict[UUID, UUID] = field(default_factory=dict)
     worker_packets: dict[UUID, WorkerPacketPrepared] = field(default_factory=dict)
     worker_debriefs: dict[UUID, WorkerDebriefed] = field(default_factory=dict)
+    worker_leases: dict[UUID, datetime] = field(default_factory=dict)
+    recovered_workers: set[UUID] = field(default_factory=set)
     worker_outcomes: dict[UUID, str] = field(default_factory=dict)
     oriented_workers: set[UUID] = field(default_factory=set)
     model_reservations: dict[UUID, tuple[int, int, UUID | None, UUID | None, int | None]] = field(
@@ -137,6 +141,8 @@ def project_controller_events(trace: Sequence[AnyTraceEvent]) -> ControllerProje
             state.spawned_workers += 1
             state.worker_status[event.worker_id] = "spawned"
             state.worker_tasks[event.worker_id] = event.task_id
+            if event.lease_expires_at is not None:
+                state.worker_leases[event.worker_id] = event.lease_expires_at
         elif isinstance(event, WorkerPacketPrepared):
             if (
                 state.worker_status.get(event.worker_id) != "spawned"
@@ -153,6 +159,23 @@ def project_controller_events(trace: Sequence[AnyTraceEvent]) -> ControllerProje
                 raise ValueError("worker start has no matching spawn")
             state.active_workers += 1
             state.worker_status[event.worker_id] = "started"
+            if event.lease_expires_at is not None:
+                state.worker_leases[event.worker_id] = event.lease_expires_at
+        elif isinstance(event, WorkerHeartbeat):
+            if (
+                state.worker_status.get(event.worker_id) != "started"
+                or state.worker_tasks.get(event.worker_id) != event.task_id
+            ):
+                raise ValueError("worker heartbeat has no matching active worker")
+            state.worker_leases[event.worker_id] = event.lease_expires_at
+        elif isinstance(event, WorkerLeaseRecovered):
+            if (
+                state.worker_status.get(event.worker_id) not in ("spawned", "started")
+                or state.worker_tasks.get(event.worker_id) != event.task_id
+                or event.worker_id in state.recovered_workers
+            ):
+                raise ValueError("worker recovery has no matching active worker")
+            state.recovered_workers.add(event.worker_id)
         elif isinstance(event, WorkerOriented):
             if (
                 state.worker_status.get(event.worker_id) != "started"
@@ -187,7 +210,7 @@ def project_controller_events(trace: Sequence[AnyTraceEvent]) -> ControllerProje
             )
         elif isinstance(event, WorkerDebriefed):
             if (
-                state.worker_status.get(event.worker_id) != "started"
+                state.worker_status.get(event.worker_id) not in ("started", "spawned")
                 or state.worker_tasks.get(event.worker_id) != event.task_id
                 or event.worker_id in state.worker_debriefs
             ):
@@ -195,7 +218,11 @@ def project_controller_events(trace: Sequence[AnyTraceEvent]) -> ControllerProje
             state.worker_debriefs[event.worker_id] = event
         elif isinstance(event, WorkerFinished):
             if (
-                state.worker_status.get(event.worker_id) != "started"
+                state.worker_status.get(event.worker_id) not in ("started", "spawned")
+                or (
+                    state.worker_status.get(event.worker_id) == "spawned"
+                    and event.status != "failed"
+                )
                 or state.worker_tasks.get(event.worker_id) != event.task_id
             ):
                 raise ValueError("worker finish has no matching start")
@@ -209,12 +236,18 @@ def project_controller_events(trace: Sequence[AnyTraceEvent]) -> ControllerProje
                 packet_event is not None
                 and packet_event.packet.contract is not None
                 and event.status != "cancelled"
+                and not (
+                    state.worker_status[event.worker_id] == "spawned"
+                    and event.worker_id in state.recovered_workers
+                )
             ):
                 outcome = state.worker_outcomes.get(event.worker_id)
                 if outcome is None:
                     raise ValueError("contract worker finished without objective outcome")
                 if outcome == "contract_violated" and event.status != "failed":
                     raise ValueError("worker finish status conflicts with contract outcome")
-            state.active_workers -= 1
+            if state.worker_status[event.worker_id] == "started":
+                state.active_workers -= 1
             state.worker_status[event.worker_id] = "finished"
+            state.worker_leases.pop(event.worker_id, None)
     return state

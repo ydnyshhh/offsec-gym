@@ -204,6 +204,16 @@ class ModelToolRejected(TraceEvent):
     tool_call_id: str = Field(min_length=1)
     tool_name: str = Field(min_length=1)
     reason_code: str = Field(min_length=1)
+    worker_id: UUID | None = None
+    task_id: UUID | None = None
+    proposed_method: str | None = Field(default=None, min_length=1, max_length=8)
+    proposed_path_sha256: str | None = Field(default=None, pattern=r"^[0-9a-f]{64}$")
+
+    @model_validator(mode="after")
+    def paired_worker_owner(self) -> ModelToolRejected:
+        if (self.worker_id is None) != (self.task_id is None):
+            raise ValueError("rejected tool worker ownership requires worker and task IDs")
+        return self
 
 
 class WorldFactSubmitted(TraceEvent):
@@ -385,12 +395,31 @@ class WorkerSpawned(TraceEvent):
     worker_id: UUID
     task_id: UUID
     objective: str = Field(min_length=1)
+    lease_expires_at: datetime | None = None
 
 
 class WorkerStarted(TraceEvent):
     type: Literal["worker_started"] = "worker_started"
     worker_id: UUID
     task_id: UUID
+    lease_expires_at: datetime | None = None
+
+
+class WorkerHeartbeat(TraceEvent):
+    type: Literal["worker_heartbeat"] = "worker_heartbeat"
+    worker_id: UUID
+    task_id: UUID
+    lease_expires_at: datetime
+
+
+class WorkerLeaseRecovered(TraceEvent):
+    type: Literal["worker_lease_recovered"] = "worker_lease_recovered"
+    worker_id: UUID
+    task_id: UUID
+    expired_at: datetime
+    released_actions: int = Field(ge=0)
+    settled_model_calls: int = Field(ge=0)
+    released_coverage: int = Field(ge=0)
 
 
 class WorkerPacketPrepared(TraceEvent):
@@ -536,6 +565,8 @@ AnyTraceEvent = Annotated[
     | ModelBudgetSettled
     | WorkerSpawned
     | WorkerStarted
+    | WorkerHeartbeat
+    | WorkerLeaseRecovered
     | WorkerPacketPrepared
     | WorkerOriented
     | WorkerObjectiveAction

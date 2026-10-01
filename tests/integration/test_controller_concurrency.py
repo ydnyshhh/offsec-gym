@@ -3,9 +3,11 @@
 from __future__ import annotations
 
 import asyncio
+import hashlib
 import json
 import os
 import re
+from datetime import timedelta
 from uuid import uuid4
 
 import pytest
@@ -31,10 +33,13 @@ from offsecgym.schemas.events import (
     ModelBudgetSettled,
     ModelCallCompleted,
     ModelCallStarted,
+    ModelToolRejected,
     WorkerBlocked,
     WorkerContractViolated,
     WorkerDebriefed,
     WorkerFinished,
+    WorkerHeartbeat,
+    WorkerLeaseRecovered,
     WorkerOriented,
     WorkerPacketPrepared,
     WorkerSpawned,
@@ -347,8 +352,8 @@ async def test_worker_slots_and_model_reservations_remain_bounded(controllers) -
                 reserved_output_tokens=10,
                 request_bytes=75,
                 estimated_cost_microusd=40,
-                worker_id=winner[0],
-                task_id=winner[1],
+                worker_id=loser[0],
+                task_id=loser[1],
             )
             for controller, call_id in zip((first, second) * 4, calls, strict=True)
         )
@@ -368,8 +373,8 @@ async def test_worker_slots_and_model_reservations_remain_bounded(controllers) -
                 actual_input_tokens=22,
                 actual_output_tokens=8,
                 actual_cost_microusd=30,
-                worker_id=winner[0],
-                task_id=winner[1],
+                worker_id=loser[0],
+                task_id=loser[1],
             )
     usage = await first.snapshot(run_id)
     assert usage["reserved_tokens"] == usage["reserved_cost_microusd"] == 0
@@ -403,7 +408,7 @@ async def test_worker_slots_and_model_reservations_remain_bounded(controllers) -
             assert item.reservation_error == -10
             assert item.input_reservation_error == -8
     assert all(
-        item.worker_id == winner[0] and item.task_id == winner[1]
+        item.worker_id == loser[0] and item.task_id == loser[1]
         for item in trace
         if isinstance(item, (ModelBudgetReserved, ModelBudgetSettled))
     )
@@ -590,6 +595,303 @@ async def test_worker_retrieval_turn_requires_action_or_typed_block(controllers,
     assert not any(isinstance(item, WorkerContractViolated) for item in trace)
     projected = project_controller_events(trace)
     assert set(projected.worker_outcomes.values()) == {"blocked"}
+
+
+@pytest.mark.postgres
+async def test_worker_tool_rejections_have_typed_attributed_reasons(controllers, tmp_path) -> None:
+    _, _, events, _ = controllers
+    run_id = uuid4()
+    budget = Budget(
+        max_actions=6,
+        max_http_requests=6,
+        max_model_calls=12,
+        max_total_tokens=240000,
+        max_output_tokens_per_call=128,
+        max_workers=6,
+        max_concurrency=1,
+    )
+
+    class InvalidThenBlockProvider:
+        def __init__(self):
+            self.turns = {}
+
+        def prepare_request(self, model, instructions, input_items, tools, max_output_tokens):
+            return {"input": input_items}
+
+        async def complete(self, request_payload):
+            match = re.search(r"Goal: ([^.]+)\.", request_payload["input"][0]["content"])
+            assert match is not None
+            key = match.group(1)
+            step = self.turns.get(key, 0)
+            self.turns[key] = step + 1
+            if step == 0:
+                proposals = [("query_worldview", {"query": key, "kind": None})]
+            else:
+                proposals = [
+                    ("query_worldview", {"query": key, "kind": None}),
+                    (
+                        "http_request",
+                        {
+                            "method": "POST" if "refund" in key else "GET",
+                            "path": "/api/unrelated",
+                            "identity_id": None,
+                            "body_json": None,
+                        },
+                    ),
+                    (
+                        "task_blocked",
+                        {"reason": "Synthetic invalid proposals", "missing_prerequisite": "Target"},
+                    ),
+                ]
+            output = tuple(
+                {
+                    "type": "function_call",
+                    "call_id": f"{key}:{step}:{index}",
+                    "name": name,
+                    "arguments": json.dumps(args),
+                }
+                for index, (name, args) in enumerate(proposals)
+            )
+            raw = {
+                "id": f"{key}:{step}",
+                "status": "completed",
+                "output": list(output),
+                "usage": {"input_tokens": 200, "output_tokens": 10},
+            }
+            return ModelTurn(
+                response_id=raw["id"],
+                status="completed",
+                output=output,
+                usage=raw["usage"],
+                raw_response=raw,
+            )
+
+    coordinator = SequentialWorkerCoordinator(
+        InvalidThenBlockProvider(),
+        ModelSpec(provider="openai", name="synthetic"),
+        None,
+        events,
+        tmp_path,
+    )
+    task = AgentTask(task_id=uuid4(), goal="Test SaaS security", budget=budget)
+    context = AgentContext(
+        run_id=run_id,
+        objective=task.goal,
+        global_budget=budget,
+        range=AgentVisibleRangeContext(range_instance_id=uuid4(), family="saas"),
+    )
+    await coordinator.run(task, context, None)
+    rejected = [
+        event for event in await events.read_run(run_id) if isinstance(event, ModelToolRejected)
+    ]
+    assert len(rejected) == 12
+    assert {event.reason_code for event in rejected} == {
+        "worker_action_required",
+        "worker_route_mismatch",
+    }
+    assert all(event.worker_id is not None and event.task_id is not None for event in rejected)
+    http = [event for event in rejected if event.tool_name == "http_request"]
+    assert len(http) == 6
+    assert all(
+        event.proposed_path_sha256 == hashlib.sha256(b"/api/unrelated").hexdigest()
+        for event in http
+    )
+    assert {event.proposed_method for event in http} == {"GET", "POST"}
+
+
+@pytest.mark.postgres
+async def test_stale_worker_recovery_releases_all_owned_reservations(controllers) -> None:
+    first, second, events, _ = controllers
+    run_id, worker_id, task_id = uuid4(), uuid4(), uuid4()
+    budget = Budget(
+        max_workers=2,
+        max_concurrency=1,
+        max_actions=2,
+        max_http_requests=2,
+        max_model_calls=2,
+        max_total_tokens=1000,
+    )
+    assert await first.spawn_worker(run_id, worker_id, task_id, "invoice", budget) is None
+    assert await first.start_worker(run_id, worker_id, task_id, budget) is None
+    world = EventWorldState(events)
+    claim = CoverageClaim(
+        claim_id=uuid4(),
+        run_id=run_id,
+        task_id=task_id,
+        component="invoice",
+        objective="object authorization",
+    )
+    await world.claim_coverage(claim)
+    action = ActionRequest(
+        run_id=run_id,
+        worker_id=worker_id,
+        task_id=task_id,
+        kind="http_request",
+        destination="saas",
+        method="GET",
+        path="/api/invoices/example",
+    )
+    assert await first.reserve_action(action, budget) is None
+    call_id = uuid4()
+    started = ModelCallStarted(
+        run_id=run_id,
+        actor="controller",
+        call_id=call_id,
+        worker_id=worker_id,
+        task_id=task_id,
+        provider="mock",
+        model="mock",
+        input_sha256="a" * 64,
+        request_artifact_id=uuid4(),
+        request_sha256="a" * 64,
+    )
+    assert (
+        await first.reserve_model_call(
+            run_id,
+            call_id,
+            budget,
+            reserved_input_tokens=30,
+            reserved_output_tokens=10,
+            request_bytes=80,
+            worker_id=worker_id,
+            task_id=task_id,
+            started_event=started,
+        )
+        is None
+    )
+    start = next(
+        item
+        for item in await events.read_run(run_id)
+        if isinstance(item, WorkerStarted) and item.worker_id == worker_id
+    )
+    assert start.lease_expires_at is not None
+    expired_now = start.lease_expires_at + timedelta(seconds=1)
+    async with first.worker_guard(run_id, worker_id):
+        assert await second.reconcile_stale_workers(run_id, now=expired_now) == 0
+    assert await second.reconcile_stale_workers(run_id, now=expired_now) == 1
+    assert await first.reconcile_stale_workers(run_id, now=expired_now) == 0
+    trace = await events.read_run(run_id)
+    recovered = [item for item in trace if isinstance(item, WorkerLeaseRecovered)]
+    assert len(recovered) == 1
+    assert (
+        recovered[0].released_actions,
+        recovered[0].settled_model_calls,
+        recovered[0].released_coverage,
+    ) == (1, 1, 1)
+    assert len([item for item in trace if isinstance(item, WorkerHeartbeat)]) == 0
+    projection = project_controller_events(trace)
+    usage = await first.snapshot(run_id)
+    assert projection.active_workers == usage["active_workers"] == 0
+    assert projection.reserved_tokens == usage["reserved_tokens"] == 0
+    assert not projection.active_actions and not projection.active_coverage
+    assert not projection.model_reservations
+    assert (await world.coverage(run_id))[0].status == "released"
+    with pytest.raises(ValueError, match="lease"):
+        await first.settle_model_call(
+            run_id,
+            call_id,
+            actual_input_tokens=1,
+            actual_output_tokens=1,
+            worker_id=worker_id,
+            task_id=task_id,
+        )
+    another = action.model_copy(update={"action_id": uuid4()})
+    assert await first.reserve_action(another, budget) == "worker_lease_expired"
+
+
+@pytest.mark.postgres
+async def test_spawned_worker_crash_and_setup_failure_are_replayable(controllers) -> None:
+    first, second, events, _ = controllers
+    run_id, worker_id, task_id = uuid4(), uuid4(), uuid4()
+    budget = Budget(max_workers=2, max_concurrency=1)
+    assert await first.spawn_worker(run_id, worker_id, task_id, "invoice", budget) is None
+    world = EventWorldState(events)
+    claim = CoverageClaim(
+        claim_id=uuid4(),
+        run_id=run_id,
+        task_id=task_id,
+        component="invoice",
+        objective="object authorization",
+    )
+    await world.claim_coverage(claim)
+    spawn = next(
+        event for event in await events.read_run(run_id) if isinstance(event, WorkerSpawned)
+    )
+    assert spawn.lease_expires_at is not None
+    assert (
+        await second.reconcile_stale_workers(
+            run_id, now=spawn.lease_expires_at + timedelta(seconds=1)
+        )
+        == 1
+    )
+    trace = await events.read_run(run_id)
+    assert project_controller_events(trace).active_workers == 0
+    assert not project_controller_events(trace).active_coverage
+    assert (await world.coverage(run_id))[0].status == "released"
+    assert (await first.snapshot(run_id))["active_workers"] == 0
+
+    second_worker, second_task = uuid4(), uuid4()
+    assert await first.spawn_worker(run_id, second_worker, second_task, "ticket", budget) is None
+    await first.abort_spawned_worker(run_id, second_worker, second_task, "packet_failed")
+    assert project_controller_events(await events.read_run(run_id)).active_workers == 0
+    assert (
+        await first.reconcile_stale_workers(run_id, now=spawn.lease_expires_at + timedelta(days=1))
+        == 0
+    )
+
+
+@pytest.mark.postgres
+async def test_recovery_preserves_completed_model_usage(controllers) -> None:
+    first, second, events, _ = controllers
+    run_id, worker_id, task_id, call_id = uuid4(), uuid4(), uuid4(), uuid4()
+    budget = Budget(max_workers=1, max_concurrency=1, max_model_calls=1, max_total_tokens=100)
+    assert await first.spawn_worker(run_id, worker_id, task_id, "invoice", budget) is None
+    assert await first.start_worker(run_id, worker_id, task_id, budget) is None
+    assert (
+        await first.reserve_model_call(
+            run_id,
+            call_id,
+            budget,
+            reserved_input_tokens=30,
+            reserved_output_tokens=10,
+            request_bytes=80,
+            worker_id=worker_id,
+            task_id=task_id,
+        )
+        is None
+    )
+    await events.append(
+        ModelCallCompleted(
+            schema_version="1",
+            run_id=run_id,
+            actor="controller",
+            call_id=call_id,
+            worker_id=worker_id,
+            task_id=task_id,
+            provider_status="completed",
+            tool_call_count=0,
+            input_tokens=17,
+            output_tokens=5,
+            estimated_cost_usd=0.000023,
+        )
+    )
+    started = next(
+        event for event in await events.read_run(run_id) if isinstance(event, WorkerStarted)
+    )
+    assert started.lease_expires_at is not None
+    assert (
+        await second.reconcile_stale_workers(
+            run_id, now=started.lease_expires_at + timedelta(seconds=1)
+        )
+        == 1
+    )
+    usage = await first.snapshot(run_id)
+    assert usage["used_tokens"] == 22
+    assert usage["used_cost_microusd"] == 23
+    assert usage["reserved_tokens"] == usage["reserved_cost_microusd"] == 0
+    projected = project_controller_events(await events.read_run(run_id))
+    assert projected.used_tokens == usage["used_tokens"]
+    assert projected.used_cost_microusd == usage["used_cost_microusd"]
 
 
 @pytest.mark.postgres

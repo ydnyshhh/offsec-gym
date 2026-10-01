@@ -5,24 +5,42 @@ from __future__ import annotations
 import asyncio
 import hashlib
 import json
+from contextlib import asynccontextmanager
 from datetime import UTC, datetime, timedelta
 from math import ceil
 from uuid import UUID
 
 from sqlalchemy import insert, select, update
+from sqlalchemy import text as sql_text
 from sqlalchemy.dialects.postgresql import insert as pg_insert
+from sqlalchemy.ext.asyncio import create_async_engine
+from sqlalchemy.pool import NullPool
 
 from offsecgym.schemas.actions import ActionRequest
 from offsecgym.schemas.events import (
     ActionAttemptReserved,
+    ActionBlocked,
+    ActionCompleted,
+    ActionFailed,
     ActionRequested,
     ActionReservationAcquired,
     ActionReservationReleased,
     ControllerBudgetDeclared,
+    CoverageLeaseReleased,
+    CoverageUpdated,
     ModelBudgetReserved,
     ModelBudgetSettled,
+    ModelCallCompleted,
+    ModelCallFailed,
     ModelCallStarted,
+    WorkerBlocked,
+    WorkerContractViolated,
+    WorkerDebriefed,
     WorkerFinished,
+    WorkerHeartbeat,
+    WorkerLeaseRecovered,
+    WorkerObjectiveAction,
+    WorkerPacketPrepared,
     WorkerSpawned,
     WorkerStarted,
 )
@@ -63,6 +81,75 @@ class PostgresControllerState:
 
     def __init__(self, events: PostgresEventStore) -> None:
         self.events = events
+
+    WORKER_LEASE_SECONDS = 45
+    WORKER_HEARTBEAT_SECONDS = 10
+
+    @staticmethod
+    def _worker_lock_key(run_id: UUID, worker_id: UUID) -> int:
+        digest = hashlib.sha256(b"offsecgym-worker" + run_id.bytes + worker_id.bytes).digest()
+        return int.from_bytes(digest[:8], "big", signed=True)
+
+    @asynccontextmanager
+    async def worker_guard(self, run_id: UUID, worker_id: UUID, *, blocking: bool = True):
+        """Hold a PostgreSQL session lock for one worker; process death releases it."""
+        engine = create_async_engine(self.events.engine.url, poolclass=NullPool)
+        connection = await engine.connect()
+        key = self._worker_lock_key(run_id, worker_id)
+        try:
+            lock_function = "pg_advisory_lock" if blocking else "pg_try_advisory_lock"
+            acquired = (
+                await connection.execute(sql_text(f"SELECT {lock_function}(:key)"), {"key": key})
+            ).scalar_one()
+            await connection.commit()
+            try:
+                yield acquired is not False
+            finally:
+                if acquired is not False:
+                    await connection.execute(
+                        sql_text("SELECT pg_advisory_unlock(:key)"), {"key": key}
+                    )
+                    await connection.commit()
+        finally:
+            await connection.close()
+            await engine.dispose()
+
+    async def heartbeat_worker(
+        self, run_id: UUID, worker_id: UUID, task_id: UUID, *, now: datetime | None = None
+    ) -> datetime:
+        now = now or datetime.now(UTC)
+        expires = now + timedelta(seconds=self.WORKER_LEASE_SECONDS)
+        async with self.events.run_transaction(run_id) as tx:
+            row = (
+                (
+                    await tx.connection.execute(
+                        select(worker_slots).where(
+                            worker_slots.c.run_id == run_id,
+                            worker_slots.c.worker_id == worker_id,
+                        )
+                    )
+                )
+                .mappings()
+                .one_or_none()
+            )
+            if row is None or row["task_id"] != task_id or row["status"] != "started":
+                raise ValueError("worker lease is no longer active")
+            await tx.connection.execute(
+                update(worker_slots)
+                .where(worker_slots.c.run_id == run_id, worker_slots.c.worker_id == worker_id)
+                .values(last_heartbeat_at=now, lease_expires_at=expires)
+            )
+            await tx.append(
+                WorkerHeartbeat(
+                    run_id=run_id,
+                    actor="controller",
+                    worker_id=worker_id,
+                    task_id=task_id,
+                    occurred_at=now,
+                    lease_expires_at=expires,
+                )
+            )
+        return expires
 
     @staticmethod
     async def _usage(tx: RunTransaction, budget: Budget | None = None):
@@ -115,6 +202,22 @@ class PostgresControllerState:
         async with self.events.run_transaction(run_id) as tx:
             return dict(await self._usage(tx))
 
+    @staticmethod
+    async def _worker_slot_active(
+        tx: RunTransaction, worker_id: UUID | None, task_id: UUID | None
+    ) -> bool:
+        if worker_id is None:
+            return True
+        row = (
+            await tx.connection.execute(
+                select(worker_slots.c.task_id, worker_slots.c.status).where(
+                    worker_slots.c.run_id == tx.run_id,
+                    worker_slots.c.worker_id == worker_id,
+                )
+            )
+        ).one_or_none()
+        return row is None or (row.task_id == task_id and row.status == "started")
+
     async def reserve_request(
         self,
         action: ActionRequest,
@@ -127,6 +230,8 @@ class PostgresControllerState:
             raise ValueError("action request event does not match reservation")
         async with self.events.run_transaction(action.run_id) as tx:
             usage = await self._usage(tx, budget)
+            if not await self._worker_slot_active(tx, action.worker_id, action.task_id):
+                return "worker_lease_expired"
             if (
                 await tx.connection.execute(
                     select(action_reservations.c.action_id).where(
@@ -181,6 +286,8 @@ class PostgresControllerState:
         fingerprint = request_fingerprint(action)
         async with self.events.run_transaction(action.run_id) as tx:
             usage = await self._usage(tx, budget)
+            if not await self._worker_slot_active(tx, action.worker_id, action.task_id):
+                return "worker_lease_expired"
             row = (
                 (
                     await tx.connection.execute(
@@ -326,6 +433,8 @@ class PostgresControllerState:
             raise ValueError("worker model reservation requires task_id")
         async with self.events.run_transaction(run_id) as tx:
             usage = await self._usage(tx, budget)
+            if not await self._worker_slot_active(tx, worker_id, task_id):
+                return "worker_lease_expired"
             if (
                 await tx.connection.execute(
                     select(model_reservations.c.call_id).where(
@@ -419,6 +528,8 @@ class PostgresControllerState:
         actual_tokens = actual_input_tokens + actual_output_tokens
         async with self.events.run_transaction(run_id) as tx:
             usage = await self._usage(tx)
+            if not await self._worker_slot_active(tx, worker_id, task_id):
+                raise ValueError("worker lease is no longer active")
             row = (
                 (
                     await tx.connection.execute(
@@ -483,6 +594,8 @@ class PostgresControllerState:
     ) -> str | None:
         async with self.events.run_transaction(run_id) as tx:
             usage = await self._usage(tx, budget)
+            now = datetime.now(UTC)
+            expires = now + timedelta(seconds=self.WORKER_LEASE_SECONDS)
             if budget.max_workers is not None and usage["spawned_workers"] >= budget.max_workers:
                 return "worker_budget_exhausted"
             if (
@@ -495,7 +608,12 @@ class PostgresControllerState:
                 return "duplicate_worker"
             await tx.connection.execute(
                 insert(worker_slots).values(
-                    run_id=run_id, worker_id=worker_id, task_id=task_id, status="spawned"
+                    run_id=run_id,
+                    worker_id=worker_id,
+                    task_id=task_id,
+                    status="spawned",
+                    last_heartbeat_at=now,
+                    lease_expires_at=expires,
                 )
             )
             await tx.connection.execute(
@@ -510,6 +628,7 @@ class PostgresControllerState:
                     worker_id=worker_id,
                     task_id=task_id,
                     objective=objective,
+                    lease_expires_at=expires,
                 )
             )
         return None
@@ -519,6 +638,8 @@ class PostgresControllerState:
     ) -> str | None:
         async with self.events.run_transaction(run_id) as tx:
             usage = await self._usage(tx, budget)
+            now = datetime.now(UTC)
+            expires = now + timedelta(seconds=self.WORKER_LEASE_SECONDS)
             row = (
                 (
                     await tx.connection.execute(
@@ -540,7 +661,7 @@ class PostgresControllerState:
             await tx.connection.execute(
                 update(worker_slots)
                 .where(worker_slots.c.run_id == run_id, worker_slots.c.worker_id == worker_id)
-                .values(status="started")
+                .values(status="started", last_heartbeat_at=now, lease_expires_at=expires)
             )
             await tx.connection.execute(
                 update(run_usage)
@@ -549,10 +670,57 @@ class PostgresControllerState:
             )
             await tx.append(
                 WorkerStarted(
-                    run_id=run_id, actor="coordinator", worker_id=worker_id, task_id=task_id
+                    run_id=run_id,
+                    actor="coordinator",
+                    worker_id=worker_id,
+                    task_id=task_id,
+                    lease_expires_at=expires,
                 )
             )
         return None
+
+    async def abort_spawned_worker(
+        self, run_id: UUID, worker_id: UUID, task_id: UUID, reason: str
+    ) -> None:
+        """Close a worker that failed during packet preparation before it started."""
+        async with self.events.run_transaction(run_id) as tx:
+            row = (
+                (
+                    await tx.connection.execute(
+                        select(worker_slots).where(
+                            worker_slots.c.run_id == run_id,
+                            worker_slots.c.worker_id == worker_id,
+                        )
+                    )
+                )
+                .mappings()
+                .one_or_none()
+            )
+            if row is None or row["task_id"] != task_id or row["status"] != "spawned":
+                raise ValueError("worker is not in spawned state")
+            await tx.append(
+                WorkerDebriefed(
+                    run_id=run_id,
+                    actor="controller",
+                    worker_id=worker_id,
+                    task_id=task_id,
+                    open_questions=(reason,),
+                )
+            )
+            await tx.connection.execute(
+                update(worker_slots)
+                .where(worker_slots.c.run_id == run_id, worker_slots.c.worker_id == worker_id)
+                .values(status="finished", lease_expires_at=None)
+            )
+            await tx.append(
+                WorkerFinished(
+                    run_id=run_id,
+                    actor="controller",
+                    worker_id=worker_id,
+                    task_id=task_id,
+                    status="failed",
+                )
+            )
 
     async def finish_worker(
         self,
@@ -597,6 +765,319 @@ class PostgresControllerState:
                     status=status,
                 )
             )
+
+    async def reconcile_stale_workers(self, run_id: UUID, *, now: datetime | None = None) -> int:
+        """Close crashed workers only after their lease expired and session lock is free."""
+        from offsecgym.worldview.state import EventWorldState
+
+        now = now or datetime.now(UTC)
+        async with self.events.engine.connect() as connection:
+            candidates = (
+                (
+                    await connection.execute(
+                        select(worker_slots.c.worker_id).where(
+                            worker_slots.c.run_id == run_id,
+                            worker_slots.c.status.in_(("spawned", "started")),
+                            worker_slots.c.lease_expires_at <= now,
+                        )
+                    )
+                )
+                .scalars()
+                .all()
+            )
+        recovered = 0
+        for worker_id in candidates:
+            async with self.worker_guard(run_id, worker_id, blocking=False) as acquired:
+                if not acquired:
+                    continue
+                async with self.events.run_transaction(run_id) as tx:
+                    row = (
+                        (
+                            await tx.connection.execute(
+                                select(worker_slots).where(
+                                    worker_slots.c.run_id == run_id,
+                                    worker_slots.c.worker_id == worker_id,
+                                )
+                            )
+                        )
+                        .mappings()
+                        .one_or_none()
+                    )
+                    if (
+                        row is None
+                        or row["status"] not in ("spawned", "started")
+                        or row["lease_expires_at"] is None
+                        or row["lease_expires_at"] > now
+                    ):
+                        continue
+                    task_id = row["task_id"]
+                    history = await tx.read_run(run_id)
+                    action_terminals = {
+                        event.action_id
+                        for event in history
+                        if isinstance(event, (ActionCompleted, ActionFailed, ActionBlocked))
+                    }
+                    model_terminals = {
+                        event.call_id
+                        for event in history
+                        if isinstance(event, (ModelCallCompleted, ModelCallFailed))
+                    }
+                    model_starts = {
+                        event.call_id: event
+                        for event in history
+                        if isinstance(event, ModelCallStarted)
+                    }
+                    model_completions = {
+                        event.call_id: event
+                        for event in history
+                        if isinstance(event, ModelCallCompleted)
+                    }
+                    action_rows = (
+                        (
+                            await tx.connection.execute(
+                                select(action_reservations).where(
+                                    action_reservations.c.run_id == run_id,
+                                    action_reservations.c.worker_id == worker_id,
+                                    action_reservations.c.task_id == task_id,
+                                )
+                            )
+                        )
+                        .mappings()
+                        .all()
+                    )
+                    released_actions = 0
+                    for action in action_rows:
+                        action_id = action["action_id"]
+                        if action_id not in action_terminals:
+                            terminal = (
+                                ActionFailed if action["released_at"] is None else ActionBlocked
+                            )
+                            await tx.append(
+                                terminal(
+                                    run_id=run_id,
+                                    actor="controller",
+                                    action_id=action_id,
+                                    worker_id=worker_id,
+                                    task_id=task_id,
+                                    reason_code="worker_lease_expired",
+                                )
+                            )
+                        if action["released_at"] is None:
+                            await tx.connection.execute(
+                                update(action_reservations)
+                                .where(
+                                    action_reservations.c.run_id == run_id,
+                                    action_reservations.c.action_id == action_id,
+                                )
+                                .values(released_at=now)
+                            )
+                            await tx.append(
+                                ActionReservationReleased(
+                                    run_id=run_id,
+                                    actor="controller",
+                                    action_id=action_id,
+                                    fingerprint=action["fingerprint"],
+                                    worker_id=worker_id,
+                                    task_id=task_id,
+                                )
+                            )
+                            released_actions += 1
+                    model_rows = (
+                        (
+                            await tx.connection.execute(
+                                select(model_reservations).where(
+                                    model_reservations.c.run_id == run_id,
+                                    model_reservations.c.worker_id == worker_id,
+                                    model_reservations.c.task_id == task_id,
+                                    model_reservations.c.settled_at.is_(None),
+                                )
+                            )
+                        )
+                        .mappings()
+                        .all()
+                    )
+                    usage = await self._usage(tx)
+                    settled_calls = 0
+                    recovered_tokens = 0
+                    recovered_cost = 0
+                    for model in model_rows:
+                        call_id = model["call_id"]
+                        completion = model_completions.get(call_id)
+                        actual_input = completion.input_tokens if completion else 0
+                        actual_output = completion.output_tokens if completion else 0
+                        actual_tokens = actual_input + actual_output
+                        actual_cost = (
+                            cost_microusd(completion.estimated_cost_usd) if completion else 0
+                        )
+                        if call_id not in model_terminals:
+                            started = model_starts.get(call_id)
+                            await tx.append(
+                                ModelCallFailed(
+                                    run_id=run_id,
+                                    actor="controller",
+                                    call_id=call_id,
+                                    worker_id=worker_id,
+                                    task_id=task_id,
+                                    reason_code="worker_lease_expired",
+                                    causation_id=started.event_id if started else None,
+                                )
+                            )
+                        await tx.connection.execute(
+                            update(model_reservations)
+                            .where(
+                                model_reservations.c.run_id == run_id,
+                                model_reservations.c.call_id == call_id,
+                            )
+                            .values(settled_at=now)
+                        )
+                        await tx.append(
+                            ModelBudgetSettled(
+                                schema_version=(
+                                    "2" if model["reserved_input_tokens"] is not None else "1"
+                                ),
+                                run_id=run_id,
+                                actor="controller",
+                                call_id=call_id,
+                                actual_tokens=actual_tokens,
+                                actual_input_tokens=(
+                                    actual_input
+                                    if model["reserved_input_tokens"] is not None
+                                    else None
+                                ),
+                                actual_output_tokens=(
+                                    actual_output
+                                    if model["reserved_input_tokens"] is not None
+                                    else None
+                                ),
+                                reservation_error=(
+                                    actual_tokens - model["reserved_tokens"]
+                                    if model["reserved_input_tokens"] is not None
+                                    else None
+                                ),
+                                input_reservation_error=(
+                                    actual_input - model["reserved_input_tokens"]
+                                    if model["reserved_input_tokens"] is not None
+                                    else None
+                                ),
+                                actual_cost_microusd=actual_cost,
+                                worker_id=worker_id,
+                                task_id=task_id,
+                            )
+                        )
+                        settled_calls += 1
+                        recovered_tokens += actual_tokens
+                        recovered_cost += actual_cost
+                    _, coverage = EventWorldState._project(history)
+                    released_coverage = 0
+                    for claim in coverage.values():
+                        if claim.task_id != task_id or claim.status != "active":
+                            continue
+                        await tx.append(
+                            CoverageUpdated(
+                                run_id=run_id,
+                                actor="controller",
+                                claim_id=claim.claim_id,
+                                status="released",
+                            )
+                        )
+                        await tx.append(
+                            CoverageLeaseReleased(
+                                run_id=run_id,
+                                actor="controller",
+                                claim_id=claim.claim_id,
+                                task_id=task_id,
+                                status="released",
+                            )
+                        )
+                        released_coverage += 1
+                    packet = next(
+                        (
+                            event
+                            for event in history
+                            if isinstance(event, WorkerPacketPrepared)
+                            and event.worker_id == worker_id
+                        ),
+                        None,
+                    )
+                    outcome = any(
+                        isinstance(
+                            event, (WorkerObjectiveAction, WorkerBlocked, WorkerContractViolated)
+                        )
+                        and event.worker_id == worker_id
+                        for event in history
+                    )
+                    if (
+                        row["status"] == "started"
+                        and packet is not None
+                        and packet.packet.contract is not None
+                        and not outcome
+                    ):
+                        await tx.append(
+                            WorkerContractViolated(
+                                run_id=run_id,
+                                actor="controller",
+                                worker_id=worker_id,
+                                task_id=task_id,
+                                reason_code="worker_lease_expired",
+                            )
+                        )
+                    await tx.append(
+                        WorkerLeaseRecovered(
+                            run_id=run_id,
+                            actor="controller",
+                            worker_id=worker_id,
+                            task_id=task_id,
+                            expired_at=row["lease_expires_at"],
+                            released_actions=released_actions,
+                            settled_model_calls=settled_calls,
+                            released_coverage=released_coverage,
+                        )
+                    )
+                    if not any(
+                        isinstance(event, WorkerDebriefed) and event.worker_id == worker_id
+                        for event in history
+                    ):
+                        await tx.append(
+                            WorkerDebriefed(
+                                run_id=run_id,
+                                actor="controller",
+                                worker_id=worker_id,
+                                task_id=task_id,
+                                open_questions=("Worker lease expired before debrief",),
+                            )
+                        )
+                    await tx.connection.execute(
+                        update(run_usage)
+                        .where(run_usage.c.run_id == run_id)
+                        .values(
+                            active_workers=usage["active_workers"]
+                            - (1 if row["status"] == "started" else 0),
+                            used_tokens=usage["used_tokens"] + recovered_tokens,
+                            used_cost_microusd=usage["used_cost_microusd"] + recovered_cost,
+                            reserved_tokens=usage["reserved_tokens"]
+                            - sum(model["reserved_tokens"] for model in model_rows),
+                            reserved_cost_microusd=usage["reserved_cost_microusd"]
+                            - sum(model["reserved_cost_microusd"] for model in model_rows),
+                        )
+                    )
+                    await tx.connection.execute(
+                        update(worker_slots)
+                        .where(
+                            worker_slots.c.run_id == run_id, worker_slots.c.worker_id == worker_id
+                        )
+                        .values(status="finished", lease_expires_at=None)
+                    )
+                    await tx.append(
+                        WorkerFinished(
+                            run_id=run_id,
+                            actor="controller",
+                            worker_id=worker_id,
+                            task_id=task_id,
+                            status="failed",
+                        )
+                    )
+                    recovered += 1
+        return recovered
 
 
 class LocalActionReservations:
