@@ -246,6 +246,106 @@ async def test_controller_observation_supersedes_dynamic_status_and_renders_exac
     assert (await state.query(run_id, predicate="status"))[0].status == "observed"
 
 
+@pytest.mark.asyncio
+async def test_controller_fact_order_follows_action_completion_not_persistence() -> None:
+    events = MemoryEvents()
+    state = EventWorldState(events)
+    run_id, invoice = uuid4(), uuid4()
+    responses = []
+    for value in ("paid", "refunded"):
+        request = ActionRequest(
+            run_id=run_id,
+            kind="http_request",
+            destination="saas",
+            method="GET",
+            path=f"/api/invoices/{invoice}",
+        )
+        result = _result(request, {"id": str(invoice), "status": value})
+        await events.append(
+            ActionRequested(
+                run_id=run_id,
+                actor="gateway",
+                action_id=request.action_id,
+                action_type="http_request",
+                destination="saas",
+                method="GET",
+                path_sha256=hashlib.sha256(request.path.encode()).hexdigest(),
+                range_instance_id=uuid4(),
+                range_generation=0,
+                request_artifact_id=uuid4(),
+            )
+        )
+        await events.append(
+            ActionCompleted(
+                run_id=run_id,
+                actor="gateway",
+                action_id=request.action_id,
+                evidence_id=result.evidence_id,
+                duration_ms=1,
+                http_status=200,
+                response_sha256=result.response_sha256,
+            )
+        )
+        responses.append((request, result))
+    (newer,) = await state.record_response(*responses[1])
+    (older,) = await state.record_response(*responses[0])
+    assert older.status == "superseded"
+    assert older.superseded_by_fact_id == newer.fact_id
+    current = await state.query(run_id, predicate="status")
+    assert len(current) == 1 and current[0].object_value == "refunded"
+
+
+@pytest.mark.asyncio
+async def test_controller_list_relationships_keep_distinct_objects() -> None:
+    events = MemoryEvents()
+    state = EventWorldState(events)
+    run_id, workspace, first, second = (uuid4() for _ in range(4))
+    request = ActionRequest(
+        run_id=run_id,
+        kind="http_request",
+        destination="saas",
+        method="GET",
+        path=f"/api/workspaces/{workspace}/documents",
+    )
+    result = _result(
+        request,
+        {
+            "items": [
+                {"id": str(first), "workspace_id": str(workspace)},
+                {"id": str(second), "workspace_id": str(workspace)},
+            ]
+        },
+    )
+    await events.append(
+        ActionRequested(
+            run_id=run_id,
+            actor="gateway",
+            action_id=request.action_id,
+            action_type="http_request",
+            destination="saas",
+            method="GET",
+            path_sha256=hashlib.sha256(request.path.encode()).hexdigest(),
+            range_instance_id=uuid4(),
+            range_generation=0,
+            request_artifact_id=uuid4(),
+        )
+    )
+    await events.append(
+        ActionCompleted(
+            run_id=run_id,
+            actor="gateway",
+            action_id=request.action_id,
+            evidence_id=result.evidence_id,
+            duration_ms=1,
+            http_status=200,
+            response_sha256=result.response_sha256,
+        )
+    )
+    await state.record_response(request, result)
+    contains = await state.query(run_id, predicate="contains_document")
+    assert {fact.object_value.entity_id for fact in contains} == {first, second}
+
+
 def test_finding_tool_uses_canonical_categories_and_legacy_aliases_are_exact() -> None:
     asset_id, run_id, action_id, evidence_id = (uuid4() for _ in range(4))
     data = {

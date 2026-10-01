@@ -167,43 +167,85 @@ class EventWorldState:
             )
             if completed is None:
                 raise ValueError("controller observation source must be a 200 response")
-            await writer.append(
-                WorldFactSubmitted(run_id=fact.run_id, actor="controller", fact=fact)
-            )
-            older = [
+            completed_by_action = {
+                item.action_id: item.sequence_number
+                for item in history
+                if isinstance(item, ActionCompleted)
+            }
+            source_sequence = completed.sequence_number
+            multi_valued = fact.predicate in {
+                "contains_document",
+                "contains_invoice",
+                "contains_ticket",
+            }
+            peers = [
                 item
                 for item in facts.values()
                 if item.schema_version == "4"
                 and item.status == "observed"
                 and item.subject == fact.subject
                 and item.predicate == fact.predicate
-                and item.object_value != fact.object_value
+                and (not multi_valued or item.object_value == fact.object_value)
+                and len(item.source_action_ids) == 1
+                and item.source_action_ids[0] in completed_by_action
             ]
-            if older:
+            newer = [
+                item
+                for item in peers
+                if completed_by_action[item.source_action_ids[0]] > source_sequence
+            ]
+            await writer.append(
+                WorldFactSubmitted(run_id=fact.run_id, actor="controller", fact=fact)
+            )
+            if newer:
+                latest = max(
+                    newer,
+                    key=lambda item: completed_by_action[item.source_action_ids[0]],
+                )
+                changes = (
+                    WorldFactStateChange(
+                        fact_id=fact.fact_id,
+                        status="superseded",
+                        reason_code="older_source_action_completed",
+                        replacement_fact_id=latest.fact_id,
+                    ),
+                )
+            else:
+                older = [
+                    item
+                    for item in peers
+                    if completed_by_action[item.source_action_ids[0]] < source_sequence
+                ]
+                changes = (
+                    (
+                        WorldFactStateChange(
+                            fact_id=fact.fact_id,
+                            status="observed",
+                            reason_code="source_action_order_verified",
+                        ),
+                        *(
+                            WorldFactStateChange(
+                                fact_id=item.fact_id,
+                                status="superseded",
+                                reason_code="newer_source_action_completed",
+                                replacement_fact_id=fact.fact_id,
+                            )
+                            for item in older
+                        ),
+                    )
+                    if older
+                    else ()
+                )
+            if changes:
                 await writer.append(
                     WorldFactAdjudicated(
                         run_id=fact.run_id,
                         actor="controller",
                         fact_id=fact.fact_id,
-                        changes=(
-                            WorldFactStateChange(
-                                fact_id=fact.fact_id,
-                                status="observed",
-                                reason_code="response_field_verified",
-                            ),
-                            *(
-                                WorldFactStateChange(
-                                    fact_id=item.fact_id,
-                                    status="superseded",
-                                    reason_code="newer_response_field",
-                                    replacement_fact_id=fact.fact_id,
-                                )
-                                for item in older
-                            ),
-                        ),
+                        changes=changes,
                     )
                 )
-            return fact
+            return self._project(await writer.read_run(fact.run_id))[0][fact.fact_id]
 
     async def adjudicate_fact(self, run_id: UUID, fact_id: UUID) -> WorldFact:
         async with self._transaction(run_id) as writer:
