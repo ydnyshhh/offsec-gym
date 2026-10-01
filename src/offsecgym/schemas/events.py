@@ -326,21 +326,57 @@ class ActionReservationReleased(TraceEvent):
 
 
 class ModelBudgetReserved(TraceEvent):
+    schema_version: Literal["1", "2"] = "2"
     type: Literal["model_budget_reserved"] = "model_budget_reserved"
     call_id: UUID
     reserved_tokens: int = Field(ge=0)
+    reserved_input_tokens: int | None = Field(default=None, ge=0)
+    reserved_output_tokens: int | None = Field(default=None, ge=0)
+    request_bytes: int | None = Field(default=None, ge=0)
     reserved_cost_microusd: int = Field(ge=0)
     worker_id: UUID | None = None
     task_id: UUID | None = None
 
+    @model_validator(mode="after")
+    def validate_split(self) -> ModelBudgetReserved:
+        if self.schema_version == "2" and (
+            self.reserved_input_tokens is None
+            or self.reserved_output_tokens is None
+            or self.request_bytes is None
+            or self.reserved_input_tokens + self.reserved_output_tokens != self.reserved_tokens
+        ):
+            raise ValueError(
+                "v2 model reservation requires matching input/output split and request bytes"
+            )
+        return self
+
 
 class ModelBudgetSettled(TraceEvent):
+    schema_version: Literal["1", "2"] = "2"
     type: Literal["model_budget_settled"] = "model_budget_settled"
     call_id: UUID
     actual_tokens: int = Field(ge=0)
+    actual_input_tokens: int | None = Field(default=None, ge=0)
+    actual_output_tokens: int | None = Field(default=None, ge=0)
+    reservation_error: int | None = None
+    input_reservation_error: int | None = None
     actual_cost_microusd: int = Field(ge=0)
     worker_id: UUID | None = None
     task_id: UUID | None = None
+
+    @model_validator(mode="after")
+    def validate_split(self) -> ModelBudgetSettled:
+        if self.schema_version == "2" and (
+            self.actual_input_tokens is None
+            or self.actual_output_tokens is None
+            or self.reservation_error is None
+            or self.input_reservation_error is None
+            or self.actual_input_tokens + self.actual_output_tokens != self.actual_tokens
+        ):
+            raise ValueError(
+                "v2 model settlement requires matching input/output split and reservation error"
+            )
+        return self
 
 
 class WorkerSpawned(TraceEvent):

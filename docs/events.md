@@ -77,6 +77,10 @@ has a separate fingerprint lease and HTTP counter. A model reservation and its
 worker and task IDs when a worker owns them. `project_controller_events`
 reconstructs usage, ownership, and worker state from these events. Historical
 events without these fields remain parseable.
+V2 model budget events add request bytes, reserved input/output tokens, actual
+input/output tokens, and signed reservation errors. Positive error means actual
+usage exceeded the corresponding reservation; a failed provider call settles
+with zero reported usage. V1 budget events remain parseable.
 
 Request events precede external effects. An allowed action receives exactly one terminal
 completion, blocked, failed, or outcome-unknown resolution. JSONL is an export of the

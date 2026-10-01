@@ -1,7 +1,7 @@
 # Milestone 6.0: atomic shared state and worker runtime
 
 M6.0 establishes the controller boundary needed before coordinator agents.
-M5 remains a frozen monolithic structured baseline at code commit `0f27533`.
+The M5.4 historical executable remains frozen at code commit `0f27533`.
 The [corrected M5.4 diagnostic](diagnostics/kimi-k3-openrouter-m54.md) retains
 the original gate table: three unchanged rereads exceeded the one-repeat gate,
 and one explicitly labeled second-invoice corroboration failed the literal
@@ -38,8 +38,20 @@ The local lock is used only by non-PostgreSQL test event stores.
 - Model-call count, provisional tokens, and provisional cost are reserved
   before a provider call. The model start event is appended in that same
   transaction. Provider-reported usage settles the reservation afterward.
-  The preflight input bound is serialized request bytes plus 1,024 tokens;
-  the output bound is the requested output cap. Cost uses configured token
+  The preflight input estimate is `ceil(serialized UTF-8 request bytes / c)
+  + margin`; the serialized model spec records `c` and `margin` (defaults 2
+  bytes/token and 1,024 tokens). An M6.0 follow-up migration stores the split
+  input/output reservation and request byte count. Reservation and settlement
+  events record the split, actual provider usage, signed total reservation
+  error, and signed input reservation error. Positive error means the provider
+  reported more tokens than reserved.
+  Across 278 completed local Kimi K3 model calls, outbound JSON bytes per reported
+  input token ranged from 2.70 to 4.29. The default 2 bytes/token plus margin
+  underestimated none of those calls; this is empirical calibration, not a
+  tokenizer guarantee. Model-specific values for matched experiments must be
+  set in the frozen experiment spec.
+  The output bound remains the requested output cap.
+  Cost uses configured token
   prices in integer microdollars. This conservative estimate prevents
   competing calls from spending the same *reserved* budget, but opaque
   provider tokenization or output-limit violations can still exceed it.
@@ -100,14 +112,22 @@ accounting overrun, not silently treated as an exact hard cap.
    findings, completed coverage, open questions, and followups. The
    coordinator adjudicates the debrief into global state without carrying
    full worker transcripts between tasks.
-2. **Matched diagnostic.** Compare M5 monolithic structured with M6.1
-   sequential workers under the same model, range, surface visibility,
+2. **Matched diagnostic.** Keep the `0f27533` M5.4 runs as historical diagnostic
+   evidence. The causal control is the **M5.4 monolithic structured policy run
+   again on the current controller code**, compared with M6.1 sequential
+   workers on that same code. Both arms use the same model, range, surface visibility,
    provider, validator, and global budget. Track root-cause recall, false
    findings, HTTP actions, exact and semantic duplication, worker overlap,
    evidence reuse, tokens/cost, time to first valid finding, coverage,
    abandoned branches, recovery after falsified hypotheses, and coordinator
    overhead. The first gate is infrastructure and attribution, not a worker
    score win.
+
+M6.2 must order conflicting response facts by the source
+`ActionCompleted.sequence_number`. Today `record_response` verifies the response
+event and persists extracted facts in separate transactions; parallel workers
+could write those facts in the opposite order. Sequential M6.1 workers do not
+exercise that race.
 3. **M6.2 concurrency.** Enable parallel workers only after sequential traces
    are sensible. Use the action and coverage reservations to distinguish
    independent confirmation from controller-race duplicates; add the

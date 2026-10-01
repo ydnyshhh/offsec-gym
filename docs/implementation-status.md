@@ -70,7 +70,9 @@
 ## Partially implemented
 
 - Model token and cost reservations use a conservative request-size preflight
-  estimate, then settle to provider-reported usage. Hidden tokenizer overhead or
+  estimate, now calibrated as configurable bytes per token plus a margin and
+  recorded with split input/output estimates and signed errors. They settle to
+  provider-reported usage. Hidden tokenizer overhead or
   a provider exceeding its output cap can still make the actual use exceed a
   preflight reservation. Wall time remains enforced at the experiment runner.
 - Event export and crash reconciliation are pending. The M6 controller accounting
@@ -92,7 +94,8 @@
 
 Build M6.1 sequential coordinator and ephemeral workers on the M6.0 shared
 controller primitives. Require bounded worker packets and typed debriefs, then
-compare them with the frozen M5 monolithic structured baseline under matched
+compare them with the M5.4 monolithic structured *policy rerun on the same
+controller code* under matched
 model, range, visibility, provider, validator, and global budget. Add actual
 concurrency only after sequential traces behave sensibly. See
 [Milestone 6.0](milestone-6.0.md).

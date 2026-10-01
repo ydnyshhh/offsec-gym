@@ -68,6 +68,8 @@ class ModelSpec(StrictModel):
     upstream_provider: str | None = Field(default=None, pattern=r"^[a-z0-9-]+$")
     input_usd_per_million_tokens: float | None = Field(default=None, gt=0, allow_inf_nan=False)
     output_usd_per_million_tokens: float | None = Field(default=None, gt=0, allow_inf_nan=False)
+    input_reservation_bytes_per_token: float = Field(default=2.0, gt=0, allow_inf_nan=False)
+    input_reservation_margin_tokens: int = Field(default=1024, ge=0)
 
     @model_validator(mode="after")
     def paired_token_prices(self) -> ModelSpec:

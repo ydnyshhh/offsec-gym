@@ -43,7 +43,7 @@ class ControllerProjection:
     coverage_keys: dict[UUID, tuple[str, str]] = field(default_factory=dict)
     worker_status: dict[UUID, str] = field(default_factory=dict)
     worker_tasks: dict[UUID, UUID] = field(default_factory=dict)
-    model_reservations: dict[UUID, tuple[int, int, UUID | None, UUID | None]] = field(
+    model_reservations: dict[UUID, tuple[int, int, UUID | None, UUID | None, int | None]] = field(
         default_factory=dict
     )
 
@@ -96,13 +96,23 @@ def project_controller_events(trace: Sequence[AnyTraceEvent]) -> ControllerProje
                 event.reserved_cost_microusd,
                 event.worker_id,
                 event.task_id,
+                event.reserved_input_tokens,
             )
         elif isinstance(event, ModelBudgetSettled):
             reservation = state.model_reservations.pop(event.call_id, None)
             if reservation is None:
                 raise ValueError("model settlement has no matching reservation")
-            if reservation[2:] != (event.worker_id, event.task_id):
+            if reservation[2:4] != (event.worker_id, event.task_id):
                 raise ValueError("model settlement owner differs from reservation")
+            if event.schema_version == "2" and event.reservation_error != (
+                event.actual_tokens - reservation[0]
+            ):
+                raise ValueError("model settlement reservation error differs from reservation")
+            if event.schema_version == "2":
+                if reservation[4] is None or event.input_reservation_error != (
+                    event.actual_input_tokens - reservation[4]
+                ):
+                    raise ValueError("model input reservation error differs from reservation")
             state.reserved_tokens -= reservation[0]
             state.reserved_cost_microusd -= reservation[1]
             state.used_tokens += event.actual_tokens

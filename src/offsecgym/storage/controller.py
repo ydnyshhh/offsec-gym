@@ -297,14 +297,25 @@ class PostgresControllerState:
         call_id: UUID,
         budget: Budget,
         *,
-        estimated_tokens: int,
+        reserved_input_tokens: int,
+        reserved_output_tokens: int,
+        request_bytes: int,
         estimated_cost_microusd: int = 0,
         worker_id: UUID | None = None,
         task_id: UUID | None = None,
         started_event: ModelCallStarted | None = None,
     ) -> str | None:
-        if estimated_tokens < 0 or estimated_cost_microusd < 0:
+        if (
+            min(
+                reserved_input_tokens,
+                reserved_output_tokens,
+                request_bytes,
+                estimated_cost_microusd,
+            )
+            < 0
+        ):
             raise ValueError("model reservation cannot be negative")
+        estimated_tokens = reserved_input_tokens + reserved_output_tokens
         if worker_id is not None and task_id is None:
             raise ValueError("worker model reservation requires task_id")
         async with self.events.run_transaction(run_id) as tx:
@@ -344,6 +355,9 @@ class PostgresControllerState:
                     worker_id=worker_id,
                     task_id=task_id,
                     reserved_tokens=estimated_tokens,
+                    reserved_input_tokens=reserved_input_tokens,
+                    reserved_output_tokens=reserved_output_tokens,
+                    request_bytes=request_bytes,
                     reserved_cost_microusd=estimated_cost_microusd,
                 )
             )
@@ -364,6 +378,9 @@ class PostgresControllerState:
                     actor="controller",
                     call_id=call_id,
                     reserved_tokens=estimated_tokens,
+                    reserved_input_tokens=reserved_input_tokens,
+                    reserved_output_tokens=reserved_output_tokens,
+                    request_bytes=request_bytes,
                     reserved_cost_microusd=estimated_cost_microusd,
                     worker_id=worker_id,
                     task_id=task_id,
@@ -380,13 +397,15 @@ class PostgresControllerState:
         run_id: UUID,
         call_id: UUID,
         *,
-        actual_tokens: int,
+        actual_input_tokens: int,
+        actual_output_tokens: int,
         actual_cost_microusd: int = 0,
         worker_id: UUID | None = None,
         task_id: UUID | None = None,
     ) -> None:
-        if actual_tokens < 0 or actual_cost_microusd < 0:
+        if min(actual_input_tokens, actual_output_tokens, actual_cost_microusd) < 0:
             raise ValueError("actual model usage cannot be negative")
+        actual_tokens = actual_input_tokens + actual_output_tokens
         async with self.events.run_transaction(run_id) as tx:
             usage = await self._usage(tx)
             row = (
@@ -429,10 +448,19 @@ class PostgresControllerState:
             )
             await tx.append(
                 ModelBudgetSettled(
+                    schema_version=("2" if row["reserved_input_tokens"] is not None else "1"),
                     run_id=run_id,
                     actor="controller",
                     call_id=call_id,
                     actual_tokens=actual_tokens,
+                    actual_input_tokens=actual_input_tokens,
+                    actual_output_tokens=actual_output_tokens,
+                    reservation_error=actual_tokens - row["reserved_tokens"],
+                    input_reservation_error=(
+                        actual_input_tokens - row["reserved_input_tokens"]
+                        if row["reserved_input_tokens"] is not None
+                        else None
+                    ),
                     actual_cost_microusd=actual_cost_microusd,
                     worker_id=worker_id,
                     task_id=task_id,

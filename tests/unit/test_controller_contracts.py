@@ -4,6 +4,7 @@ from uuid import uuid4
 
 import pytest
 
+from offsecgym.providers.token_budget import estimate_input_tokens
 from offsecgym.schemas.actions import ActionRequest
 from offsecgym.schemas.events import (
     ActionAttemptReserved,
@@ -16,6 +17,7 @@ from offsecgym.schemas.events import (
     WorkerStarted,
     parse_event,
 )
+from offsecgym.schemas.specs import ModelSpec
 from offsecgym.storage.controller import request_fingerprint
 from offsecgym.storage.projection import project_controller_events
 
@@ -39,6 +41,31 @@ def test_fingerprint_canonicalizes_body_and_binds_identity() -> None:
     assert request_fingerprint(action) != request_fingerprint(
         action.model_copy(update={"path": "/api/invoices/2"})
     )
+
+
+def test_model_preflight_estimate_is_configured_and_recordable() -> None:
+    model = ModelSpec(provider="openrouter", name="moonshotai/kimi-k3")
+    payload = {"messages": [{"role": "user", "content": "A" * 3000}]}
+    reserved, request_bytes = estimate_input_tokens(payload, model)
+    assert reserved == (request_bytes + 1) // 2 + 1024
+    assert reserved < request_bytes + 1024
+    calibrated = model.model_copy(update={"input_reservation_bytes_per_token": 2.5})
+    assert estimate_input_tokens(payload, calibrated)[0] < reserved
+    event = ModelBudgetReserved(
+        run_id=uuid4(),
+        actor="controller",
+        call_id=uuid4(),
+        reserved_tokens=reserved + 8192,
+        reserved_input_tokens=reserved,
+        reserved_output_tokens=8192,
+        request_bytes=request_bytes,
+        reserved_cost_microusd=0,
+    )
+    assert parse_event(event.model_dump(mode="json")) == event
+    with pytest.raises(ValueError, match="matching input/output split"):
+        event.model_copy(update={"reserved_tokens": 1}).model_validate(
+            event.model_copy(update={"reserved_tokens": 1}).model_dump()
+        )
 
 
 def test_worker_actions_require_task_attribution() -> None:
@@ -89,6 +116,7 @@ def test_controller_events_round_trip_and_project_state() -> None:
             task_id=task_id,
         ),
         ModelBudgetReserved(
+            schema_version="1",
             run_id=run_id,
             actor="controller",
             call_id=call_id,
@@ -98,6 +126,7 @@ def test_controller_events_round_trip_and_project_state() -> None:
             task_id=task_id,
         ),
         ModelBudgetSettled(
+            schema_version="1",
             run_id=run_id,
             actor="controller",
             call_id=call_id,

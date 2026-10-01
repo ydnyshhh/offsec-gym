@@ -81,6 +81,9 @@ model_reservations = Table(
     Column("worker_id", UUID(as_uuid=True)),
     Column("task_id", UUID(as_uuid=True)),
     Column("reserved_tokens", BigInteger, nullable=False),
+    Column("reserved_input_tokens", BigInteger),
+    Column("reserved_output_tokens", BigInteger),
+    Column("request_bytes", BigInteger),
     Column("reserved_cost_microusd", BigInteger, nullable=False),
     Column("settled_at", DateTime(timezone=True)),
 )

@@ -13,6 +13,7 @@ from pydantic import Field, ValidationError, field_validator, model_validator
 from offsecgym.interfaces import EventStore, ToolRegistry
 from offsecgym.providers.artifacts import ModelCallArtifacts
 from offsecgym.providers.base import ModelProvider, ProviderFailure, ProviderRequestError
+from offsecgym.providers.token_budget import estimate_input_tokens
 from offsecgym.schemas.actions import ActionRequest
 from offsecgym.schemas.common import StrictModel
 from offsecgym.schemas.domain import (
@@ -439,16 +440,15 @@ class MonolithicSaasAgent:
                 request_sha256=request_sha256,
             )
             if self.controller is not None:
-                # A conservative preflight bound until the provider reports token usage.
-                estimated_input = (
-                    len(json.dumps(request_payload, ensure_ascii=False).encode("utf-8")) + 1024
-                )
+                estimated_input, request_bytes = estimate_input_tokens(request_payload, self.model)
                 try:
                     reason = await self.controller.reserve_model_call(
                         context.run_id,
                         call_id,
                         context.global_budget or task.budget,
-                        estimated_tokens=estimated_input + max_output_tokens,
+                        reserved_input_tokens=estimated_input,
+                        reserved_output_tokens=max_output_tokens,
+                        request_bytes=request_bytes,
                         estimated_cost_microusd=cost_microusd(
                             self._turn_cost(estimated_input, max_output_tokens)
                         ),
@@ -532,9 +532,8 @@ class MonolithicSaasAgent:
                 raise ProviderRequestError("provider_adapter_error") from exc
             finally:
                 if self.controller is not None:
-                    actual_tokens = (
-                        turn.usage.input_tokens + turn.usage.output_tokens if turn else 0
-                    )
+                    actual_input_tokens = turn.usage.input_tokens if turn else 0
+                    actual_output_tokens = turn.usage.output_tokens if turn else 0
                     actual_cost = (
                         cost_microusd(
                             self._turn_cost(turn.usage.input_tokens, turn.usage.output_tokens)
@@ -545,7 +544,8 @@ class MonolithicSaasAgent:
                     await self.controller.settle_model_call(
                         context.run_id,
                         call_id,
-                        actual_tokens=actual_tokens,
+                        actual_input_tokens=actual_input_tokens,
+                        actual_output_tokens=actual_output_tokens,
                         actual_cost_microusd=actual_cost,
                         worker_id=task.worker_id,
                         task_id=task.task_id,

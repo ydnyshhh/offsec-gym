@@ -159,7 +159,9 @@ async def test_model_start_and_budget_reservation_commit_together(controllers) -
             run_id,
             call_id,
             Budget(max_model_calls=1),
-            estimated_tokens=5,
+            reserved_input_tokens=3,
+            reserved_output_tokens=2,
+            request_bytes=6,
             started_event=started.model_copy(update={"call_id": uuid4()}),
         )
     assert (await first.snapshot(run_id))["used_model_calls"] == 0
@@ -168,7 +170,9 @@ async def test_model_start_and_budget_reservation_commit_together(controllers) -
             run_id,
             call_id,
             Budget(max_model_calls=1),
-            estimated_tokens=5,
+            reserved_input_tokens=3,
+            reserved_output_tokens=2,
+            request_bytes=6,
             started_event=started,
         )
         is None
@@ -330,7 +334,9 @@ async def test_worker_slots_and_model_reservations_remain_bounded(controllers) -
                 run_id,
                 call_id,
                 budget,
-                estimated_tokens=40,
+                reserved_input_tokens=30,
+                reserved_output_tokens=10,
+                request_bytes=75,
                 estimated_cost_microusd=40,
                 worker_id=winner[0],
                 task_id=winner[1],
@@ -350,7 +356,8 @@ async def test_worker_slots_and_model_reservations_remain_bounded(controllers) -
             await second.settle_model_call(
                 run_id,
                 call_id,
-                actual_tokens=30,
+                actual_input_tokens=22,
+                actual_output_tokens=8,
                 actual_cost_microusd=30,
                 worker_id=winner[0],
                 task_id=winner[1],
@@ -378,6 +385,14 @@ async def test_worker_slots_and_model_reservations_remain_bounded(controllers) -
     assert len([item for item in trace if isinstance(item, WorkerFinished)]) == 1
     assert len([item for item in trace if isinstance(item, ModelBudgetReserved)]) == 2
     assert len([item for item in trace if isinstance(item, ModelBudgetSettled)]) == 2
+    for item in trace:
+        if isinstance(item, ModelBudgetReserved):
+            assert (item.reserved_input_tokens, item.reserved_output_tokens) == (30, 10)
+            assert item.request_bytes == 75
+        elif isinstance(item, ModelBudgetSettled):
+            assert (item.actual_input_tokens, item.actual_output_tokens) == (22, 8)
+            assert item.reservation_error == -10
+            assert item.input_reservation_error == -8
     assert all(
         item.worker_id == winner[0] and item.task_id == winner[1]
         for item in trace
