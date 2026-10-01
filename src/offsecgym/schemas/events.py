@@ -11,6 +11,7 @@ from pydantic import Field, TypeAdapter, field_validator, model_validator
 from offsecgym.schemas.common import StrictModel, new_id
 from offsecgym.schemas.domain import CandidateFinding, CoverageClaim, ValidationResult, WorldFact
 from offsecgym.schemas.specs import Budget
+from offsecgym.schemas.workers import WorkerTaskPacket
 
 
 class TraceEvent(StrictModel):
@@ -392,6 +393,19 @@ class WorkerStarted(TraceEvent):
     task_id: UUID
 
 
+class WorkerPacketPrepared(TraceEvent):
+    type: Literal["worker_packet_prepared"] = "worker_packet_prepared"
+    worker_id: UUID
+    task_id: UUID
+    packet: WorkerTaskPacket
+
+    @model_validator(mode="after")
+    def match_packet_owner(self) -> WorkerPacketPrepared:
+        if self.worker_id != self.packet.worker_id or self.task_id != self.packet.task_id:
+            raise ValueError("worker packet owner differs from event")
+        return self
+
+
 class WorkerDebriefed(TraceEvent):
     type: Literal["worker_debriefed"] = "worker_debriefed"
     worker_id: UUID
@@ -435,14 +449,20 @@ class RunCompleted(TraceEvent):
 
 
 class FindingSubmitted(TraceEvent):
-    schema_version: Literal["2"] = "2"
+    schema_version: Literal["2", "3"] = "2"
     type: Literal["finding_submitted"] = "finding_submitted"
     finding: CandidateFinding
+    worker_id: UUID | None = None
+    task_id: UUID | None = None
 
     @model_validator(mode="after")
     def bind_finding_run(self) -> FindingSubmitted:
         if self.run_id != self.finding.run_id:
             raise ValueError("finding submission run does not match event run")
+        if self.schema_version == "2" and (self.worker_id is not None or self.task_id is not None):
+            raise ValueError("v2 finding submission cannot carry worker ownership")
+        if self.schema_version == "3" and (self.worker_id is None) != (self.task_id is None):
+            raise ValueError("v3 finding worker ownership requires worker and task IDs")
         return self
 
 
@@ -486,6 +506,7 @@ AnyTraceEvent = Annotated[
     | ModelBudgetSettled
     | WorkerSpawned
     | WorkerStarted
+    | WorkerPacketPrepared
     | WorkerDebriefed
     | WorkerFinished
     | ContextRetrieved

@@ -9,6 +9,7 @@ from uuid import uuid4
 import pytest
 from sqlalchemy.ext.asyncio import create_async_engine
 
+from offsecgym.orchestration_metrics import orchestration_metrics
 from offsecgym.providers.base import ModelTurn
 from offsecgym.schemas.actions import ActionRequest
 from offsecgym.schemas.domain import (
@@ -28,12 +29,15 @@ from offsecgym.schemas.events import (
     ModelBudgetSettled,
     ModelCallCompleted,
     ModelCallStarted,
+    WorkerDebriefed,
     WorkerFinished,
+    WorkerPacketPrepared,
     WorkerSpawned,
     WorkerStarted,
 )
 from offsecgym.schemas.specs import Budget, ModelSpec
 from offsecgym.solver.monolithic import MonolithicSaasAgent
+from offsecgym.solver.workers import SequentialWorkerCoordinator
 from offsecgym.storage.controller import PostgresControllerState
 from offsecgym.storage.event_store import PostgresEventStore
 from offsecgym.storage.projection import project_controller_events
@@ -398,3 +402,84 @@ async def test_worker_slots_and_model_reservations_remain_bounded(controllers) -
         for item in trace
         if isinstance(item, (ModelBudgetReserved, ModelBudgetSettled))
     )
+
+
+@pytest.mark.postgres
+async def test_sequential_workers_have_bounded_packets_and_attributed_calls(
+    controllers, tmp_path
+) -> None:
+    _, _, events, _ = controllers
+    run_id = uuid4()
+    budget = Budget(
+        max_actions=6,
+        max_http_requests=6,
+        max_model_calls=6,
+        max_total_tokens=120000,
+        max_output_tokens_per_call=128,
+        max_workers=6,
+        max_concurrency=1,
+    )
+
+    class OneTurnProvider:
+        def __init__(self):
+            self.requests = []
+
+        def prepare_request(self, model, instructions, input_items, tools, max_output_tokens):
+            payload = {
+                "model": model.name,
+                "instructions": instructions,
+                "input": input_items,
+                "max_output_tokens": max_output_tokens,
+            }
+            self.requests.append(payload)
+            return payload
+
+        async def complete(self, request_payload):
+            return ModelTurn(
+                response_id="synthetic",
+                status="completed",
+                output=(),
+                usage={"input_tokens": 200, "output_tokens": 10},
+                raw_response={
+                    "id": "synthetic",
+                    "status": "completed",
+                    "output": [],
+                    "usage": {"input_tokens": 200, "output_tokens": 10},
+                },
+            )
+
+    provider = OneTurnProvider()
+    coordinator = SequentialWorkerCoordinator(
+        provider, ModelSpec(provider="openai", name="synthetic"), None, events, tmp_path
+    )
+    task = AgentTask(task_id=uuid4(), goal="Test SaaS security", budget=budget)
+    context = AgentContext(
+        run_id=run_id,
+        objective=task.goal,
+        global_budget=budget,
+        range=AgentVisibleRangeContext(range_instance_id=uuid4(), family="saas"),
+    )
+    result = await coordinator.run(task, context, None)
+    assert result.status == "completed"
+    assert len(provider.requests) == 6
+    trace = await events.read_run(run_id)
+    packets = [item for item in trace if isinstance(item, WorkerPacketPrepared)]
+    debriefs = [item for item in trace if isinstance(item, WorkerDebriefed)]
+    assert len(packets) == len(debriefs) == 6
+    assert len({item.worker_id for item in packets}) == 6
+    assert all(len(item.packet.model_dump_json()) <= 10000 for item in packets)
+    assert all(item.packet.budget_slice.max_model_calls == 1 for item in packets)
+    starts = [item for item in trace if isinstance(item, ModelCallStarted)]
+    assert len(starts) == 6
+    assert {(item.worker_id, item.task_id) for item in starts} == {
+        (item.worker_id, item.task_id) for item in packets
+    }
+    assert all("Worker packet:" in item["input"][0]["content"] for item in provider.requests)
+    projected = project_controller_events(trace)
+    assert projected.used_model_calls == projected.spawned_workers == 6
+    assert projected.active_workers == 0
+    assert set(projected.worker_status.values()) == {"finished"}
+    assert len(projected.worker_packets) == len(projected.worker_debriefs) == 6
+    metrics = orchestration_metrics(trace)
+    assert metrics.worker_packets == metrics.worker_debriefs == 6
+    assert metrics.coordinator_model_calls == 0

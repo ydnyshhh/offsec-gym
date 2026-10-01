@@ -138,6 +138,7 @@ async def test_working_set_keeps_before_after_and_groups_evidence_by_exact_entit
         GetEntityArgs(entity_type="invoice", entity_id=invoice_a),
         run_id,
         uuid4(),
+        None,
         uuid4(),
     )
     assert found["found"] is True
@@ -159,6 +160,7 @@ async def test_working_set_keeps_before_after_and_groups_evidence_by_exact_entit
         GetEntityArgs(entity_type="invoice", entity_id=uuid4()),
         run_id,
         uuid4(),
+        None,
         uuid4(),
     )
     assert missing == {"found": False, "entity": None}

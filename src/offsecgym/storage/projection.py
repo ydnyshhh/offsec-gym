@@ -17,7 +17,9 @@ from offsecgym.schemas.events import (
     CoverageLeaseReleased,
     ModelBudgetReserved,
     ModelBudgetSettled,
+    WorkerDebriefed,
     WorkerFinished,
+    WorkerPacketPrepared,
     WorkerSpawned,
     WorkerStarted,
 )
@@ -43,6 +45,8 @@ class ControllerProjection:
     coverage_keys: dict[UUID, tuple[str, str]] = field(default_factory=dict)
     worker_status: dict[UUID, str] = field(default_factory=dict)
     worker_tasks: dict[UUID, UUID] = field(default_factory=dict)
+    worker_packets: dict[UUID, WorkerPacketPrepared] = field(default_factory=dict)
+    worker_debriefs: dict[UUID, WorkerDebriefed] = field(default_factory=dict)
     model_reservations: dict[UUID, tuple[int, int, UUID | None, UUID | None, int | None]] = field(
         default_factory=dict
     )
@@ -123,6 +127,14 @@ def project_controller_events(trace: Sequence[AnyTraceEvent]) -> ControllerProje
             state.spawned_workers += 1
             state.worker_status[event.worker_id] = "spawned"
             state.worker_tasks[event.worker_id] = event.task_id
+        elif isinstance(event, WorkerPacketPrepared):
+            if (
+                state.worker_status.get(event.worker_id) != "spawned"
+                or state.worker_tasks.get(event.worker_id) != event.task_id
+                or event.worker_id in state.worker_packets
+            ):
+                raise ValueError("worker packet has no matching spawn or is duplicated")
+            state.worker_packets[event.worker_id] = event
         elif isinstance(event, WorkerStarted):
             if (
                 state.worker_status.get(event.worker_id) != "spawned"
@@ -131,12 +143,25 @@ def project_controller_events(trace: Sequence[AnyTraceEvent]) -> ControllerProje
                 raise ValueError("worker start has no matching spawn")
             state.active_workers += 1
             state.worker_status[event.worker_id] = "started"
+        elif isinstance(event, WorkerDebriefed):
+            if (
+                state.worker_status.get(event.worker_id) != "started"
+                or state.worker_tasks.get(event.worker_id) != event.task_id
+                or event.worker_id in state.worker_debriefs
+            ):
+                raise ValueError("worker debrief has no matching start or is duplicated")
+            state.worker_debriefs[event.worker_id] = event
         elif isinstance(event, WorkerFinished):
             if (
                 state.worker_status.get(event.worker_id) != "started"
                 or state.worker_tasks.get(event.worker_id) != event.task_id
             ):
                 raise ValueError("worker finish has no matching start")
+            if (
+                event.worker_id in state.worker_packets
+                and event.worker_id not in state.worker_debriefs
+            ):
+                raise ValueError("packet-bearing worker finished without debrief")
             state.active_workers -= 1
             state.worker_status[event.worker_id] = "finished"
     return state

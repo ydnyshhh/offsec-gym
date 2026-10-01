@@ -11,6 +11,7 @@ from pydantic import Field, field_validator, model_validator
 
 from offsecgym.schemas.common import StrictModel
 from offsecgym.schemas.specs import Budget
+from offsecgym.schemas.workers import WorkerTaskPacket
 
 
 class AgentTask(StrictModel):
@@ -48,6 +49,7 @@ class AgentContext(StrictModel):
     fact_ids: tuple[UUID, ...] = ()
     evidence_ids: tuple[UUID, ...] = ()
     constraints: tuple[str, ...] = ()
+    worker_packet: WorkerTaskPacket | None = None
 
 
 class AgentResult(StrictModel):

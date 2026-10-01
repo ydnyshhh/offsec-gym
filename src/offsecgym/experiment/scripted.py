@@ -52,7 +52,15 @@ class BoundFindingSink:
         self.events = events
         self.context = context
 
-    async def submit(self, proposal: FindingProposal) -> CandidateFinding:
+    async def submit(
+        self,
+        proposal: FindingProposal,
+        *,
+        worker_id: UUID | None = None,
+        task_id: UUID | None = None,
+    ) -> CandidateFinding:
+        if (worker_id is None) != (task_id is None):
+            raise ValueError("finding worker ownership requires worker and task IDs")
         if len({ref.evidence_id for ref in proposal.evidence}) != len(proposal.evidence):
             raise ValueError("finding proposal contains duplicate evidence")
         try:
@@ -93,7 +101,14 @@ class BoundFindingSink:
         )
         try:
             await self.events.append(
-                FindingSubmitted(run_id=self.context.run_id, actor="solver", finding=finding)
+                FindingSubmitted(
+                    schema_version="3" if worker_id is not None else "2",
+                    run_id=self.context.run_id,
+                    actor="solver",
+                    finding=finding,
+                    worker_id=worker_id,
+                    task_id=task_id,
+                )
             )
         except SQLAlchemyError as exc:
             raise ExperimentInfrastructureError("finding event storage unavailable") from exc

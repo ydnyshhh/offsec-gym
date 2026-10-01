@@ -325,12 +325,28 @@ def build_context(
             "evidence_linked model claim has only a valid citation, not proven truth."
         )
     roster = ", ".join(str(item) for item in context.range.identity_ids)
+    total_token_budget = (
+        context.global_budget.max_total_tokens
+        if context.global_budget is not None
+        else task.budget.max_total_tokens
+    )
     prompt = (
         f"Goal: {task.goal}. Allowed identity IDs: {roster}. "
         f"Action budget: {task.budget.max_actions}; total token budget: "
-        f"{task.budget.max_total_tokens}. Discover roles through /api/me. "
+        f"{total_token_budget}. "
+        "Discover roles through /api/me. "
         "Explore the synthetic API and report evidence-backed findings."
     )
+    if context.worker_packet is not None:
+        packet = context.worker_packet
+        if packet.task_id != task.task_id or packet.worker_id != task.worker_id:
+            raise ValueError("worker packet does not match assigned task")
+        prompt += (
+            " Use the bounded handoff below as prior state. Checked actions are exact "
+            "requests already attempted; avoid repeating them unless new evidence "
+            "warrants a recheck. "
+            "Preserve entity-to-evidence associations.\nWorker packet: " + packet.model_dump_json()
+        )
     return instructions, [{"role": "user", "content": prompt}]
 
 
@@ -714,7 +730,7 @@ class MonolithicSaasAgent:
     ) -> dict[str, object]:
         if name in WORLD_TOOL_MODELS:
             output = await self._dispatch_world(
-                name, args, run_id, task_id, model_event_id, retrieval_output_limit
+                name, args, run_id, task_id, worker_id, model_event_id, retrieval_output_limit
             )
             return (
                 _bounded_world_result(output, retrieval_output_limit)
@@ -809,8 +825,11 @@ class MonolithicSaasAgent:
             )
         else:
             raise ValueError("unknown finding tool")
-        finding = await self.findings.submit(
-            FindingProposal(**common, family=family, security_property=expectation)
+        proposal = FindingProposal(**common, family=family, security_property=expectation)
+        finding = (
+            await self.findings.submit(proposal, worker_id=worker_id, task_id=task_id)
+            if worker_id is not None
+            else await self.findings.submit(proposal)
         )
         submitted.append(finding.finding_id)
         if self.world is not None:
@@ -832,6 +851,7 @@ class MonolithicSaasAgent:
                 subject=EntityRef(entity_id=finding.asset_id, entity_type="object"),
                 predicate="candidate_finding",
                 object_value=finding.claim,
+                source_worker_id=worker_id,
                 source_event_ids=(submission.event_id,),
                 confidence=0.5,
             )
@@ -845,6 +865,7 @@ class MonolithicSaasAgent:
         args: StrictModel,
         run_id: UUID,
         task_id: UUID,
+        worker_id: UUID | None,
         model_event_id: UUID,
         retrieval_output_limit: int = WORLD_TOOL_CARRY_MAX_CHARS,
     ) -> dict[str, object]:
@@ -887,6 +908,7 @@ class MonolithicSaasAgent:
                 subject=EntityRef(entity_id=args.subject_id, entity_type=args.subject_type),
                 predicate=args.predicate,
                 object_value=args.value_text,
+                source_worker_id=worker_id,
                 source_event_ids=(model_event_id,),
                 source_action_ids=(args.source_action_id,),
                 evidence_ids=(args.evidence_id,),
@@ -906,6 +928,7 @@ class MonolithicSaasAgent:
                 subject=EntityRef(entity_id=args.subject_id, entity_type=args.subject_type),
                 predicate=args.predicate,
                 object_value=args.value_text,
+                source_worker_id=worker_id,
                 source_event_ids=(model_event_id,),
                 source_action_ids=(args.source_action_id,) if args.source_action_id else (),
                 evidence_ids=(args.evidence_id,) if args.evidence_id else (),

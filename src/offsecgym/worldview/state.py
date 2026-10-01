@@ -126,6 +126,7 @@ class EventWorldState:
                 subject=extracted.subject,
                 predicate=extracted.predicate,
                 object_value=extracted.object_value,
+                source_worker_id=request.worker_id,
                 source_event_ids=(completed.event_id,),
                 source_action_ids=(request.action_id,),
                 evidence_ids=(result.evidence_id,),

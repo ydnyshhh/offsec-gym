@@ -16,8 +16,13 @@ from sqlalchemy.ext.asyncio import create_async_engine
 
 from offsecgym import __version__
 from offsecgym.config import Settings
-from offsecgym.experiment import MonolithicExperimentRunner, ScriptedExperimentRunner
+from offsecgym.experiment import (
+    MonolithicExperimentRunner,
+    ScriptedExperimentRunner,
+    WorkerExperimentRunner,
+)
 from offsecgym.gateway.compose import ComposeActionGateway
+from offsecgym.orchestration_metrics import orchestration_metrics
 from offsecgym.providers import OpenAIResponsesProvider, OpenRouterResponsesProvider
 from offsecgym.runtime.compose import ComposeRangeRuntime, DockerCommandError
 from offsecgym.runtime.oracle import StateOracleStore
@@ -88,14 +93,14 @@ def experiment_run(
     paired: bool = typer.Option(False, help="Also run the fully patched sibling"),
     repetitions: int = typer.Option(1, min=1, max=20, help="Diagnostic repetitions per variant"),
 ) -> None:
-    """Run a scripted or monolithic SaaS agent through validation and evaluation."""
+    """Run a scripted, monolithic, or sequential-worker SaaS experiment."""
     try:
         spec = _load_spec(path, ExperimentSpec)
         if (
-            spec.orchestrator not in {"scripted", "monolithic"}
+            spec.orchestrator not in {"scripted", "monolithic", "ephemeral_workers"}
             or spec.validation != "deterministic"
         ):
-            raise ValueError("only scripted or monolithic deterministic experiments are supported")
+            raise ValueError("only scripted, monolithic, or sequential-worker runs are supported")
         if spec.orchestrator == "monolithic" and spec.memory not in {"transcript", "structured"}:
             raise ValueError("the monolithic baseline requires memory=transcript or structured")
         if spec.orchestrator == "monolithic" and spec.surface_visibility != "known_routes":
@@ -108,7 +113,7 @@ def experiment_run(
         if not settings.database_url.startswith("postgresql+asyncpg://"):
             raise ValueError("OFFSECGYM_DATABASE_URL must use postgresql+asyncpg")
         api_key = None
-        if spec.orchestrator == "monolithic":
+        if spec.orchestrator in {"monolithic", "ephemeral_workers"}:
             if spec.model is None or spec.model.provider not in {"openai", "openrouter"}:
                 raise ValueError("the monolithic runner supports provider=openai or openrouter")
             if spec.model.name.startswith("REPLACE_"):
@@ -127,10 +132,15 @@ def experiment_run(
             try:
                 events = PostgresEventStore(engine)
                 runtime = ComposeRangeRuntime(settings.state_dir)
-                runner = (
-                    ScriptedExperimentRunner(runtime, events)
-                    if spec.orchestrator == "scripted"
-                    else MonolithicExperimentRunner(
+                if spec.orchestrator == "scripted":
+                    runner = ScriptedExperimentRunner(runtime, events)
+                else:
+                    runner_type = (
+                        WorkerExperimentRunner
+                        if spec.orchestrator == "ephemeral_workers"
+                        else MonolithicExperimentRunner
+                    )
+                    runner = runner_type(
                         runtime,
                         events,
                         (
@@ -139,7 +149,6 @@ def experiment_run(
                             else OpenAIResponsesProvider(api_key or "")
                         ),
                     )
-                )
                 specs = [spec]
                 if paired:
                     specs.append(
@@ -179,6 +188,9 @@ def experiment_run(
                                         call.estimated_cost_usd or 0 for call in calls
                                     ),
                                 },
+                                "orchestration": orchestration_metrics(trace).model_dump(
+                                    mode="json"
+                                ),
                                 "failure_reason": outcome.failure_reason,
                             }
                         )
