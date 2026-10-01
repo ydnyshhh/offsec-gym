@@ -245,7 +245,7 @@ def _strict_schema(model: type[StrictModel]) -> dict[str, object]:
     return clean(schema)
 
 
-def model_tools(*, structured: bool = False) -> list[dict[str, object]]:
+def model_tools(*, structured: bool = False, worker: bool = False) -> list[dict[str, object]]:
     descriptions = {
         "http_request": (
             "Send one HTTP request to the synthetic SaaS range. body_json is a JSON "
@@ -288,6 +288,7 @@ def model_tools(*, structured: bool = False) -> list[dict[str, object]]:
             "strict": True,
         }
         for name, model in models.items()
+        if not worker or name not in {"claim_coverage", "finish_coverage"}
     ]
 
 
@@ -349,6 +350,11 @@ def build_context(
             "warrants a recheck. "
             "Preserve entity-to-evidence associations.\nWorker packet: " + packet.model_dump_json()
         )
+        instructions += (
+            " The coordinator owns this task's coverage lease. The packet is your initial "
+            "shared-state snapshot; later automatic context contains only worker-local "
+            "updates. Use get_entity or query_worldview when the packet lacks a needed fact."
+        )
     return instructions, [{"role": "user", "content": prompt}]
 
 
@@ -382,7 +388,7 @@ class MonolithicSaasAgent:
         carry: list[dict[str, object]] = []
         carried_world_output_chars = 0
         selected_item: dict[str, object] | None = None
-        definitions = model_tools(structured=structured)
+        definitions = model_tools(structured=structured, worker=task.worker_id is not None)
         working_set = ActiveWorkingSet() if structured else None
         observations: list[UUID] = []
         submitted: list[UUID] = []
@@ -424,12 +430,19 @@ class MonolithicSaasAgent:
                     query_parts.append(recent_action_path)
                 if recent_question:
                     query_parts.append(recent_question)
-                selected = await self.context_builder.build(
-                    context.run_id,
-                    " ".join(query_parts)[:1024],
-                    max_chars=AUTO_CONTEXT_MAX_CHARS,
-                    working_set=working_set,
-                )
+                if context.worker_packet is not None:
+                    if context.worker_packet_sequence is None or working_set is None:
+                        raise ExperimentInfrastructureError("worker packet sequence is missing")
+                    selected = await self.context_builder.build_worker_delta(
+                        context.run_id, context.worker_packet_sequence, working_set
+                    )
+                else:
+                    selected = await self.context_builder.build(
+                        context.run_id,
+                        " ".join(query_parts)[:1024],
+                        max_chars=AUTO_CONTEXT_MAX_CHARS,
+                        working_set=working_set,
+                    )
                 if len(selected.text) + carried_world_output_chars > MEMORY_CONTRIBUTION_MAX_CHARS:
                     raise ExperimentInfrastructureError("structured memory contribution exceeded")
                 selected_item = {"role": "user", "content": selected.text}
@@ -459,6 +472,7 @@ class MonolithicSaasAgent:
             )
             if self.controller is not None:
                 estimated_input, request_bytes = estimate_input_tokens(request_payload, self.model)
+                floor = context.worker_packet
                 try:
                     reason = await self.controller.reserve_model_call(
                         context.run_id,
@@ -469,6 +483,13 @@ class MonolithicSaasAgent:
                         request_bytes=request_bytes,
                         estimated_cost_microusd=cost_microusd(
                             self._turn_cost(estimated_input, max_output_tokens)
+                        ),
+                        protected_future_tokens=floor.protected_future_tokens if floor else 0,
+                        protected_future_model_calls=(
+                            floor.protected_future_model_calls if floor else 0
+                        ),
+                        protected_future_cost_microusd=(
+                            floor.protected_future_cost_microusd if floor else 0
                         ),
                         worker_id=task.worker_id,
                         task_id=task.task_id,
@@ -648,6 +669,11 @@ class MonolithicSaasAgent:
                     return AgentResult(task_id=task.task_id, status="failed")
                 try:
                     raw_args = json.loads(call["arguments"])
+                    if task.worker_id is not None and call_name in {
+                        "claim_coverage",
+                        "finish_coverage",
+                    }:
+                        raise ValueError("worker coverage is owned by the coordinator")
                     schema = (TOOL_MODELS | WORLD_TOOL_MODELS if structured else TOOL_MODELS)[
                         call_name
                     ]

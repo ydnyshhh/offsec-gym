@@ -13,7 +13,7 @@ from pydantic import Field
 from offsecgym.interfaces import EventStore
 from offsecgym.schemas.common import StrictModel
 from offsecgym.schemas.domain import WorldFact
-from offsecgym.schemas.events import ContextRetrieved
+from offsecgym.schemas.events import ContextRetrieved, WorldFactSubmitted
 from offsecgym.worldview.ledger import EntityLedger
 from offsecgym.worldview.state import EventWorldState
 from offsecgym.worldview.working_set import ActiveWorkingSet
@@ -64,6 +64,74 @@ class WorldContextBuilder:
     def __init__(self, state: EventWorldState, events: EventStore) -> None:
         self.state = state
         self.events = events
+
+    async def build_worker_delta(
+        self,
+        run_id: UUID,
+        packet_sequence: int,
+        working_set: ActiveWorkingSet,
+        *,
+        max_chars: int = 2600,
+    ) -> WorldContext:
+        """Render only state learned by this worker after its recorded handoff."""
+        if not 200 <= max_chars <= 3000:
+            raise ValueError("worker context limit is outside supported bounds")
+        lines = ["Worker-local updates since the handoff packet:"]
+        identities, identity_ids = working_set.render_identities(max_chars=600)
+        checked = working_set.render_checked_actions(max_chars=800, max_entries=6)
+        active, active_ids = working_set.render(max_chars=1000, max_facts=8)
+        selected = list(identity_ids) + list(active_ids)
+        for section in (identities, checked, active):
+            for line in section:
+                if len("\n".join((*lines, line))) <= max_chars:
+                    lines.append(line)
+        delta = [
+            event.fact
+            for event in await self.events.read_run(run_id)
+            if isinstance(event, WorldFactSubmitted)
+            and event.sequence_number > packet_sequence
+            and event.actor != "controller"
+        ]
+        for fact in reversed(delta):
+            if fact.fact_id in selected or len(selected) >= 20:
+                continue
+            value = (
+                fact.object_value.model_dump(mode="json")
+                if hasattr(fact.object_value, "model_dump")
+                else fact.object_value
+            )
+            line = (
+                f"- claim {fact.fact_id} {fact.subject.entity_type}:{fact.subject.entity_id} "
+                f"{fact.predicate}={json.dumps(value, ensure_ascii=False)[:120]} "
+                f"[{_display_status(fact)}]"
+            )
+            if len("\n".join((*lines, line))) <= max_chars:
+                lines.append(line)
+                selected.append(fact.fact_id)
+        if len(lines) == 1:
+            lines.append("- none; query_worldview or get_entity can inspect older shared state")
+        rendered = "\n".join(lines)
+        context = WorldContext(run_id=run_id, fact_ids=tuple(selected), text=rendered)
+        await self.events.append(
+            ContextRetrieved(
+                run_id=run_id,
+                actor="worldstate",
+                query_sha256=hashlib.sha256(
+                    json.dumps(
+                        {
+                            "mode": "worker_delta",
+                            "packet_sequence": packet_sequence,
+                            "working_actions": [str(item) for item in working_set.action_ids()],
+                        },
+                        sort_keys=True,
+                    ).encode()
+                ).hexdigest(),
+                rendered_sha256=hashlib.sha256(rendered.encode()).hexdigest(),
+                selected_fact_ids=context.fact_ids,
+                max_facts=20,
+            )
+        )
+        return context
 
     async def build(
         self,

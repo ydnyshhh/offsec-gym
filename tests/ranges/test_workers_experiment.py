@@ -19,6 +19,7 @@ from offsecgym.runtime.compose import ComposeRangeRuntime
 from offsecgym.schemas.events import FindingSubmitted, WorkerPacketPrepared
 from offsecgym.schemas.specs import Budget, ExperimentSpec, ModelSpec, RangeSpec
 from offsecgym.storage.event_store import PostgresEventStore
+from offsecgym.worldview import EventWorldState
 
 
 class HandoffPreviewProvider:
@@ -229,5 +230,9 @@ async def test_sequential_worker_handoff_validates_public_exposure(tmp_path: Pat
         assert metrics.findings_reusing_cross_worker_evidence == 1
         assert metrics.evidence_reuse_rate == 1
         assert metrics.time_to_first_valid_finding_seconds is not None
+        coverage = await EventWorldState(events).coverage(outcome.run_id)
+        assert len(coverage) == 6
+        assert next(item for item in coverage if item.component == "public").status == "completed"
+        assert next(item for item in coverage if item.component == "refund").status == "released"
     finally:
         await engine.dispose()

@@ -301,6 +301,9 @@ class PostgresControllerState:
         reserved_output_tokens: int,
         request_bytes: int,
         estimated_cost_microusd: int = 0,
+        protected_future_tokens: int = 0,
+        protected_future_model_calls: int = 0,
+        protected_future_cost_microusd: int = 0,
         worker_id: UUID | None = None,
         task_id: UUID | None = None,
         started_event: ModelCallStarted | None = None,
@@ -311,6 +314,9 @@ class PostgresControllerState:
                 reserved_output_tokens,
                 request_bytes,
                 estimated_cost_microusd,
+                protected_future_tokens,
+                protected_future_model_calls,
+                protected_future_cost_microusd,
             )
             < 0
         ):
@@ -331,12 +337,16 @@ class PostgresControllerState:
                 return "duplicate_model_call"
             if (
                 budget.max_model_calls is not None
-                and usage["used_model_calls"] >= budget.max_model_calls
+                and usage["used_model_calls"] + 1 + protected_future_model_calls
+                > budget.max_model_calls
             ):
                 return "model_call_budget_exhausted"
             if (
                 budget.max_total_tokens is not None
-                and usage["used_tokens"] + usage["reserved_tokens"] + estimated_tokens
+                and usage["used_tokens"]
+                + usage["reserved_tokens"]
+                + estimated_tokens
+                + protected_future_tokens
                 > budget.max_total_tokens
             ):
                 return "model_token_budget_exhausted"
@@ -345,6 +355,7 @@ class PostgresControllerState:
                 usage["used_cost_microusd"]
                 + usage["reserved_cost_microusd"]
                 + estimated_cost_microusd
+                + protected_future_cost_microusd
                 > cost_limit
             ):
                 return "model_cost_budget_exhausted"

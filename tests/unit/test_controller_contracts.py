@@ -1,5 +1,7 @@
-"""Small M6.0 controller contracts that do not need PostgreSQL."""
+"""Small controller and worker handoff contracts that do not need PostgreSQL."""
 
+import hashlib
+import json
 from uuid import uuid4
 
 import pytest
@@ -15,6 +17,8 @@ from offsecgym.schemas.domain import (
 )
 from offsecgym.schemas.events import (
     ActionAttemptReserved,
+    ActionCompleted,
+    ActionRequested,
     ActionReservationAcquired,
     ActionReservationReleased,
     ModelBudgetReserved,
@@ -24,6 +28,7 @@ from offsecgym.schemas.events import (
     WorkerStarted,
     parse_event,
 )
+from offsecgym.schemas.evidence import RequestArtifact
 from offsecgym.schemas.specs import Budget, ModelSpec
 from offsecgym.solver.workers import WorkerPacketBuilder, worker_budget
 from offsecgym.storage.controller import request_fingerprint
@@ -140,7 +145,129 @@ async def test_worker_packet_trims_growth_before_exceeding_handoff_cap(tmp_path)
     )
 
 
-def test_worker_budget_partitions_tokens_and_calls_without_exceeding_global() -> None:
+async def test_packet_retains_objective_entities_and_exact_post_body(tmp_path) -> None:
+    run_id, instance_id, source_worker, identity_id = (uuid4() for _ in range(4))
+    action_id, evidence_id, artifact_id = (uuid4() for _ in range(3))
+    target_id = uuid4()
+    path = f"/api/invoices/{target_id}/refund"
+    body = {"reason": "duplicate charge"}
+    canonical = json.dumps(body, sort_keys=True, separators=(",", ":"))
+    artifact = RequestArtifact(
+        request_artifact_id=artifact_id,
+        run_id=run_id,
+        action_id=action_id,
+        range_instance_id=instance_id,
+        range_generation=0,
+        worker_id=source_worker,
+        task_id=uuid4(),
+        identity_id=identity_id,
+        destination="saas",
+        method="POST",
+        path=path,
+        json_body=body,
+    )
+    folder = tmp_path / "instances" / instance_id.hex / "requests"
+    folder.mkdir(parents=True)
+    (folder / f"{artifact_id.hex}.json").write_text(artifact.model_dump_json())
+    trace = (
+        ActionRequested(
+            run_id=run_id,
+            actor="gateway",
+            action_id=action_id,
+            action_type="http_request",
+            destination="saas",
+            method="POST",
+            path_sha256=hashlib.sha256(path.encode()).hexdigest(),
+            worker_id=source_worker,
+            task_id=artifact.task_id,
+            identity_id=identity_id,
+            body_sha256=hashlib.sha256(canonical.encode()).hexdigest(),
+            range_instance_id=instance_id,
+            range_generation=0,
+            request_artifact_id=artifact_id,
+        ),
+        ActionReservationAcquired(
+            run_id=run_id,
+            actor="controller",
+            action_id=action_id,
+            fingerprint="a" * 64,
+            worker_id=source_worker,
+            task_id=artifact.task_id,
+        ),
+        ActionCompleted(
+            run_id=run_id,
+            actor="gateway",
+            action_id=action_id,
+            worker_id=source_worker,
+            task_id=artifact.task_id,
+            evidence_id=evidence_id,
+            duration_ms=1,
+            http_status=200,
+        ),
+    )
+    facts = [
+        WorldFact(
+            fact_id=uuid4(),
+            run_id=run_id,
+            kind="observation",
+            subject=EntityRef(entity_type=kind, entity_id=entity_id),
+            predicate="role" if kind == "identity" else "status",
+            object_value="member" if kind == "identity" else "known",
+            source_worker_id=source_worker,
+            confidence=1,
+        )
+        for kind, count in (("invoice", 12), ("identity", 3))
+        for entity_id in (uuid4() for _ in range(count))
+    ]
+    facts.append(
+        WorldFact(
+            fact_id=uuid4(),
+            run_id=run_id,
+            kind="observation",
+            subject=EntityRef(entity_type="invoice", entity_id=target_id),
+            predicate="status",
+            object_value="refunded",
+            source_worker_id=source_worker,
+            source_action_ids=(action_id,),
+            evidence_ids=(evidence_id,),
+            confidence=1,
+        )
+    )
+
+    class Events:
+        async def read_run(self, run_id):
+            return trace
+
+    class World:
+        async def query(self, run_id):
+            return facts
+
+        async def coverage(self, run_id):
+            return ()
+
+    builder = WorkerPacketBuilder(Events(), tmp_path)
+    builder.world = World()
+    packet = await builder.build(
+        AgentContext(
+            run_id=run_id,
+            objective="refund",
+            range=AgentVisibleRangeContext(range_instance_id=instance_id, family="saas"),
+        ),
+        uuid4(),
+        uuid4(),
+        "Test invoice refund transition authorization",
+        ("invoice", "identity"),
+        Budget(max_model_calls=1),
+    )
+    assert target_id in {item.entity_id for item in packet.relevant_entities}
+    assert len([item for item in packet.relevant_entities if item.entity_type == "identity"]) >= 2
+    checked = packet.prior_checked_actions[0]
+    assert checked.body_sha256 == hashlib.sha256(canonical.encode()).hexdigest()
+    assert checked.body_json == canonical
+    assert len(packet.model_dump_json()) <= 10000
+
+
+def test_worker_budget_uses_rolling_future_worker_floors() -> None:
     global_budget = Budget(
         max_model_calls=20,
         max_actions=60,
@@ -148,11 +275,23 @@ def test_worker_budget_partitions_tokens_and_calls_without_exceeding_global() ->
         max_total_tokens=120000,
         max_output_tokens_per_call=8192,
     )
-    slices = [worker_budget(global_budget, index) for index in range(6)]
-    assert [item.max_model_calls for item in slices] == [4, 4, 3, 3, 3, 3]
-    assert sum(item.max_total_tokens for item in slices) == 120000
-    assert all(item.max_total_tokens == 20000 for item in slices)
-    assert sum(item.max_actions for item in slices) == 60
+    first = worker_budget(global_budget, 0)
+    assert first.max_model_calls == 15
+    assert first.max_total_tokens == 120000 - 5 * (15500 + 4000)
+    assert first.max_output_tokens_per_call == 4000
+    assert first.max_actions == first.max_http_requests == 55
+    second = worker_budget(
+        global_budget,
+        1,
+        {"used_model_calls": 3, "used_tokens": 26000, "used_actions": 8, "used_http_requests": 7},
+    )
+    assert second.max_model_calls == 13
+    assert second.max_total_tokens == 120000 - 26000 - 4 * (15500 + 4000)
+    assert second.max_actions == 48
+    assert second.max_http_requests == 49
+    final = worker_budget(global_budget, 5, {"used_model_calls": 15, "used_tokens": 90000})
+    assert final.max_model_calls == 5
+    assert final.max_total_tokens == 30000
 
 
 def test_worker_actions_require_task_attribution() -> None:

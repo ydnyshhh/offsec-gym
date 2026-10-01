@@ -29,6 +29,9 @@ class CheckedAction(StrictModel):
     method: str = Field(min_length=1, max_length=8)
     path: str = Field(min_length=1, max_length=2048)
     identity_id: UUID | None = None
+    body_sha256: str | None = Field(default=None, pattern=r"^[0-9a-f]{64}$")
+    body_json: str | None = Field(default=None, max_length=512)
+    body_summary: str | None = Field(default=None, max_length=256)
 
 
 class WorkerTaskPacket(StrictModel):
@@ -36,6 +39,11 @@ class WorkerTaskPacket(StrictModel):
     worker_id: UUID
     objective: str = Field(min_length=1, max_length=256)
     budget_slice: Budget
+    protected_future_tokens: int = Field(default=0, ge=0)
+    protected_future_model_calls: int = Field(default=0, ge=0)
+    protected_future_cost_microusd: int = Field(default=0, ge=0)
+    protected_future_actions: int = Field(default=0, ge=0)
+    protected_future_http_requests: int = Field(default=0, ge=0)
     relevant_entities: tuple[WorkerEntity, ...] = Field(default=(), max_length=12)
     relevant_evidence: tuple[WorkerEvidence, ...] = Field(default=(), max_length=16)
     prior_checked_actions: tuple[CheckedAction, ...] = Field(default=(), max_length=32)

@@ -50,6 +50,7 @@ class AgentContext(StrictModel):
     evidence_ids: tuple[UUID, ...] = ()
     constraints: tuple[str, ...] = ()
     worker_packet: WorkerTaskPacket | None = None
+    worker_packet_sequence: int | None = Field(default=None, ge=0)
 
 
 class AgentResult(StrictModel):

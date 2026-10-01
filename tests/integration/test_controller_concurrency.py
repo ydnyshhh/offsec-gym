@@ -475,6 +475,12 @@ async def test_sequential_workers_have_bounded_packets_and_attributed_calls(
         (item.worker_id, item.task_id) for item in packets
     }
     assert all("Worker packet:" in item["input"][0]["content"] for item in provider.requests)
+    assert all(
+        item["input"][1]["content"].startswith("Worker-local updates since the handoff packet:")
+        and "Relevant world facts" not in item["input"][1]["content"]
+        and len(item["input"][1]["content"]) <= 2600
+        for item in provider.requests
+    )
     projected = project_controller_events(trace)
     assert projected.used_model_calls == projected.spawned_workers == 6
     assert projected.active_workers == 0
@@ -483,3 +489,61 @@ async def test_sequential_workers_have_bounded_packets_and_attributed_calls(
     metrics = orchestration_metrics(trace)
     assert metrics.worker_packets == metrics.worker_debriefs == 6
     assert metrics.coordinator_model_calls == 0
+    coverage = await EventWorldState(events).coverage(run_id)
+    assert len(coverage) == 6
+    assert all(item.status == "released" for item in coverage)
+
+
+@pytest.mark.postgres
+async def test_future_worker_model_floor_is_reserved_atomically(controllers) -> None:
+    first, second, _, _ = controllers
+    run_id = uuid4()
+    budget = Budget(
+        max_model_calls=20,
+        max_total_tokens=120000,
+        max_output_tokens_per_call=128,
+    )
+    floor = 5 * (15500 + 128)
+    first_call = uuid4()
+    assert (
+        await first.reserve_model_call(
+            run_id,
+            first_call,
+            budget,
+            reserved_input_tokens=24872,
+            reserved_output_tokens=128,
+            request_bytes=40000,
+            protected_future_tokens=floor,
+            protected_future_model_calls=5,
+        )
+        is None
+    )
+    assert (
+        await second.reserve_model_call(
+            run_id,
+            uuid4(),
+            budget,
+            reserved_input_tokens=26872,
+            reserved_output_tokens=128,
+            request_bytes=18000,
+            protected_future_tokens=floor,
+            protected_future_model_calls=5,
+        )
+        == "model_token_budget_exhausted"
+    )
+    await first.settle_model_call(
+        run_id, first_call, actual_input_tokens=14000, actual_output_tokens=100
+    )
+    assert (
+        await second.reserve_model_call(
+            run_id,
+            uuid4(),
+            budget,
+            reserved_input_tokens=26872,
+            reserved_output_tokens=128,
+            request_bytes=18000,
+            protected_future_tokens=floor,
+            protected_future_model_calls=5,
+        )
+        is None
+    )

@@ -6,6 +6,7 @@ import asyncio
 import hashlib
 import json
 from collections import defaultdict
+from dataclasses import dataclass
 from pathlib import Path
 from uuid import UUID, uuid4
 
@@ -14,7 +15,7 @@ from pydantic import ValidationError
 from offsecgym.interfaces import EventStore, ToolRegistry
 from offsecgym.providers.base import ModelProvider
 from offsecgym.schemas.actions import ActionRequest, ActionResult
-from offsecgym.schemas.domain import AgentContext, AgentResult, AgentTask
+from offsecgym.schemas.domain import AgentContext, AgentResult, AgentTask, CoverageClaim, EntityRef
 from offsecgym.schemas.events import (
     ActionCompleted,
     ActionRequested,
@@ -52,28 +53,109 @@ WORKER_OBJECTIVES: tuple[tuple[str, str, tuple[str, ...]], ...] = (
     ("public", "Test anonymous public invoice exposure", ("invoice", "identity")),
     ("refund", "Test invoice refund transition authorization", ("invoice", "identity")),
 )
+MIN_MEANINGFUL_INPUT_TOKENS = 15500
+WORKER_OUTPUT_CAP_TOKENS = 4000
 
 
-def _share(value: int | None, index: int, count: int) -> int | None:
-    if value is None:
-        return None
-    quotient, remainder = divmod(value, count)
-    return quotient + int(index < remainder)
+def _path_relevance(kind: str, path: str) -> int:
+    if kind == "identity":
+        return int(path == "/api/me" or "/api/workspaces/" in path)
+    if kind == "document":
+        return int("/documents" in path)
+    if kind == "invoice":
+        return int("/invoices" in path and "/public/" not in path and "/refund" not in path)
+    if kind == "ticket":
+        return int("/tickets" in path)
+    if kind == "public":
+        return int("/public/invoices/" in path)
+    return int("/refund" in path)
 
 
-def worker_budget(global_budget: Budget, index: int) -> Budget:
+@dataclass(frozen=True)
+class FutureWorkerFloor:
+    tokens: int = 0
+    model_calls: int = 0
+    cost_microusd: int = 0
+    actions: int = 0
+    http_requests: int = 0
+
+
+def future_worker_floor(
+    global_budget: Budget, index: int, model: ModelSpec | None = None
+) -> FutureWorkerFloor:
     count = len(WORKER_OBJECTIVES)
     if not 0 <= index < count:
         raise ValueError("worker index is outside the fixed decomposition")
+    future = count - index - 1
+    output = min(
+        global_budget.max_output_tokens_per_call or WORKER_OUTPUT_CAP_TOKENS,
+        WORKER_OUTPUT_CAP_TOKENS,
+    )
+    turn_tokens = MIN_MEANINGFUL_INPUT_TOKENS + output
+    turn_cost = 0
+    if model is not None and model.input_usd_per_million_tokens is not None:
+        assert model.output_usd_per_million_tokens is not None
+        turn_cost = cost_microusd(
+            (
+                MIN_MEANINGFUL_INPUT_TOKENS * model.input_usd_per_million_tokens
+                + output * model.output_usd_per_million_tokens
+            )
+            / 1_000_000
+        )
+    return FutureWorkerFloor(
+        tokens=future * turn_tokens if global_budget.max_total_tokens is not None else 0,
+        model_calls=future,
+        cost_microusd=future * turn_cost if global_budget.max_cost_usd is not None else 0,
+        actions=future if global_budget.max_actions is not None else 0,
+        http_requests=future if global_budget.max_http_requests is not None else 0,
+    )
+
+
+def _spendable(limit: int | None, used: int, floor: int) -> int | None:
+    if limit is None:
+        return None
+    available = limit - used - floor
+    if available <= 0:
+        raise AgentBudgetExhausted("future_worker_floor_unfunded")
+    return available
+
+
+def worker_budget(
+    global_budget: Budget,
+    index: int,
+    usage: dict[str, object] | None = None,
+    model: ModelSpec | None = None,
+) -> Budget:
+    usage = usage or {}
+    floor = future_worker_floor(global_budget, index, model)
+    cost_limit = cost_microusd(global_budget.max_cost_usd)
+    cost_available = (
+        _spendable(cost_limit, int(usage.get("used_cost_microusd", 0)), floor.cost_microusd)
+        if global_budget.max_cost_usd is not None
+        else None
+    )
     return Budget(
-        max_total_tokens=_share(global_budget.max_total_tokens, index, count),
-        max_output_tokens_per_call=global_budget.max_output_tokens_per_call,
-        max_model_calls=_share(global_budget.max_model_calls, index, count),
-        max_actions=_share(global_budget.max_actions, index, count),
-        max_http_requests=_share(global_budget.max_http_requests, index, count),
-        max_cost_usd=(
-            global_budget.max_cost_usd / count if global_budget.max_cost_usd is not None else None
+        max_total_tokens=_spendable(
+            global_budget.max_total_tokens, int(usage.get("used_tokens", 0)), floor.tokens
         ),
+        max_output_tokens_per_call=min(
+            global_budget.max_output_tokens_per_call or WORKER_OUTPUT_CAP_TOKENS,
+            WORKER_OUTPUT_CAP_TOKENS,
+        ),
+        max_model_calls=_spendable(
+            global_budget.max_model_calls,
+            int(usage.get("used_model_calls", 0)),
+            floor.model_calls,
+        ),
+        max_actions=_spendable(
+            global_budget.max_actions, int(usage.get("used_actions", 0)), floor.actions
+        ),
+        max_http_requests=_spendable(
+            global_budget.max_http_requests,
+            int(usage.get("used_http_requests", 0)),
+            floor.http_requests,
+        ),
+        max_cost_usd=cost_available / 1_000_000 if cost_available is not None else None,
     )
 
 
@@ -125,18 +207,29 @@ class WorkerPacketBuilder:
         objective: str,
         relevant_types: tuple[str, ...],
         budget: Budget,
+        floor: FutureWorkerFloor | None = None,
     ) -> WorkerTaskPacket:
+        floor = floor or FutureWorkerFloor()
+        objective_kind = next(
+            (kind for kind, text, _ in WORKER_OBJECTIVES if text == objective), "identity"
+        )
         trace = await self.events.read_run(context.run_id)
         facts = await self.world.query(context.run_id)
         coverage = await self.world.coverage(context.run_id)
         grouped: dict[tuple[str, UUID], list[str]] = defaultdict(list)
         evidence: list[WorkerEvidence] = []
         seen_evidence: set[tuple[UUID, UUID]] = set()
+        recency: dict[UUID, int] = {}
+        adjacency: dict[UUID, set[UUID]] = defaultdict(set)
         completed = {item.action_id: item for item in trace if isinstance(item, ActionCompleted)}
-        for fact in facts:
+        for index, fact in enumerate(facts):
             if fact.subject.entity_type not in relevant_types:
                 continue
             key = (fact.subject.entity_type, fact.subject.entity_id)
+            recency[fact.subject.entity_id] = index
+            if isinstance(fact.object_value, EntityRef):
+                adjacency[fact.subject.entity_id].add(fact.object_value.entity_id)
+                adjacency[fact.object_value.entity_id].add(fact.subject.entity_id)
             value = str(fact.object_value)
             detail = f"{fact.predicate}={value[:100]} [{fact.status}]"
             if detail not in grouped[key]:
@@ -159,13 +252,74 @@ class WorkerPacketBuilder:
                     )
                 )
                 seen_evidence.add((fact.subject.entity_id, evidence_id))
-        entities = [
+        entities_all = [
             WorkerEntity(entity_type=kind, entity_id=entity_id, details=tuple(values[-6:]))
             for (kind, entity_id), values in grouped.items()
         ]
-        entities.sort(
-            key=lambda item: (relevant_types.index(item.entity_type), str(item.entity_id))
+        primary_ids = {
+            item.entity_id for item in entities_all if item.entity_type == relevant_types[0]
+        }
+        evidence_count: dict[UUID, int] = defaultdict(int)
+        for item in evidence:
+            evidence_count[item.entity_id] += 1
+
+        def entity_score(item: WorkerEntity) -> tuple[int, int, int, str]:
+            linked = len(adjacency[item.entity_id] & primary_ids)
+            role = int(
+                item.entity_type == "identity"
+                and any(text.startswith(("role=", "member_of=")) for text in item.details)
+            )
+            return (
+                linked * 8 + evidence_count[item.entity_id] * 4 + role * 3,
+                recency.get(item.entity_id, -1),
+                len(item.details),
+                str(item.entity_id),
+            )
+
+        buckets = {
+            kind: sorted(
+                (item for item in entities_all if item.entity_type == kind),
+                key=entity_score,
+                reverse=True,
+            )
+            for kind in relevant_types
+        }
+        entities: list[WorkerEntity] = []
+        for kind in relevant_types[1:]:
+            entities.extend(buckets[kind][:2])
+        entities.extend(buckets[relevant_types[0]][: max(0, 8 - len(entities))])
+        if len(entities) < 8:
+            selected_ids = {item.entity_id for item in entities}
+            extras = sorted(
+                (item for item in entities_all if item.entity_id not in selected_ids),
+                key=entity_score,
+                reverse=True,
+            )
+            entities.extend(extras[: 8 - len(entities)])
+        selected_ids = {item.entity_id for item in entities}
+        evidence_by_entity: dict[UUID, list[WorkerEvidence]] = defaultdict(list)
+        for item in evidence:
+            if item.entity_id in selected_ids:
+                evidence_by_entity[item.entity_id].append(item)
+        ranked_evidence: list[WorkerEvidence] = []
+        for item in entities:
+            ranked_evidence.extend(
+                sorted(
+                    evidence_by_entity[item.entity_id],
+                    key=lambda row: completed[row.action_id].sequence_number,
+                    reverse=True,
+                )[:1]
+            )
+        remaining_evidence = sorted(
+            (
+                item
+                for item in evidence
+                if item.entity_id in selected_ids and item not in ranked_evidence
+            ),
+            key=lambda row: completed[row.action_id].sequence_number,
+            reverse=True,
         )
+        ranked_evidence.extend(remaining_evidence)
         requested = {item.action_id: item for item in trace if isinstance(item, ActionRequested)}
         fingerprints = {
             item.action_id: item.fingerprint
@@ -180,6 +334,13 @@ class WorkerPacketBuilder:
             if source is None or source.worker_id is None:
                 continue
             request = self._request(context, source)
+            body_json = (
+                json.dumps(
+                    request.json_body, sort_keys=True, separators=(",", ":"), ensure_ascii=False
+                )
+                if request.json_body is not None
+                else None
+            )
             checked.append(
                 CheckedAction(
                     action_id=item.action_id,
@@ -187,10 +348,23 @@ class WorkerPacketBuilder:
                     method=request.method,
                     path=request.path,
                     identity_id=request.identity_id,
+                    body_sha256=source.body_sha256,
+                    body_json=body_json
+                    if body_json is not None and len(body_json) <= 512
+                    else None,
+                    body_summary=(
+                        f"keys={','.join(sorted(request.json_body)[:12])};chars={len(body_json)}"
+                        if body_json is not None and len(body_json) > 512
+                        else None
+                    ),
                 )
             )
         pinned = [item for item in checked if item.path == "/api/me"][-12:]
-        recent = [item for item in checked if item.path != "/api/me"][-12:]
+        recent = sorted(
+            (item for item in checked if item.path != "/api/me"),
+            key=lambda item: (_path_relevance(objective_kind, item.path), checked.index(item)),
+            reverse=True,
+        )[:12]
         hypotheses = [
             f"{item.subject.entity_type}:{item.subject.entity_id} "
             f"{item.predicate}={str(item.object_value)[:100]} [{item.status}]"
@@ -208,8 +382,8 @@ class WorkerPacketBuilder:
             if item.status == "completed"
         ]
         omitted = {
-            "omitted_entities": max(0, len(entities) - 8),
-            "omitted_evidence": max(0, len(evidence) - 12),
+            "omitted_entities": max(0, len(entities_all) - len(entities)),
+            "omitted_evidence": max(0, len(evidence) - min(len(ranked_evidence), 12)),
             "omitted_checked_actions": len(checked) - len(pinned) - len(recent),
             "omitted_coverage": (
                 max(0, len(active_coverage) - 8) + max(0, len(completed_coverage) - 12)
@@ -217,8 +391,7 @@ class WorkerPacketBuilder:
             "omitted_hypotheses": max(0, len(hypotheses) - 12),
             "omitted_entity_details": 0,
         }
-        entities = entities[:8]
-        evidence = evidence[-12:]
+        evidence = ranked_evidence[:12]
         active_coverage = active_coverage[-8:]
         completed_coverage = completed_coverage[-12:]
         hypotheses = hypotheses[-12:]
@@ -229,6 +402,11 @@ class WorkerPacketBuilder:
                     worker_id=worker_id,
                     objective=objective,
                     budget_slice=budget,
+                    protected_future_tokens=floor.tokens,
+                    protected_future_model_calls=floor.model_calls,
+                    protected_future_cost_microusd=floor.cost_microusd,
+                    protected_future_actions=floor.actions,
+                    protected_future_http_requests=floor.http_requests,
                     relevant_entities=tuple(entities),
                     relevant_evidence=tuple(evidence),
                     prior_checked_actions=tuple(pinned + recent),
@@ -256,14 +434,17 @@ class WorkerPacketBuilder:
                 entities[index] = item.model_copy(update={"details": item.details[1:]})
                 omitted["omitted_entity_details"] += 1
             elif recent:
-                recent.pop(0)
+                recent.pop()
                 omitted["omitted_checked_actions"] += 1
             elif evidence:
-                evidence.pop(0)
+                evidence.pop()
                 omitted["omitted_evidence"] += 1
             elif entities:
                 removed = entities.pop()
                 omitted["omitted_entities"] += 1
+                omitted["omitted_evidence"] += sum(
+                    item.entity_id == removed.entity_id for item in evidence
+                )
                 evidence = [item for item in evidence if item.entity_id != removed.entity_id]
             elif pinned:
                 pinned.pop(0)
@@ -276,12 +457,26 @@ class WorkerPacketBuilder:
 
 
 class _WorkerTools:
-    def __init__(self, tools: ToolRegistry, task_id: UUID, worker_id: UUID, budget: Budget):
+    def __init__(
+        self,
+        tools: ToolRegistry,
+        task_id: UUID,
+        worker_id: UUID,
+        budget: Budget,
+        controller: PostgresControllerState,
+        run_id: UUID,
+        global_budget: Budget,
+        floor: FutureWorkerFloor,
+    ):
         self.tools = tools
         self.task_id = task_id
         self.worker_id = worker_id
         self.budget = budget
         self.used_actions = 0
+        self.controller = controller
+        self.run_id = run_id
+        self.global_budget = global_budget
+        self.floor = floor
 
     async def execute(self, action: ActionRequest) -> ActionResult:
         if action.task_id != self.task_id or action.worker_id != self.worker_id:
@@ -293,6 +488,18 @@ class _WorkerTools:
         ]
         if limits and self.used_actions >= min(limits):
             raise AgentBudgetExhausted("worker_action_slice_exhausted")
+        usage = await self.controller.snapshot(self.run_id)
+        if (
+            self.global_budget.max_actions is not None
+            and int(usage["used_actions"]) + 1 + self.floor.actions > self.global_budget.max_actions
+        ):
+            raise AgentBudgetExhausted("future_worker_action_floor")
+        if (
+            self.global_budget.max_http_requests is not None
+            and int(usage["used_http_requests"]) + 1 + self.floor.http_requests
+            > self.global_budget.max_http_requests
+        ):
+            raise AgentBudgetExhausted("future_worker_http_floor")
         self.used_actions += 1
         return await self.tools.execute(action)
 
@@ -349,40 +556,92 @@ class SequentialWorkerCoordinator:
             recommended_followups=questions[:6],
         )
 
+    async def _explored(
+        self, context: AgentContext, worker_id: UUID, after: int, kind: str
+    ) -> bool:
+        trace = await self.events.read_run(context.run_id)
+        requested = {item.action_id: item for item in trace if isinstance(item, ActionRequested)}
+        for event in trace:
+            if (
+                not isinstance(event, ActionCompleted)
+                or event.sequence_number <= after
+                or event.worker_id != worker_id
+            ):
+                continue
+            source = requested.get(event.action_id)
+            if source is None:
+                continue
+            request = self.packet_builder._request(context, source)
+            if _path_relevance(kind, request.path) and (
+                kind != "refund" or request.method == "POST"
+            ):
+                return True
+        return False
+
     async def run(self, task: AgentTask, context: AgentContext, tools: ToolRegistry) -> AgentResult:
         if context.global_budget is None or context.range is None:
             raise ValueError("workers require a visible range and global budget")
         if context.global_budget.max_model_calls is None:
             raise ValueError("workers require an explicit global model-call budget")
+        initial_floor = future_worker_floor(context.global_budget, 0, self.model)
+        minimum_turn = MIN_MEANINGFUL_INPUT_TOKENS + min(
+            context.global_budget.max_output_tokens_per_call or WORKER_OUTPUT_CAP_TOKENS,
+            WORKER_OUTPUT_CAP_TOKENS,
+        )
+        if (
+            context.global_budget.max_total_tokens is not None
+            and context.global_budget.max_total_tokens < len(WORKER_OBJECTIVES) * minimum_turn
+        ):
+            raise ValueError("global token budget cannot fund one reserved turn per worker")
+        if context.global_budget.max_cost_usd is not None and cost_microusd(
+            context.global_budget.max_cost_usd
+        ) < len(WORKER_OBJECTIVES) * (initial_floor.cost_microusd // (len(WORKER_OBJECTIVES) - 1)):
+            raise ValueError("global cost budget cannot fund one reserved turn per worker")
         observations: list[UUID] = []
         findings: list[UUID] = []
         any_failed = False
         globally_exhausted = False
-        for index, (_, objective, relevant_types) in enumerate(WORKER_OBJECTIVES):
-            budget = worker_budget(context.global_budget, index)
+        for index, (kind, objective, relevant_types) in enumerate(WORKER_OBJECTIVES):
+            usage_before = await self.controller.snapshot(context.run_id)
+            floor = future_worker_floor(context.global_budget, index, self.model)
+            budget = worker_budget(context.global_budget, index, usage_before, self.model)
             task_id, worker_id = uuid4(), uuid4()
-            packet = await self.packet_builder.build(
-                context, task_id, worker_id, objective, relevant_types, budget
+            claim = CoverageClaim(
+                claim_id=uuid4(),
+                run_id=context.run_id,
+                task_id=task_id,
+                component=kind,
+                objective=objective,
             )
-            reason = await self.controller.spawn_worker(
-                context.run_id, worker_id, task_id, objective, context.global_budget
-            )
-            if reason:
-                raise AgentBudgetExhausted(reason)
-            await self.events.append(
-                WorkerPacketPrepared(
-                    run_id=context.run_id,
-                    actor="coordinator",
-                    worker_id=worker_id,
-                    task_id=task_id,
-                    packet=packet,
+            await self.world.claim_coverage(claim)
+            try:
+                packet = await self.packet_builder.build(
+                    context, task_id, worker_id, objective, relevant_types, budget, floor
                 )
-            )
-            reason = await self.controller.start_worker(
-                context.run_id, worker_id, task_id, context.global_budget
-            )
-            if reason:
-                raise ExperimentInfrastructureError(reason)
+                reason = await self.controller.spawn_worker(
+                    context.run_id, worker_id, task_id, objective, context.global_budget
+                )
+                if reason:
+                    raise AgentBudgetExhausted(reason)
+                packet_event = await self.events.append(
+                    WorkerPacketPrepared(
+                        run_id=context.run_id,
+                        actor="coordinator",
+                        worker_id=worker_id,
+                        task_id=task_id,
+                        packet=packet,
+                    )
+                )
+                reason = await self.controller.start_worker(
+                    context.run_id, worker_id, task_id, context.global_budget
+                )
+                if reason:
+                    raise ExperimentInfrastructureError(reason)
+            except BaseException:
+                await self.world.update_coverage(
+                    context.run_id, claim.claim_id, task_id, "released"
+                )
+                raise
             start_sequence = (await self.events.read_run(context.run_id))[-1].sequence_number
             worker_task = AgentTask(
                 task_id=task_id,
@@ -392,7 +651,11 @@ class SequentialWorkerCoordinator:
                 budget=budget,
             )
             worker_context = context.model_copy(
-                update={"objective": objective, "worker_packet": packet}
+                update={
+                    "objective": objective,
+                    "worker_packet": packet,
+                    "worker_packet_sequence": packet_event.sequence_number,
+                }
             )
             agent = MonolithicSaasAgent(
                 self.provider,
@@ -407,7 +670,16 @@ class SequentialWorkerCoordinator:
                 result = await agent.run(
                     worker_task,
                     worker_context,
-                    _WorkerTools(tools, task_id, worker_id, budget),
+                    _WorkerTools(
+                        tools,
+                        task_id,
+                        worker_id,
+                        budget,
+                        self.controller,
+                        context.run_id,
+                        context.global_budget,
+                        floor,
+                    ),
                 )
                 status = result.status
                 observations.extend(result.observation_ids)
@@ -421,6 +693,14 @@ class SequentialWorkerCoordinator:
                 status = "failed"
                 raise
             finally:
+                await self.world.update_coverage(
+                    context.run_id,
+                    claim.claim_id,
+                    task_id,
+                    "completed"
+                    if await self._explored(context, worker_id, start_sequence, kind)
+                    else "released",
+                )
                 for claim in await self.world.coverage(context.run_id):
                     if claim.task_id == task_id and claim.status == "active":
                         await self.world.update_coverage(
