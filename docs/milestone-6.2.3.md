@@ -63,3 +63,9 @@ Check before interpreting performance:
 If accounting and behavioral gates clear, freeze M6.2 as the scheduling
 baseline. If any fail, preserve the failed result and keep M6.3
 dependency-aware and budget-aware scheduling as a separate protocol.
+
+The [one-pair diagnostic](diagnostics/kimi-k3-openrouter-m623.md) is complete.
+Escrow, state matching, packet matching, replay, and concurrency gates passed.
+All six workers got one call, but every second-turn reservation exceeded its
+20,000-token account. Both arms missed the four-of-five objective-action
+gate and submitted no finding. Preserve this failed behavioral result.

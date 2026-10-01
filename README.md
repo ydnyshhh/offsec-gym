@@ -50,6 +50,10 @@ The [M6.2.2 matched bootstrap diagnostic](docs/diagnostics/kimi-k3-openrouter-m6
 gave both arms the same audited prerequisite state and identical bounded
 packets. Each arm attempted three of five domain objectives and had two
 strict-contract violations; the result is frozen with those failed gates.
+The [M6.2.3 hard-escrow diagnostic](docs/diagnostics/kimi-k3-openrouter-m623.md)
+gave every worker one model turn under an atomic account, but the fixed
+20,000-token slices could not admit second turns. Both arms missed the
+domain-work gate and submitted no findings; the result is frozen.
 
 ## Development
 
