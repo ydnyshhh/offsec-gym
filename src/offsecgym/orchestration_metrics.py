@@ -89,7 +89,11 @@ def orchestration_metrics(trace: Sequence[AnyTraceEvent]) -> OrchestrationMetric
         exact_repeat_dispatches=exact,
         cross_worker_repeat_dispatches=cross,
         within_worker_repeat_dispatches=within,
-        cross_worker_duplication_rate=cross / len(dispatches) if dispatches else None,
+        cross_worker_duplication_rate=(
+            cross / len(dispatches)
+            if any(item.worker_id is not None for item in dispatches)
+            else None
+        ),
         worker_findings=len(findings),
         findings_reusing_cross_worker_evidence=reused,
         evidence_reuse_rate=reused / len(findings) if findings else None,

@@ -186,7 +186,9 @@ def experiment_run(
                                     "output_tokens": sum(call.output_tokens for call in calls),
                                     "estimated_cost_usd": sum(
                                         call.estimated_cost_usd or 0 for call in calls
-                                    ),
+                                    )
+                                    if any(call.estimated_cost_usd is not None for call in calls)
+                                    else None,
                                 },
                                 "orchestration": orchestration_metrics(trace).model_dump(
                                     mode="json"
