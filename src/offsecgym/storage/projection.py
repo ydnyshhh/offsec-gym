@@ -9,6 +9,7 @@ from uuid import UUID
 
 from offsecgym.schemas.events import (
     ActionAttemptReserved,
+    ActionCompleted,
     ActionReservationAcquired,
     ActionReservationReleased,
     AnyTraceEvent,
@@ -17,8 +18,12 @@ from offsecgym.schemas.events import (
     CoverageLeaseReleased,
     ModelBudgetReserved,
     ModelBudgetSettled,
+    WorkerBlocked,
+    WorkerContractViolated,
     WorkerDebriefed,
     WorkerFinished,
+    WorkerObjectiveAction,
+    WorkerOriented,
     WorkerPacketPrepared,
     WorkerSpawned,
     WorkerStarted,
@@ -40,6 +45,7 @@ class ControllerProjection:
     active_workers: int = 0
     last_dispatch_at: datetime | None = None
     action_owners: dict[UUID, tuple[UUID | None, UUID | None]] = field(default_factory=dict)
+    completed_actions: set[UUID] = field(default_factory=set)
     active_actions: dict[str, UUID] = field(default_factory=dict)
     active_coverage: dict[UUID, UUID] = field(default_factory=dict)
     coverage_keys: dict[UUID, tuple[str, str]] = field(default_factory=dict)
@@ -47,6 +53,8 @@ class ControllerProjection:
     worker_tasks: dict[UUID, UUID] = field(default_factory=dict)
     worker_packets: dict[UUID, WorkerPacketPrepared] = field(default_factory=dict)
     worker_debriefs: dict[UUID, WorkerDebriefed] = field(default_factory=dict)
+    worker_outcomes: dict[UUID, str] = field(default_factory=dict)
+    oriented_workers: set[UUID] = field(default_factory=set)
     model_reservations: dict[UUID, tuple[int, int, UUID | None, UUID | None, int | None]] = field(
         default_factory=dict
     )
@@ -76,6 +84,8 @@ def project_controller_events(trace: Sequence[AnyTraceEvent]) -> ControllerProje
             if state.active_actions.get(event.fingerprint) != event.action_id:
                 raise ValueError("action release has no matching active reservation")
             del state.active_actions[event.fingerprint]
+        elif isinstance(event, ActionCompleted):
+            state.completed_actions.add(event.action_id)
         elif isinstance(event, CoverageLeaseAcquired):
             if event.claim_id in state.active_coverage:
                 raise ValueError("duplicate active coverage lease")
@@ -143,6 +153,38 @@ def project_controller_events(trace: Sequence[AnyTraceEvent]) -> ControllerProje
                 raise ValueError("worker start has no matching spawn")
             state.active_workers += 1
             state.worker_status[event.worker_id] = "started"
+        elif isinstance(event, WorkerOriented):
+            if (
+                state.worker_status.get(event.worker_id) != "started"
+                or event.worker_id in state.oriented_workers
+            ):
+                raise ValueError(
+                    "worker orientation has no matching active worker or is duplicated"
+                )
+            state.oriented_workers.add(event.worker_id)
+        elif isinstance(event, (WorkerObjectiveAction, WorkerBlocked, WorkerContractViolated)):
+            if state.worker_status.get(event.worker_id) != "started":
+                raise ValueError("worker outcome has no matching active worker")
+            if state.worker_tasks[event.worker_id] != event.task_id:
+                raise ValueError("worker outcome has different task ownership")
+            if isinstance(event, WorkerObjectiveAction) and (
+                event.action_id not in state.completed_actions
+                or state.action_owners.get(event.action_id) != (event.worker_id, event.task_id)
+            ):
+                raise ValueError("worker objective action has no completed owned action")
+            if event.worker_id in state.worker_outcomes:
+                if not (
+                    isinstance(event, WorkerObjectiveAction)
+                    and state.worker_outcomes[event.worker_id] == "objective_action"
+                ):
+                    raise ValueError("worker has conflicting terminal outcomes")
+            state.worker_outcomes[event.worker_id] = (
+                "objective_action"
+                if isinstance(event, WorkerObjectiveAction)
+                else "blocked"
+                if isinstance(event, WorkerBlocked)
+                else "contract_violated"
+            )
         elif isinstance(event, WorkerDebriefed):
             if (
                 state.worker_status.get(event.worker_id) != "started"
@@ -162,6 +204,17 @@ def project_controller_events(trace: Sequence[AnyTraceEvent]) -> ControllerProje
                 and event.worker_id not in state.worker_debriefs
             ):
                 raise ValueError("packet-bearing worker finished without debrief")
+            packet_event = state.worker_packets.get(event.worker_id)
+            if (
+                packet_event is not None
+                and packet_event.packet.contract is not None
+                and event.status != "cancelled"
+            ):
+                outcome = state.worker_outcomes.get(event.worker_id)
+                if outcome is None:
+                    raise ValueError("contract worker finished without objective outcome")
+                if outcome == "contract_violated" and event.status != "failed":
+                    raise ValueError("worker finish status conflicts with contract outcome")
             state.active_workers -= 1
             state.worker_status[event.worker_id] = "finished"
     return state

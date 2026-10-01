@@ -132,6 +132,12 @@ class HandoffPreviewProvider:
                     "resource_type": "invoice",
                     "forbidden_fields": ["billing_email"],
                 }
+        elif step == 0:
+            name = "task_blocked"
+            args = {
+                "reason": "Synthetic handoff test exercises public exposure only",
+                "missing_prerequisite": "A test-specific action policy for this objective",
+            }
         output = (
             (
                 {

@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import asyncio
+import json
 import os
+import re
 from uuid import uuid4
 
 import pytest
@@ -29,8 +31,11 @@ from offsecgym.schemas.events import (
     ModelBudgetSettled,
     ModelCallCompleted,
     ModelCallStarted,
+    WorkerBlocked,
+    WorkerContractViolated,
     WorkerDebriefed,
     WorkerFinished,
+    WorkerOriented,
     WorkerPacketPrepared,
     WorkerSpawned,
     WorkerStarted,
@@ -460,12 +465,13 @@ async def test_sequential_workers_have_bounded_packets_and_attributed_calls(
         range=AgentVisibleRangeContext(range_instance_id=uuid4(), family="saas"),
     )
     result = await coordinator.run(task, context, None)
-    assert result.status == "completed"
+    assert result.status == "failed"
     assert len(provider.requests) == 6
     trace = await events.read_run(run_id)
     packets = [item for item in trace if isinstance(item, WorkerPacketPrepared)]
     debriefs = [item for item in trace if isinstance(item, WorkerDebriefed)]
     assert len(packets) == len(debriefs) == 6
+    assert len([item for item in trace if isinstance(item, WorkerContractViolated)]) == 6
     assert len({item.worker_id for item in packets}) == 6
     assert all(len(item.packet.model_dump_json()) <= 10000 for item in packets)
     assert all(item.packet.budget_slice.max_model_calls == 1 for item in packets)
@@ -492,6 +498,98 @@ async def test_sequential_workers_have_bounded_packets_and_attributed_calls(
     coverage = await EventWorldState(events).coverage(run_id)
     assert len(coverage) == 6
     assert all(item.status == "released" for item in coverage)
+
+
+@pytest.mark.postgres
+async def test_worker_retrieval_turn_requires_action_or_typed_block(controllers, tmp_path) -> None:
+    _, _, events, _ = controllers
+    run_id = uuid4()
+    budget = Budget(
+        max_actions=6,
+        max_http_requests=6,
+        max_model_calls=12,
+        max_total_tokens=240000,
+        max_output_tokens_per_call=128,
+        max_workers=6,
+        max_concurrency=1,
+    )
+
+    class OrientThenBlockProvider:
+        def __init__(self):
+            self.turns = {}
+            self.tool_names = []
+
+        def prepare_request(self, model, instructions, input_items, tools, max_output_tokens):
+            return {
+                "model": model.name,
+                "instructions": instructions,
+                "input": input_items,
+                "tools": tools,
+                "max_output_tokens": max_output_tokens,
+            }
+
+        async def complete(self, request_payload):
+            objective = re.search(r"Goal: ([^.]+)\.", request_payload["input"][0]["content"])
+            assert objective is not None
+            key = objective.group(1)
+            step = self.turns.get(key, 0)
+            self.turns[key] = step + 1
+            names = {item["name"] for item in request_payload["tools"]}
+            self.tool_names.append(names)
+            if step == 0:
+                assert "query_worldview" in names
+                name, args = "query_worldview", {"query": key, "kind": None}
+            else:
+                assert names == {"http_request", "task_blocked"}
+                name, args = (
+                    "task_blocked",
+                    {
+                        "reason": "No action is defined for this fake provider",
+                        "missing_prerequisite": "A configured synthetic action policy",
+                    },
+                )
+            output = (
+                {
+                    "type": "function_call",
+                    "call_id": f"{key}:{step}",
+                    "name": name,
+                    "arguments": json.dumps(args),
+                },
+            )
+            raw = {
+                "id": f"{key}:{step}",
+                "status": "completed",
+                "output": list(output),
+                "usage": {"input_tokens": 200, "output_tokens": 10},
+            }
+            return ModelTurn(
+                response_id=raw["id"],
+                status="completed",
+                output=output,
+                usage=raw["usage"],
+                raw_response=raw,
+            )
+
+    provider = OrientThenBlockProvider()
+    coordinator = SequentialWorkerCoordinator(
+        provider, ModelSpec(provider="openai", name="synthetic"), None, events, tmp_path
+    )
+    task = AgentTask(task_id=uuid4(), goal="Test SaaS security", budget=budget)
+    context = AgentContext(
+        run_id=run_id,
+        objective=task.goal,
+        global_budget=budget,
+        range=AgentVisibleRangeContext(range_instance_id=uuid4(), family="saas"),
+    )
+    result = await coordinator.run(task, context, None)
+    assert result.status == "completed"
+    assert len(provider.tool_names) == 12
+    trace = await events.read_run(run_id)
+    assert len([item for item in trace if isinstance(item, WorkerOriented)]) == 6
+    assert len([item for item in trace if isinstance(item, WorkerBlocked)]) == 6
+    assert not any(isinstance(item, WorkerContractViolated) for item in trace)
+    projected = project_controller_events(trace)
+    assert set(projected.worker_outcomes.values()) == {"blocked"}
 
 
 @pytest.mark.postgres

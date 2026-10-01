@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import re
+from typing import Literal
 from uuid import UUID
 
 from pydantic import Field, model_validator
@@ -34,10 +36,39 @@ class CheckedAction(StrictModel):
     body_summary: str | None = Field(default=None, max_length=256)
 
 
+class WorkerTaskContract(StrictModel):
+    objective: str = Field(min_length=1, max_length=256)
+    route_family: str = Field(min_length=1, max_length=128)
+    target_entity_types: tuple[
+        Literal["identity", "workspace", "document", "invoice", "ticket"], ...
+    ]
+    permitted_methods: tuple[Literal["GET", "POST"], ...]
+    state_change_authorized: bool
+    success_condition: Literal["objective_http_or_explicit_block"] = (
+        "objective_http_or_explicit_block"
+    )
+    max_orientation_turns: int = Field(default=1, ge=0, le=2)
+
+    @model_validator(mode="after")
+    def valid_route(self) -> WorkerTaskContract:
+        method, _, path = self.route_family.partition(" ")
+        if method not in self.permitted_methods or not path.startswith("/api/"):
+            raise ValueError("route family must use a permitted synthetic API method")
+        if self.state_change_authorized != ("POST" in self.permitted_methods):
+            raise ValueError("state change authorization must match permitted methods")
+        return self
+
+    def matches_objective_action(self, method: str, path: str) -> bool:
+        expected_method, _, template = self.route_family.partition(" ")
+        pattern = re.escape(template).replace(r"\{id\}", r"[0-9a-fA-F-]{36}")
+        return method == expected_method and re.fullmatch(pattern, path) is not None
+
+
 class WorkerTaskPacket(StrictModel):
     task_id: UUID
     worker_id: UUID
     objective: str = Field(min_length=1, max_length=256)
+    contract: WorkerTaskContract | None = None
     budget_slice: Budget
     protected_future_tokens: int = Field(default=0, ge=0)
     protected_future_model_calls: int = Field(default=0, ge=0)
@@ -59,6 +90,8 @@ class WorkerTaskPacket(StrictModel):
 
     @model_validator(mode="after")
     def bounded_handoff(self) -> WorkerTaskPacket:
+        if self.contract is not None and self.objective != self.contract.objective:
+            raise ValueError("worker objective differs from task contract")
         if len(self.model_dump_json()) > 10000:
             raise ValueError("worker packet exceeds 10000 characters")
         return self

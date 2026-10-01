@@ -406,6 +406,36 @@ class WorkerPacketPrepared(TraceEvent):
         return self
 
 
+class WorkerOriented(TraceEvent):
+    type: Literal["worker_oriented"] = "worker_oriented"
+    worker_id: UUID
+    task_id: UUID
+    retrieval_only_turns: int = Field(ge=0, le=2)
+
+
+class WorkerObjectiveAction(TraceEvent):
+    type: Literal["worker_objective_action"] = "worker_objective_action"
+    worker_id: UUID
+    task_id: UUID
+    action_id: UUID
+    route_family: str = Field(min_length=1)
+
+
+class WorkerBlocked(TraceEvent):
+    type: Literal["worker_blocked"] = "worker_blocked"
+    worker_id: UUID
+    task_id: UUID
+    reason: str = Field(min_length=1, max_length=512)
+    missing_prerequisite: str = Field(min_length=1, max_length=512)
+
+
+class WorkerContractViolated(TraceEvent):
+    type: Literal["worker_contract_violated"] = "worker_contract_violated"
+    worker_id: UUID
+    task_id: UUID
+    reason_code: str = Field(min_length=1, max_length=128)
+
+
 class WorkerDebriefed(TraceEvent):
     type: Literal["worker_debriefed"] = "worker_debriefed"
     worker_id: UUID
@@ -507,6 +537,10 @@ AnyTraceEvent = Annotated[
     | WorkerSpawned
     | WorkerStarted
     | WorkerPacketPrepared
+    | WorkerOriented
+    | WorkerObjectiveAction
+    | WorkerBlocked
+    | WorkerContractViolated
     | WorkerDebriefed
     | WorkerFinished
     | ContextRetrieved

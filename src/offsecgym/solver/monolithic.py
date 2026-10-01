@@ -35,6 +35,9 @@ from offsecgym.schemas.events import (
     ModelCallFailed,
     ModelCallStarted,
     ModelToolRejected,
+    WorkerBlocked,
+    WorkerObjectiveAction,
+    WorkerOriented,
     WorldFactSubmitted,
 )
 from offsecgym.schemas.specs import ModelSpec
@@ -195,6 +198,11 @@ class FinishCoverageArgs(StrictModel):
     status: Literal["completed", "released"]
 
 
+class TaskBlockedArgs(StrictModel):
+    reason: str = Field(min_length=1, max_length=512)
+    missing_prerequisite: str = Field(min_length=1, max_length=512)
+
+
 TOOL_MODELS: dict[str, type[StrictModel]] = {
     "http_request": HTTPArgs,
     "submit_authorization_finding": AuthorizationFindingArgs,
@@ -245,7 +253,9 @@ def _strict_schema(model: type[StrictModel]) -> dict[str, object]:
     return clean(schema)
 
 
-def model_tools(*, structured: bool = False, worker: bool = False) -> list[dict[str, object]]:
+def model_tools(
+    *, structured: bool = False, worker: bool = False, action_required: bool = False
+) -> list[dict[str, object]]:
     descriptions = {
         "http_request": (
             "Send one HTTP request to the synthetic SaaS range. body_json is a JSON "
@@ -277,8 +287,20 @@ def model_tools(*, structured: bool = False, worker: bool = False) -> list[dict[
         ),
         "claim_coverage": "Claim a component and objective to avoid duplicate work.",
         "finish_coverage": "Mark a previously claimed objective completed or released.",
+        "task_blocked": (
+            "End this worker task only if its objective cannot be tested. State the concrete "
+            "reason and missing prerequisite; this is audited against the handoff packet."
+        ),
     }
     models = TOOL_MODELS | WORLD_TOOL_MODELS if structured else TOOL_MODELS
+    if worker:
+        models = models | {"task_blocked": TaskBlockedArgs}
+    if action_required:
+        models = {
+            name: model
+            for name, model in models.items()
+            if name in {"http_request", "task_blocked"}
+        }
     return [
         {
             "type": "function",
@@ -354,7 +376,12 @@ def build_context(
         instructions += (
             " The coordinator owns this task's coverage lease. The packet is your initial "
             "shared-state snapshot; later automatic context contains only worker-local "
-            "updates. Use get_entity or query_worldview when the packet lacks a needed fact."
+            "updates. Use get_entity or query_worldview when the packet lacks a needed fact. "
+            "Your task contract requires an HTTP request matching route_family or an explicit "
+            "task_blocked(reason, missing_prerequisite). You may spend at most one model turn "
+            "on retrieval alone before the harness requires action. A worker exit without "
+            "either outcome is a contract failure. For refund, POST in the isolated synthetic "
+            "range is authorized."
         )
     return instructions, [{"role": "user", "content": prompt}]
 
@@ -390,6 +417,11 @@ class MonolithicSaasAgent:
         carried_world_output_chars = 0
         selected_item: dict[str, object] | None = None
         definitions = model_tools(structured=structured, worker=task.worker_id is not None)
+        contract = context.worker_packet.contract if context.worker_packet is not None else None
+        retrieval_only_turns = 0
+        orientation_turns = 0
+        action_required = False
+        objective_met = False
         working_set = ActiveWorkingSet() if structured else None
         observations: list[UUID] = []
         submitted: list[UUID] = []
@@ -402,6 +434,8 @@ class MonolithicSaasAgent:
         if max_calls is None:
             raise ValueError("model-call budget is required")
         for _ in range(max_calls):
+            if action_required:
+                definitions = model_tools(structured=structured, worker=True, action_required=True)
             remaining = (
                 task.budget.max_total_tokens - used_tokens
                 if task.budget.max_total_tokens is not None
@@ -659,10 +693,11 @@ class MonolithicSaasAgent:
             if not calls:
                 return AgentResult(
                     task_id=task.task_id,
-                    status="completed",
+                    status="completed" if contract is None or objective_met else "failed",
                     observation_ids=tuple(observations),
                     candidate_finding_ids=tuple(submitted),
                 )
+            turn_blocked = False
             for call in calls:
                 call_name = call.get("name")
                 call_ref = call.get("call_id")
@@ -675,23 +710,73 @@ class MonolithicSaasAgent:
                         "finish_coverage",
                     }:
                         raise ValueError("worker coverage is owned by the coordinator")
-                    schema = (TOOL_MODELS | WORLD_TOOL_MODELS if structured else TOOL_MODELS)[
-                        call_name
-                    ]
+                    schemas = TOOL_MODELS | WORLD_TOOL_MODELS if structured else TOOL_MODELS
+                    if contract is not None:
+                        schemas = schemas | {"task_blocked": TaskBlockedArgs}
+                    if action_required and call_name not in {"http_request", "task_blocked"}:
+                        raise ValueError("action_required_tool_only")
+                    schema = schemas[call_name]
                     args = schema.model_validate(raw_args)
-                    output = await self._dispatch(
-                        call_name,
-                        args,
-                        context.run_id,
-                        task.task_id,
-                        task.worker_id,
-                        completed.event_id,
-                        tools,
-                        observations,
-                        submitted,
-                        working_set,
-                        retrieval_output_limit,
-                    )
+                    if contract is not None and isinstance(args, HTTPArgs):
+                        if args.method not in contract.permitted_methods:
+                            raise ValueError("method_not_permitted_by_worker_contract")
+                        if action_required and not contract.matches_objective_action(
+                            args.method, args.path
+                        ):
+                            raise ValueError("objective_action_required")
+                    if call_name == "task_blocked":
+                        assert isinstance(args, TaskBlockedArgs)
+                        assert task.worker_id is not None
+                        if objective_met:
+                            raise ValueError("objective_already_exercised")
+                        await self.events.append(
+                            WorkerBlocked(
+                                run_id=context.run_id,
+                                actor="worker",
+                                worker_id=task.worker_id,
+                                task_id=task.task_id,
+                                reason=args.reason,
+                                missing_prerequisite=args.missing_prerequisite,
+                                causation_id=completed.event_id,
+                            )
+                        )
+                        output = {"status": "blocked"}
+                        turn_blocked = True
+                    else:
+                        output = await self._dispatch(
+                            call_name,
+                            args,
+                            context.run_id,
+                            task.task_id,
+                            task.worker_id,
+                            completed.event_id,
+                            tools,
+                            observations,
+                            submitted,
+                            working_set,
+                            retrieval_output_limit,
+                        )
+                    if (
+                        contract is not None
+                        and call_name == "http_request"
+                        and isinstance(args, HTTPArgs)
+                        and output.get("status") == "completed"
+                        and contract.matches_objective_action(args.method, args.path)
+                    ):
+                        assert task.worker_id is not None
+                        await self.events.append(
+                            WorkerObjectiveAction(
+                                run_id=context.run_id,
+                                actor="controller",
+                                worker_id=task.worker_id,
+                                task_id=task.task_id,
+                                action_id=UUID(str(output["action_id"])),
+                                route_family=contract.route_family,
+                                causation_id=completed.event_id,
+                            )
+                        )
+                        objective_met = True
+                        action_required = False
                     if structured and call_name == "http_request" and isinstance(args, HTTPArgs):
                         recent_action_path = (
                             f"{args.method} {args.path} identity={args.identity_id}"
@@ -745,6 +830,42 @@ class MonolithicSaasAgent:
                     "http_budget_exhausted",
                 }:
                     raise AgentBudgetExhausted(output["reason_code"])
+                if turn_blocked:
+                    break
+            if turn_blocked:
+                return AgentResult(
+                    task_id=task.task_id,
+                    status="completed",
+                    observation_ids=tuple(observations),
+                    candidate_finding_ids=tuple(submitted),
+                )
+            if contract is not None and not objective_met:
+                retrieval_only = bool(calls) and all(
+                    item.get("name") in {"query_worldview", "get_entity"} for item in calls
+                )
+                if retrieval_only:
+                    retrieval_only_turns += 1
+                if action_required:
+                    return AgentResult(
+                        task_id=task.task_id,
+                        status="failed",
+                        observation_ids=tuple(observations),
+                        candidate_finding_ids=tuple(submitted),
+                    )
+                orientation_turns += 1
+                if orientation_turns >= contract.max_orientation_turns:
+                    action_required = True
+                    assert task.worker_id is not None
+                    await self.events.append(
+                        WorkerOriented(
+                            run_id=context.run_id,
+                            actor="controller",
+                            worker_id=task.worker_id,
+                            task_id=task.task_id,
+                            retrieval_only_turns=retrieval_only_turns,
+                            causation_id=completed.event_id,
+                        )
+                    )
             if token_slice_exhausted:
                 raise AgentBudgetExhausted("worker_token_slice_exhausted")
             if cost_slice_exhausted:

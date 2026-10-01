@@ -22,7 +22,10 @@ from offsecgym.schemas.events import (
     ActionReservationAcquired,
     CoverageUpdated,
     FindingSubmitted,
+    WorkerBlocked,
+    WorkerContractViolated,
     WorkerDebriefed,
+    WorkerObjectiveAction,
     WorkerPacketPrepared,
     WorldFactSubmitted,
 )
@@ -33,6 +36,7 @@ from offsecgym.schemas.workers import (
     WorkerDebrief,
     WorkerEntity,
     WorkerEvidence,
+    WorkerTaskContract,
     WorkerTaskPacket,
 )
 from offsecgym.solver.monolithic import MonolithicSaasAgent
@@ -53,6 +57,14 @@ WORKER_OBJECTIVES: tuple[tuple[str, str, tuple[str, ...]], ...] = (
     ("public", "Test anonymous public invoice exposure", ("invoice", "identity")),
     ("refund", "Test invoice refund transition authorization", ("invoice", "identity")),
 )
+OBJECTIVE_ROUTES = {
+    "identity": "GET /api/me",
+    "document": "GET /api/documents/{id}",
+    "invoice": "GET /api/invoices/{id}",
+    "ticket": "GET /api/support/tickets/{id}",
+    "public": "GET /api/public/invoices/{id}/preview",
+    "refund": "POST /api/invoices/{id}/refund",
+}
 MIN_MEANINGFUL_INPUT_TOKENS = 15500
 WORKER_OUTPUT_CAP_TOKENS = 4000
 
@@ -432,6 +444,15 @@ class WorkerPacketBuilder:
                     task_id=task_id,
                     worker_id=worker_id,
                     objective=objective,
+                    contract=WorkerTaskContract(
+                        objective=objective,
+                        route_family=OBJECTIVE_ROUTES[objective_kind],
+                        target_entity_types=relevant_types,
+                        permitted_methods=("GET", "POST")
+                        if objective_kind == "refund"
+                        else ("GET",),
+                        state_change_authorized=objective_kind == "refund",
+                    ),
                     budget_slice=budget,
                     protected_future_tokens=floor.tokens,
                     protected_future_model_calls=floor.model_calls,
@@ -587,28 +608,6 @@ class SequentialWorkerCoordinator:
             recommended_followups=questions[:6],
         )
 
-    async def _explored(
-        self, context: AgentContext, worker_id: UUID, after: int, kind: str
-    ) -> bool:
-        trace = await self.events.read_run(context.run_id)
-        requested = {item.action_id: item for item in trace if isinstance(item, ActionRequested)}
-        for event in trace:
-            if (
-                not isinstance(event, ActionCompleted)
-                or event.sequence_number <= after
-                or event.worker_id != worker_id
-            ):
-                continue
-            source = requested.get(event.action_id)
-            if source is None:
-                continue
-            request = self.packet_builder._request(context, source)
-            if _path_relevance(kind, request.path) and (
-                kind != "refund" or request.method == "POST"
-            ):
-                return True
-        return False
-
     async def run(self, task: AgentTask, context: AgentContext, tools: ToolRegistry) -> AgentResult:
         if context.global_budget is None or context.range is None:
             raise ValueError("workers require a visible range and global budget")
@@ -724,12 +723,30 @@ class SequentialWorkerCoordinator:
                 status = "failed"
                 raise
             finally:
+                outcomes = [
+                    item
+                    for item in await self.events.read_run(context.run_id)
+                    if item.sequence_number > start_sequence
+                    and isinstance(item, (WorkerObjectiveAction, WorkerBlocked))
+                    and item.worker_id == worker_id
+                ]
+                if not outcomes and status != "cancelled":
+                    await self.events.append(
+                        WorkerContractViolated(
+                            run_id=context.run_id,
+                            actor="controller",
+                            worker_id=worker_id,
+                            task_id=task_id,
+                            reason_code=f"objective_unattempted_{status}",
+                        )
+                    )
+                    status = "failed"
                 await self.world.update_coverage(
                     context.run_id,
                     claim.claim_id,
                     task_id,
                     "completed"
-                    if await self._explored(context, worker_id, start_sequence, kind)
+                    if any(isinstance(item, WorkerObjectiveAction) for item in outcomes)
                     else "released",
                 )
                 for claim in await self.world.coverage(context.run_id):
