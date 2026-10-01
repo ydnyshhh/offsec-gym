@@ -77,3 +77,7 @@ comparison. Investigate late-worker budget and handoff behavior with a
 predeclared follow-up before enabling M6.2 parallelism. M6.2 must also resolve
 response-fact ordering by source action completion sequence, cross-process
 range guards, and stale reservation recovery.
+
+The targeted [M6.1.1 follow-up](milestone-6.1.1.md) predeclares fairness,
+context, packet, coverage, and late-objective gates before three new worker
+smoke runs. The original six traces and their limitations remain unchanged.

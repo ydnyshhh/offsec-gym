@@ -75,6 +75,10 @@
   traces scored validly, stayed within global budgets, and replayed controller
   counters. Worker runs had earlier first valid findings but lower root-cause
   recall and weak late-worker exploration; see the diagnostic for exact traces.
+- M6.1.1 introduces protected future-worker model reservations, rolling
+  spendable budgets, a smaller packet-aware worker context, objective-aware
+  packet ranking, checked POST body hashes/previews, and coordinator-owned
+  coverage. Its three-run smoke gates are predeclared separately.
 
 ## Partially implemented
 
@@ -101,10 +105,10 @@
 
 ## Next milestone
 
-Investigate the M6.1 late-worker budget and handoff behavior with a
-predeclared follow-up before M6.2 concurrency. The completed matched
-[diagnostic](diagnostics/kimi-k3-openrouter-m61.md) separates infrastructure
-acceptance from research outcomes.
+Run the [predeclared M6.1.1 smoke](milestone-6.1.1.md) and inspect late-worker
+actions, context size, packet relevance, and controller integrity before
+freezing sequential orchestration or enabling M6.2 concurrency. The original
+[M6.1 diagnostic](diagnostics/kimi-k3-openrouter-m61.md) remains frozen.
 
 ## Known architectural debt
 

@@ -27,6 +27,8 @@ packets, attributed findings, and typed debriefs; see
 [Milestone 6.1](docs/milestone-6.1.md). The matched three-control/three-worker
 [Kimi diagnostic](docs/diagnostics/kimi-k3-openrouter-m61.md) records valid
 traces, earlier first findings, and lower worker root-cause recall.
+[M6.1.1](docs/milestone-6.1.1.md) addresses worker budget starvation and
+duplicated context with predeclared three-run smoke gates.
 
 ## Development
 
