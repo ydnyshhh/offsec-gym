@@ -9,6 +9,7 @@ from offsecgym.schemas.domain import AgentContext
 from offsecgym.schemas.specs import Budget, ExperimentSpec
 from offsecgym.solver.elastic_workers import ElasticWorkerCoordinator
 from offsecgym.solver.matched_workers import MatchedWorkerCoordinator
+from offsecgym.solver.opportunity_workers import OpportunityWorkerCoordinator
 from offsecgym.solver.scripted import ExperimentInfrastructureError
 from offsecgym.solver.workers import SequentialWorkerCoordinator
 
@@ -27,6 +28,7 @@ class WorkerExperimentRunner(MonolithicExperimentRunner):
                 "escrowed_sequential_workers",
                 "escrowed_parallel_workers",
                 "elastic_sequential_workers",
+                "admitted_sequential_workers",
             }
             and spec.memory == "structured"
             and spec.validation == "deterministic"
@@ -70,6 +72,8 @@ class WorkerExperimentRunner(MonolithicExperimentRunner):
             if spec.orchestrator == "ephemeral_workers"
             else ElasticWorkerCoordinator
             if spec.orchestrator == "elastic_sequential_workers"
+            else OpportunityWorkerCoordinator
+            if spec.orchestrator == "admitted_sequential_workers"
             else MatchedWorkerCoordinator
         )
         return coordinator_type(

@@ -19,13 +19,16 @@ from offsecgym.runtime.compose import ComposeRangeRuntime
 from offsecgym.schemas.domain import EntityRef
 from offsecgym.schemas.events import (
     ActionRequested,
+    AdmissionDecision,
     ControllerBudgetDeclared,
     ModelCallStarted,
     PrerequisiteBootstrapCompleted,
     PrerequisiteBootstrapStarted,
     SchedulerDecision,
     TaskBudgetGranted,
+    TaskBudgetHeld,
     TaskBudgetReleased,
+    TaskStateEvaluated,
     WorkerFinished,
     WorkerPacketPrepared,
     WorkerScheduled,
@@ -386,5 +389,62 @@ async def test_elastic_scheduler_fake_workers_replay_all_leases(tmp_path: Path) 
             assert replay.token_limit == account["token_limit"] == account["used_tokens"]
             assert replay.model_call_limit == account["model_call_limit"]
             assert replay.used_model_calls == account["used_model_calls"]
+    finally:
+        await engine.dispose()
+
+
+@pytest.mark.postgres
+@pytest.mark.docker
+async def test_admission_scheduler_uses_bootstrap_state_and_evidence_dependencies(
+    tmp_path: Path,
+) -> None:
+    url = os.getenv("OFFSECGYM_TEST_DATABASE_URL")
+    if not url:
+        pytest.skip("OFFSECGYM_TEST_DATABASE_URL is not set")
+    docker = subprocess.run(
+        ["docker", "info", "--format", "{{.ServerVersion}}"],
+        capture_output=True,
+        text=True,
+        timeout=10,
+        check=False,
+    )
+    if docker.returncode:
+        if os.getenv("OFFSECGYM_REQUIRE_DOCKER") == "1":
+            pytest.fail(f"Docker required by CI: {docker.stderr[-400:]}")
+        pytest.skip("Docker daemon is unavailable")
+    engine = create_async_engine(url)
+    runtime = ComposeRangeRuntime(tmp_path)
+    events = PostgresEventStore(engine)
+    try:
+        config = (
+            Path(__file__).parents[2]
+            / "experiments"
+            / "configs"
+            / "kimi-k3-m631-admitted-sequential.yaml"
+        )
+        spec = ExperimentSpec.model_validate(yaml.safe_load(config.read_text()))
+        outcome = await WorkerExperimentRunner(runtime, events, BlockProvider()).run(spec)
+        trace = await events.read_run(outcome.run_id)
+        scheduled = [event.kind for event in trace if isinstance(event, TaskBudgetGranted)]
+        assert set(scheduled) == {"invoice", "public", "document", "ticket"}
+        decisions = [event for event in trace if isinstance(event, AdmissionDecision)]
+        assert decisions[0].reason_codes["identity"] == "already_satisfied"
+        assert set(decisions[0].admitted_kinds) == {"invoice", "public"}
+        assert decisions[0].forecast_kinds == ("refund",)
+        assert any(
+            event.kind == "refund" and not event.satisfied
+            for event in trace
+            if isinstance(event, TaskStateEvaluated)
+        )
+        assert any(isinstance(event, TaskBudgetHeld) for event in trace)
+        projection = project_controller_events(trace)
+        assert all(not hold.active for hold in projection.admission_holds.values())
+        assert all(
+            not hold["active"]
+            for hold in await PostgresControllerState(events).admission_hold_snapshot(
+                outcome.run_id
+            )
+        )
+        assert orchestration_metrics(trace).opportunity_displacement_tokens == 0
     finally:
         await engine.dispose()

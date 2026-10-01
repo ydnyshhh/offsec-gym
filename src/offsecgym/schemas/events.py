@@ -535,12 +535,62 @@ class TaskBudgetDenied(TraceEvent):
     minimum_viable_tokens: int = Field(gt=0)
 
 
+class TaskStateEvaluated(TraceEvent):
+    type: Literal["task_state_evaluated"] = "task_state_evaluated"
+    kind: str = Field(min_length=1)
+    predicate: str = Field(min_length=1)
+    satisfied: bool
+    source_event_ids: tuple[UUID, ...] = ()
+    reason_code: str = Field(min_length=1)
+
+
+class AdmissionDecision(TraceEvent):
+    type: Literal["admission_decision"] = "admission_decision"
+    ready_minimum_tokens: dict[str, int]
+    admitted_kinds: tuple[str, ...]
+    forecast_kinds: tuple[str, ...]
+    task_states: dict[str, TaskState]
+    available_tokens: int = Field(ge=0)
+    available_model_calls: int = Field(ge=0)
+    available_actions: int = Field(ge=0)
+    available_http_requests: int = Field(ge=0)
+    utility_scores: dict[str, int]
+    reason_codes: dict[str, str]
+    state_snapshot_hash: str = Field(pattern=r"^[0-9a-f]{64}$")
+
+
+class TaskBudgetHeld(TraceEvent):
+    type: Literal["task_budget_held"] = "task_budget_held"
+    worker_id: UUID
+    task_id: UUID
+    kind: str = Field(min_length=1)
+    phase: Literal["ready", "forecast"]
+    request: TaskBudgetRequest
+
+
+class TaskBudgetHoldReleased(TraceEvent):
+    type: Literal["task_budget_hold_released"] = "task_budget_hold_released"
+    worker_id: UUID
+    task_id: UUID
+    kind: str = Field(min_length=1)
+    reason_code: str = Field(min_length=1)
+
+
+class TaskBudgetHoldActivated(TraceEvent):
+    type: Literal["task_budget_hold_activated"] = "task_budget_hold_activated"
+    worker_id: UUID
+    task_id: UUID
+    kind: str = Field(min_length=1)
+
+
 class WorkerScheduled(TraceEvent):
     type: Literal["worker_scheduled"] = "worker_scheduled"
     worker_id: UUID
     task_id: UUID
     objective: str = Field(min_length=1)
-    scheduling: Literal["matched_sequential", "matched_parallel", "elastic_sequential"]
+    scheduling: Literal[
+        "matched_sequential", "matched_parallel", "elastic_sequential", "admitted_sequential"
+    ]
 
 
 class WorkerStarted(TraceEvent):
@@ -718,6 +768,11 @@ AnyTraceEvent = Annotated[
     | TaskBudgetExtended
     | TaskBudgetReleased
     | TaskBudgetDenied
+    | TaskStateEvaluated
+    | AdmissionDecision
+    | TaskBudgetHeld
+    | TaskBudgetHoldReleased
+    | TaskBudgetHoldActivated
     | WorkerScheduled
     | WorkerStarted
     | WorkerHeartbeat

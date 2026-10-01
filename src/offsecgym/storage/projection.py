@@ -12,6 +12,7 @@ from offsecgym.schemas.events import (
     ActionCompleted,
     ActionReservationAcquired,
     ActionReservationReleased,
+    AdmissionDecision,
     AnyTraceEvent,
     ControllerBudgetDeclared,
     CoverageLeaseAcquired,
@@ -23,7 +24,11 @@ from offsecgym.schemas.events import (
     TaskBudgetDenied,
     TaskBudgetExtended,
     TaskBudgetGranted,
+    TaskBudgetHeld,
+    TaskBudgetHoldActivated,
+    TaskBudgetHoldReleased,
     TaskBudgetReleased,
+    TaskStateEvaluated,
     WorkerBlocked,
     WorkerBudgetEscrowDeclared,
     WorkerContractViolated,
@@ -62,6 +67,15 @@ class WorkerEscrowProjection:
 
 
 @dataclass
+class AdmissionHoldProjection:
+    worker_id: UUID
+    kind: str
+    phase: str
+    request: TaskBudgetRequest
+    active: bool = True
+
+
+@dataclass
 class ControllerProjection:
     budget: Budget | None = None
     used_actions: int = 0
@@ -92,6 +106,9 @@ class ControllerProjection:
         default_factory=dict
     )
     worker_escrows: dict[UUID, WorkerEscrowProjection] = field(default_factory=dict)
+    admission_holds: dict[UUID, AdmissionHoldProjection] = field(default_factory=dict)
+    admission_decisions: list[AdmissionDecision] = field(default_factory=list)
+    state_evaluations: list[TaskStateEvaluated] = field(default_factory=list)
     scheduler_decisions: list[SchedulerDecision] = field(default_factory=list)
     model_rejections: list[ModelReservationRejected] = field(default_factory=list)
     budget_denials: list[TaskBudgetDenied] = field(default_factory=list)
@@ -142,6 +159,43 @@ def project_controller_events(trace: Sequence[AnyTraceEvent]) -> ControllerProje
                     raise ValueError("worker escrow declarations exceed global budget")
         elif isinstance(event, SchedulerDecision):
             state.scheduler_decisions.append(event)
+        elif isinstance(event, AdmissionDecision):
+            state.admission_decisions.append(event)
+        elif isinstance(event, TaskStateEvaluated):
+            state.state_evaluations.append(event)
+        elif isinstance(event, TaskBudgetHeld):
+            prior = state.admission_holds.get(event.task_id)
+            if prior is not None and (
+                prior.worker_id != event.worker_id or prior.kind != event.kind
+            ):
+                raise ValueError("admission hold owner changed")
+            if prior is not None and prior.active and prior.phase == event.phase:
+                raise ValueError("duplicate active admission hold")
+            state.admission_holds[event.task_id] = AdmissionHoldProjection(
+                worker_id=event.worker_id,
+                kind=event.kind,
+                phase=event.phase,
+                request=event.request,
+            )
+        elif isinstance(event, TaskBudgetHoldReleased):
+            hold = state.admission_holds.get(event.task_id)
+            if (
+                hold is None
+                or not hold.active
+                or (hold.worker_id != event.worker_id or hold.kind != event.kind)
+            ):
+                raise ValueError("admission release lacks active matching hold")
+            hold.active = False
+        elif isinstance(event, TaskBudgetHoldActivated):
+            hold = state.admission_holds.get(event.task_id)
+            if (
+                hold is None
+                or not hold.active
+                or hold.phase != "ready"
+                or (hold.worker_id != event.worker_id or hold.kind != event.kind)
+            ):
+                raise ValueError("admission activation lacks ready matching hold")
+            hold.active = False
         elif isinstance(event, TaskBudgetDenied):
             state.budget_denials.append(event)
         elif isinstance(event, TaskBudgetGranted):
@@ -419,6 +473,11 @@ def project_controller_events(trace: Sequence[AnyTraceEvent]) -> ControllerProje
                     sum(
                         account.token_limit - account.used_tokens - account.reserved_tokens
                         for account in state.worker_escrows.values()
+                    )
+                    + sum(
+                        hold.request.minimum_viable_tokens
+                        for hold in state.admission_holds.values()
+                        if hold.active
                     ),
                 ),
                 (
@@ -427,6 +486,11 @@ def project_controller_events(trace: Sequence[AnyTraceEvent]) -> ControllerProje
                     sum(
                         account.model_call_limit - account.used_model_calls
                         for account in state.worker_escrows.values()
+                    )
+                    + sum(
+                        hold.request.minimum_model_calls
+                        for hold in state.admission_holds.values()
+                        if hold.active
                     ),
                 ),
                 (
@@ -435,6 +499,11 @@ def project_controller_events(trace: Sequence[AnyTraceEvent]) -> ControllerProje
                     sum(
                         account.action_limit - account.used_actions
                         for account in state.worker_escrows.values()
+                    )
+                    + sum(
+                        hold.request.expected_actions
+                        for hold in state.admission_holds.values()
+                        if hold.active
                     ),
                 ),
                 (
@@ -443,6 +512,11 @@ def project_controller_events(trace: Sequence[AnyTraceEvent]) -> ControllerProje
                     sum(
                         account.http_limit - account.used_http_requests
                         for account in state.worker_escrows.values()
+                    )
+                    + sum(
+                        hold.request.expected_http_requests
+                        for hold in state.admission_holds.values()
+                        if hold.active
                     ),
                 ),
             ):

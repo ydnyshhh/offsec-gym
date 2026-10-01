@@ -11,18 +11,21 @@ from offsecgym.schemas.events import (
     ActionCompleted,
     ActionRequested,
     ActionReservationAcquired,
+    AdmissionDecision,
     AnyTraceEvent,
     FindingSubmitted,
     FindingValidated,
     ModelCallCompleted,
     PrerequisiteBootstrapCompleted,
     RunStarted,
+    TaskBudgetExtended,
     WorkerDebriefed,
     WorkerFinished,
     WorkerPacketPrepared,
     WorkerScheduled,
     WorkerStarted,
 )
+from offsecgym.storage.projection import ControllerProjection, project_controller_events
 
 
 class OrchestrationMetrics(StrictModel):
@@ -52,9 +55,57 @@ class OrchestrationMetrics(StrictModel):
     bootstrap_snapshot_hash: str | None = None
     worker_exact_repeat_dispatches: int = 0
     worker_repeats_of_bootstrap: int = 0
+    admissible_unused_tokens: int = 0
+    opportunity_displacement_tokens: int = 0
+
+
+def _free_admission_tokens(state: ControllerProjection) -> int:
+    if state.budget is None or state.budget.max_total_tokens is None:
+        return 0
+    outstanding = sum(
+        account.token_limit - account.used_tokens - account.reserved_tokens
+        for account in state.worker_escrows.values()
+    ) + sum(
+        hold.request.minimum_viable_tokens for hold in state.admission_holds.values() if hold.active
+    )
+    return max(
+        0,
+        state.budget.max_total_tokens - state.used_tokens - state.reserved_tokens - outstanding,
+    )
+
+
+def _admission_opportunity_metrics(trace: Sequence[AnyTraceEvent]) -> tuple[int, int]:
+    decisions = [item for item in trace if isinstance(item, AdmissionDecision)]
+    if not decisions:
+        return 0, 0
+    state = project_controller_events(trace)
+    latest = decisions[-1]
+    unused = _free_admission_tokens(state)
+    admissible_unused = (
+        unused if any(minimum <= unused for minimum in latest.ready_minimum_tokens.values()) else 0
+    )
+    displaced = 0
+    current_decision = None
+    for index, item in enumerate(trace):
+        if isinstance(item, AdmissionDecision):
+            current_decision = item
+        elif isinstance(item, TaskBudgetExtended) and current_decision is not None:
+            unadmitted = {
+                kind: minimum
+                for kind, minimum in current_decision.ready_minimum_tokens.items()
+                if kind not in current_decision.admitted_kinds
+            }
+            if not unadmitted:
+                continue
+            before = _free_admission_tokens(project_controller_events(trace[:index]))
+            after = _free_admission_tokens(project_controller_events(trace[: index + 1]))
+            if any(after < minimum <= before for minimum in unadmitted.values()):
+                displaced += item.token_limit - item.prior_token_limit
+    return admissible_unused, displaced
 
 
 def orchestration_metrics(trace: Sequence[AnyTraceEvent]) -> OrchestrationMetrics:
+    admissible_unused, opportunity_displacement = _admission_opportunity_metrics(trace)
     dispatches = [item for item in trace if isinstance(item, ActionReservationAcquired)]
     previous: dict[str, set[object]] = {}
     exact = cross = within = worker_exact = bootstrap_repeats = 0
@@ -209,4 +260,6 @@ def orchestration_metrics(trace: Sequence[AnyTraceEvent]) -> OrchestrationMetric
         bootstrap_snapshot_hash=bootstrap_done.snapshot_hash if bootstrap_done else None,
         worker_exact_repeat_dispatches=worker_exact,
         worker_repeats_of_bootstrap=bootstrap_repeats,
+        admissible_unused_tokens=admissible_unused,
+        opportunity_displacement_tokens=opportunity_displacement,
     )

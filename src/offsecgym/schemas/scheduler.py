@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from typing import Literal
+from uuid import UUID
 
 from pydantic import Field, model_validator
 
@@ -32,3 +33,11 @@ class TaskBudgetRequest(StrictModel):
         ):
             raise ValueError("task budget minimum, preferred, and maximum must be ordered")
         return self
+
+
+class AdmissionTask(StrictModel):
+    worker_id: UUID
+    task_id: UUID
+    kind: str = Field(min_length=1)
+    phase: Literal["ready", "forecast"]
+    request: TaskBudgetRequest

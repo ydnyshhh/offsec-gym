@@ -123,6 +123,22 @@ worker_budget_accounts = Table(
     Column("used_cost_microusd", BigInteger, nullable=False, default=0),
     Column("reserved_cost_microusd", BigInteger, nullable=False, default=0),
 )
+
+task_budget_holds = Table(
+    "task_budget_holds",
+    metadata,
+    Column("run_id", UUID(as_uuid=True), ForeignKey("runs.run_id"), primary_key=True),
+    Column("task_id", UUID(as_uuid=True), primary_key=True),
+    Column("worker_id", UUID(as_uuid=True), nullable=False),
+    Column("kind", String(32), nullable=False),
+    Column("phase", String(16), nullable=False),
+    Column("token_hold", BigInteger, nullable=False),
+    Column("model_call_hold", Integer, nullable=False),
+    Column("action_hold", Integer, nullable=False),
+    Column("http_hold", Integer, nullable=False),
+    Column("active", Boolean, nullable=False),
+    UniqueConstraint("run_id", "kind", name="uq_task_budget_hold_kind"),
+)
 Index(
     "uq_elastic_task_kind",
     worker_budget_accounts.c.run_id,

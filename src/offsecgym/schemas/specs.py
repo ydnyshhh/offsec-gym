@@ -114,6 +114,7 @@ class ExperimentSpec(StrictModel):
         "escrowed_sequential_workers",
         "escrowed_parallel_workers",
         "elastic_sequential_workers",
+        "admitted_sequential_workers",
     ]
     memory: Literal["none", "transcript", "summary", "structured"] = "none"
     validation: Literal["deterministic", "self", "independent_model"] = "deterministic"
@@ -140,6 +141,7 @@ class ExperimentSpec(StrictModel):
             "escrowed_sequential_workers",
             "escrowed_parallel_workers",
             "elastic_sequential_workers",
+            "admitted_sequential_workers",
         }:
             if self.memory != "structured":
                 raise ValueError("ephemeral workers require structured memory")
@@ -174,6 +176,7 @@ class ExperimentSpec(StrictModel):
             "escrowed_sequential_workers",
             "escrowed_parallel_workers",
             "elastic_sequential_workers",
+            "admitted_sequential_workers",
         }
         if bootstrapped:
             if self.bootstrap_budget is None:
@@ -188,6 +191,7 @@ class ExperimentSpec(StrictModel):
                     "escrowed_sequential_workers",
                     "escrowed_parallel_workers",
                     "elastic_sequential_workers",
+                    "admitted_sequential_workers",
                 }
                 and self.budget.max_total_tokens is None
             ):
@@ -206,6 +210,7 @@ class ExperimentSpec(StrictModel):
             "escrowed_sequential_workers",
             "escrowed_parallel_workers",
             "elastic_sequential_workers",
+            "admitted_sequential_workers",
         } and all(
             limit is None
             for limit in (self.budget.max_total_tokens, self.budget.max_output_tokens_per_call)
@@ -223,6 +228,7 @@ class ExperimentSpec(StrictModel):
                 "escrowed_sequential_workers",
                 "escrowed_parallel_workers",
                 "elastic_sequential_workers",
+                "admitted_sequential_workers",
             }
             and self.budget.max_cost_usd is not None
             and self.model is not None

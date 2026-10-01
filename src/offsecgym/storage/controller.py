@@ -26,6 +26,7 @@ from offsecgym.schemas.events import (
     ActionRequested,
     ActionReservationAcquired,
     ActionReservationReleased,
+    AdmissionDecision,
     ControllerBudgetDeclared,
     CoverageLeaseReleased,
     CoverageUpdated,
@@ -39,6 +40,9 @@ from offsecgym.schemas.events import (
     TaskBudgetDenied,
     TaskBudgetExtended,
     TaskBudgetGranted,
+    TaskBudgetHeld,
+    TaskBudgetHoldActivated,
+    TaskBudgetHoldReleased,
     TaskBudgetReleased,
     WorkerBlocked,
     WorkerBudgetEscrowDeclared,
@@ -53,13 +57,14 @@ from offsecgym.schemas.events import (
     WorkerSpawned,
     WorkerStarted,
 )
-from offsecgym.schemas.scheduler import TaskBudgetRequest, TaskState
+from offsecgym.schemas.scheduler import AdmissionTask, TaskBudgetRequest, TaskState
 from offsecgym.schemas.specs import Budget
 from offsecgym.storage.event_store import PostgresEventStore, RunTransaction
 from offsecgym.storage.tables import (
     action_reservations,
     model_reservations,
     run_usage,
+    task_budget_holds,
     worker_budget_accounts,
     worker_slots,
 )
@@ -217,6 +222,13 @@ class PostgresControllerState:
         async with self.events.run_transaction(run_id) as tx:
             rows = await tx.connection.execute(
                 select(worker_budget_accounts).where(worker_budget_accounts.c.run_id == run_id)
+            )
+            return [dict(row) for row in rows.mappings()]
+
+    async def admission_hold_snapshot(self, run_id: UUID) -> list[dict[str, object]]:
+        async with self.events.run_transaction(run_id) as tx:
+            rows = await tx.connection.execute(
+                select(task_budget_holds).where(task_budget_holds.c.run_id == run_id)
             )
             return [dict(row) for row in rows.mappings()]
 
@@ -537,6 +549,332 @@ class PostgresControllerState:
                     )
                 )
         return None
+
+    @staticmethod
+    def _admission_capacity(
+        usage, accounts, worker_budget: Budget, global_budget: Budget
+    ) -> dict[str, int]:
+        dimensions = (
+            ("tokens", "max_total_tokens", "token_limit", "used_tokens", "reserved_tokens"),
+            ("calls", "max_model_calls", "model_call_limit", "used_model_calls", None),
+            ("actions", "max_actions", "action_limit", "used_actions", None),
+            ("http", "max_http_requests", "http_limit", "used_http_requests", None),
+        )
+        available = {}
+        for name, cap_field, account_field, used_field, reserved_field in dimensions:
+            worker_cap = getattr(worker_budget, cap_field)
+            global_cap = getattr(global_budget, cap_field)
+            if worker_cap is None or global_cap is None:
+                raise ValueError("admission requires explicit global and worker compute limits")
+            worker_free = worker_cap - sum(row[account_field] for row in accounts)
+            outstanding = sum(
+                row[account_field]
+                - row[used_field]
+                - (row[reserved_field] if reserved_field else 0)
+                for row in accounts
+            )
+            global_free = (
+                global_cap
+                - usage[used_field]
+                - (usage[reserved_field] if reserved_field else 0)
+                - outstanding
+            )
+            available[name] = max(0, min(worker_free, global_free))
+        return available
+
+    async def admission_capacity(
+        self, run_id: UUID, worker_budget: Budget, global_budget: Budget
+    ) -> dict[str, int]:
+        """Capacity after actual use and account leases, before revocable holds."""
+        async with self.events.run_transaction(run_id) as tx:
+            usage = await self._usage(tx, global_budget)
+            accounts = (
+                (
+                    await tx.connection.execute(
+                        select(worker_budget_accounts).where(
+                            worker_budget_accounts.c.run_id == run_id
+                        )
+                    )
+                )
+                .mappings()
+                .all()
+            )
+            if usage["active_workers"] or usage["reserved_tokens"]:
+                raise ValueError("admission replanning requires quiescent workers")
+            return self._admission_capacity(usage, accounts, worker_budget, global_budget)
+
+    async def reconcile_admission(
+        self,
+        run_id: UUID,
+        desired: Sequence[AdmissionTask],
+        task_states: dict[str, TaskState],
+        ready_minimum_tokens: dict[str, int],
+        utility_scores: dict[str, int],
+        worker_budget: Budget,
+        global_budget: Budget,
+    ) -> bool:
+        """Replace unstarted holds atomically, releasing old ones before new grants."""
+        if len({item.kind for item in desired}) != len(desired):
+            raise ValueError("admission contains duplicate task kinds")
+        for item in desired:
+            expected = "READY" if item.phase == "ready" else "PENDING"
+            if task_states.get(item.kind) != expected:
+                raise ValueError("admission task phase disagrees with readiness")
+        async with self.events.run_transaction(run_id) as tx:
+            usage = await self._usage(tx, global_budget)
+            if usage["active_workers"] or usage["reserved_tokens"]:
+                raise ValueError("admission replanning requires quiescent workers")
+            accounts = (
+                (
+                    await tx.connection.execute(
+                        select(worker_budget_accounts).where(
+                            worker_budget_accounts.c.run_id == run_id
+                        )
+                    )
+                )
+                .mappings()
+                .all()
+            )
+            if any(not row["elastic"] for row in accounts):
+                raise ValueError("admission cannot share a run with fixed escrows")
+            holds = (
+                (
+                    await tx.connection.execute(
+                        select(task_budget_holds).where(task_budget_holds.c.run_id == run_id)
+                    )
+                )
+                .mappings()
+                .all()
+            )
+            by_kind = {row["kind"]: row for row in holds}
+            desired_by_kind = {item.kind: item for item in desired}
+            available = self._admission_capacity(usage, accounts, worker_budget, global_budget)
+            demand = {
+                "tokens": sum(item.request.minimum_viable_tokens for item in desired),
+                "calls": sum(item.request.minimum_model_calls for item in desired),
+                "actions": sum(item.request.expected_actions for item in desired),
+                "http": sum(item.request.expected_http_requests for item in desired),
+            }
+            valid = all(demand[key] <= available[key] for key in demand)
+            valid = valid and not any(row["kind"] in desired_by_kind for row in accounts)
+            reasons = {
+                kind: (
+                    "admitted"
+                    if kind in desired_by_kind
+                    else "already_satisfied"
+                    if state == "COMPLETED"
+                    else "dependency_not_ready"
+                    if state == "PENDING"
+                    else "higher_utility_set"
+                    if state == "READY"
+                    else "task_unavailable"
+                )
+                for kind, state in task_states.items()
+            }
+            if not valid:
+                reasons = {kind: "admission_capacity_changed" for kind in task_states}
+            snapshot = {
+                "states": task_states,
+                "ready_minimum_tokens": ready_minimum_tokens,
+                "admitted": sorted(item.kind for item in desired if item.phase == "ready")
+                if valid
+                else [],
+                "forecast": sorted(item.kind for item in desired if item.phase == "forecast")
+                if valid
+                else [],
+                "available": available,
+                "scores": utility_scores,
+                "reasons": reasons,
+            }
+            digest = hashlib.sha256(
+                json.dumps(snapshot, sort_keys=True, separators=(",", ":")).encode()
+            ).hexdigest()
+            await tx.append(
+                AdmissionDecision(
+                    run_id=run_id,
+                    actor="scheduler",
+                    ready_minimum_tokens=ready_minimum_tokens,
+                    admitted_kinds=tuple(snapshot["admitted"]),
+                    forecast_kinds=tuple(snapshot["forecast"]),
+                    task_states=task_states,
+                    available_tokens=available["tokens"],
+                    available_model_calls=available["calls"],
+                    available_actions=available["actions"],
+                    available_http_requests=available["http"],
+                    utility_scores=utility_scores,
+                    reason_codes=reasons,
+                    state_snapshot_hash=digest,
+                )
+            )
+            if not valid:
+                return False
+            for row in holds:
+                if row["active"] and row["kind"] not in desired_by_kind:
+                    await tx.connection.execute(
+                        update(task_budget_holds)
+                        .where(
+                            task_budget_holds.c.run_id == run_id,
+                            task_budget_holds.c.task_id == row["task_id"],
+                        )
+                        .values(active=False)
+                    )
+                    await tx.append(
+                        TaskBudgetHoldReleased(
+                            run_id=run_id,
+                            actor="scheduler",
+                            worker_id=row["worker_id"],
+                            task_id=row["task_id"],
+                            kind=row["kind"],
+                            reason_code="admission_replanned",
+                        )
+                    )
+            for item in desired:
+                row = by_kind.get(item.kind)
+                values = {
+                    "phase": item.phase,
+                    "token_hold": item.request.minimum_viable_tokens,
+                    "model_call_hold": item.request.minimum_model_calls,
+                    "action_hold": item.request.expected_actions,
+                    "http_hold": item.request.expected_http_requests,
+                    "active": True,
+                }
+                if row is not None and (
+                    row["task_id"] != item.task_id or row["worker_id"] != item.worker_id
+                ):
+                    raise ValueError("admission task identity changed")
+                if row is not None and row["active"] and row["phase"] == item.phase:
+                    continue
+                if row is None:
+                    await tx.connection.execute(
+                        insert(task_budget_holds).values(
+                            run_id=run_id,
+                            task_id=item.task_id,
+                            worker_id=item.worker_id,
+                            kind=item.kind,
+                            **values,
+                        )
+                    )
+                else:
+                    await tx.connection.execute(
+                        update(task_budget_holds)
+                        .where(
+                            task_budget_holds.c.run_id == run_id,
+                            task_budget_holds.c.task_id == item.task_id,
+                        )
+                        .values(**values)
+                    )
+                await tx.append(
+                    TaskBudgetHeld(
+                        run_id=run_id,
+                        actor="scheduler",
+                        worker_id=item.worker_id,
+                        task_id=item.task_id,
+                        kind=item.kind,
+                        phase=item.phase,
+                        request=item.request,
+                    )
+                )
+        return True
+
+    async def activate_admitted_task(
+        self, run_id: UUID, item: AdmissionTask, objective: str
+    ) -> None:
+        if item.phase != "ready":
+            raise ValueError("forecast hold cannot start a worker")
+        async with self.events.run_transaction(run_id) as tx:
+            hold = (
+                (
+                    await tx.connection.execute(
+                        select(task_budget_holds).where(
+                            task_budget_holds.c.run_id == run_id,
+                            task_budget_holds.c.task_id == item.task_id,
+                        )
+                    )
+                )
+                .mappings()
+                .one_or_none()
+            )
+            if (
+                hold is None
+                or not hold["active"]
+                or hold["phase"] != "ready"
+                or (hold["worker_id"] != item.worker_id or hold["kind"] != item.kind)
+            ):
+                raise ValueError("task has no active ready hold")
+            account = (
+                await tx.connection.execute(
+                    select(worker_budget_accounts.c.worker_id).where(
+                        worker_budget_accounts.c.run_id == run_id,
+                        worker_budget_accounts.c.kind == item.kind,
+                    )
+                )
+            ).first()
+            if account:
+                raise ValueError("task already activated")
+            await tx.connection.execute(
+                update(task_budget_holds)
+                .where(
+                    task_budget_holds.c.run_id == run_id,
+                    task_budget_holds.c.task_id == item.task_id,
+                )
+                .values(active=False)
+            )
+            await tx.append(
+                TaskBudgetHoldActivated(
+                    run_id=run_id,
+                    actor="scheduler",
+                    worker_id=item.worker_id,
+                    task_id=item.task_id,
+                    kind=item.kind,
+                )
+            )
+            await tx.connection.execute(
+                insert(worker_budget_accounts).values(
+                    run_id=run_id,
+                    worker_id=item.worker_id,
+                    task_id=item.task_id,
+                    elastic=True,
+                    kind=item.kind,
+                    token_cap=item.request.max_tokens,
+                    model_call_cap=item.request.max_model_calls,
+                    token_limit=item.request.minimum_viable_tokens,
+                    model_call_limit=item.request.minimum_model_calls,
+                    action_limit=item.request.expected_actions,
+                    http_limit=item.request.expected_http_requests,
+                    cost_limit_microusd=None,
+                    used_tokens=0,
+                    reserved_tokens=0,
+                    used_model_calls=0,
+                    used_actions=0,
+                    used_http_requests=0,
+                    used_cost_microusd=0,
+                    reserved_cost_microusd=0,
+                )
+            )
+            await tx.append(
+                TaskBudgetGranted(
+                    run_id=run_id,
+                    actor="scheduler",
+                    worker_id=item.worker_id,
+                    task_id=item.task_id,
+                    kind=item.kind,
+                    request=item.request,
+                    token_limit=item.request.minimum_viable_tokens,
+                    model_call_limit=item.request.minimum_model_calls,
+                    action_limit=item.request.expected_actions,
+                    http_limit=item.request.expected_http_requests,
+                )
+            )
+            await tx.append(
+                WorkerScheduled(
+                    run_id=run_id,
+                    actor="scheduler",
+                    worker_id=item.worker_id,
+                    task_id=item.task_id,
+                    objective=objective,
+                    scheduling="admitted_sequential",
+                )
+            )
 
     @staticmethod
     async def _release_elastic_account(
@@ -957,6 +1295,20 @@ class PostgresControllerState:
                         for row in rows
                         if row["worker_id"] != worker_id
                     )
+                    holds = (
+                        (
+                            await tx.connection.execute(
+                                select(task_budget_holds).where(
+                                    task_budget_holds.c.run_id == run_id,
+                                    task_budget_holds.c.active.is_(True),
+                                )
+                            )
+                        )
+                        .mappings()
+                        .all()
+                    )
+                    other_token_protection += sum(row["token_hold"] for row in holds)
+                    other_call_protection += sum(row["model_call_hold"] for row in holds)
                     token_room = (
                         budget.max_total_tokens
                         - usage["used_tokens"]
