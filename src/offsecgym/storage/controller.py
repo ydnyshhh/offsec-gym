@@ -35,6 +35,11 @@ from offsecgym.schemas.events import (
     ModelCallFailed,
     ModelCallStarted,
     ModelReservationRejected,
+    SchedulerDecision,
+    TaskBudgetDenied,
+    TaskBudgetExtended,
+    TaskBudgetGranted,
+    TaskBudgetReleased,
     WorkerBlocked,
     WorkerBudgetEscrowDeclared,
     WorkerContractViolated,
@@ -44,9 +49,11 @@ from offsecgym.schemas.events import (
     WorkerLeaseRecovered,
     WorkerObjectiveAction,
     WorkerPacketPrepared,
+    WorkerScheduled,
     WorkerSpawned,
     WorkerStarted,
 )
+from offsecgym.schemas.scheduler import TaskBudgetRequest, TaskState
 from offsecgym.schemas.specs import Budget
 from offsecgym.storage.event_store import PostgresEventStore, RunTransaction
 from offsecgym.storage.tables import (
@@ -330,6 +337,282 @@ class PostgresControllerState:
                         budget=slice_budget,
                     )
                 )
+
+    async def schedule_elastic_task(
+        self,
+        run_id: UUID,
+        worker_id: UUID,
+        task_id: UUID,
+        kind: str,
+        request: TaskBudgetRequest,
+        task_states: dict[str, TaskState],
+        worker_budget: Budget,
+        global_budget: Budget,
+        objective: str | None = None,
+    ) -> str | None:
+        """Choose and fund a ready task under the run lock; competing schedulers serialize."""
+        if task_states.get(kind) != "READY":
+            raise ValueError("only a READY task may request a lease")
+        limits = (
+            worker_budget.max_total_tokens,
+            worker_budget.max_model_calls,
+            worker_budget.max_actions,
+            worker_budget.max_http_requests,
+        )
+        if any(limit is None for limit in limits):
+            raise ValueError("elastic scheduling requires explicit worker compute limits")
+        async with self.events.run_transaction(run_id) as tx:
+            usage = await self._usage(tx, global_budget)
+            rows = (
+                (
+                    await tx.connection.execute(
+                        select(worker_budget_accounts).where(
+                            worker_budget_accounts.c.run_id == run_id
+                        )
+                    )
+                )
+                .mappings()
+                .all()
+            )
+            if any(not row["elastic"] for row in rows):
+                raise ValueError("fixed and elastic worker accounts cannot share a run")
+            committed = {
+                "tokens": sum(row["token_limit"] for row in rows),
+                "calls": sum(row["model_call_limit"] for row in rows),
+                "actions": sum(row["action_limit"] for row in rows),
+                "http": sum(row["http_limit"] for row in rows),
+            }
+            available = {
+                "tokens": max(
+                    0,
+                    min(
+                        worker_budget.max_total_tokens - committed["tokens"],
+                        global_budget.max_total_tokens
+                        - usage["used_tokens"]
+                        - usage["reserved_tokens"]
+                        - sum(
+                            row["token_limit"] - row["used_tokens"] - row["reserved_tokens"]
+                            for row in rows
+                        ),
+                    ),
+                ),
+                "calls": max(
+                    0,
+                    min(
+                        worker_budget.max_model_calls - committed["calls"],
+                        global_budget.max_model_calls
+                        - usage["used_model_calls"]
+                        - sum(row["model_call_limit"] - row["used_model_calls"] for row in rows),
+                    ),
+                ),
+                "actions": max(
+                    0,
+                    min(
+                        worker_budget.max_actions - committed["actions"],
+                        global_budget.max_actions
+                        - usage["used_actions"]
+                        - sum(row["action_limit"] - row["used_actions"] for row in rows),
+                    ),
+                ),
+                "http": max(
+                    0,
+                    min(
+                        worker_budget.max_http_requests - committed["http"],
+                        global_budget.max_http_requests
+                        - usage["used_http_requests"]
+                        - sum(row["http_limit"] - row["used_http_requests"] for row in rows),
+                    ),
+                ),
+            }
+            demands = {
+                "tokens": request.minimum_viable_tokens,
+                "calls": request.minimum_model_calls,
+                "actions": request.expected_actions,
+                "http": request.expected_http_requests,
+            }
+            if any(row["kind"] == kind or row["task_id"] == task_id for row in rows):
+                reason = "task_already_resolved"
+            elif any(available[key] < demand for key, demand in demands.items()):
+                reason = "minimum_budget_unavailable"
+            else:
+                reason = None
+            snapshot = {
+                "states": task_states,
+                "ready": sorted(key for key, value in task_states.items() if value == "READY"),
+                "available": available,
+                "committed": committed,
+            }
+            snapshot_hash = hashlib.sha256(
+                json.dumps(snapshot, sort_keys=True, separators=(",", ":")).encode()
+            ).hexdigest()
+            reasons = {
+                name: (
+                    reason or "selected"
+                    if name == kind
+                    else "higher_priority_task"
+                    if state == "READY"
+                    else "dependency_not_ready"
+                    if state == "PENDING"
+                    else "task_already_resolved"
+                    if state in {"COMPLETED", "FAILED"}
+                    else "minimum_budget_unavailable"
+                )
+                for name, state in task_states.items()
+            }
+            await tx.append(
+                SchedulerDecision(
+                    run_id=run_id,
+                    actor="scheduler",
+                    ready_tasks=tuple(snapshot["ready"]),
+                    selected_task=kind if reason is None else None,
+                    available_tokens=available["tokens"],
+                    available_model_calls=available["calls"],
+                    available_actions=available["actions"],
+                    available_http_requests=available["http"],
+                    task_states=task_states,
+                    reason_codes=reasons,
+                    state_snapshot_hash=snapshot_hash,
+                )
+            )
+            if reason:
+                await tx.append(
+                    TaskBudgetDenied(
+                        run_id=run_id,
+                        actor="scheduler",
+                        worker_id=worker_id,
+                        task_id=task_id,
+                        kind=kind,
+                        reason_code=reason,
+                        available_tokens=available["tokens"],
+                        minimum_viable_tokens=request.minimum_viable_tokens,
+                    )
+                )
+                return reason
+            await tx.connection.execute(
+                insert(worker_budget_accounts).values(
+                    run_id=run_id,
+                    worker_id=worker_id,
+                    task_id=task_id,
+                    elastic=True,
+                    kind=kind,
+                    token_cap=request.max_tokens,
+                    model_call_cap=request.max_model_calls,
+                    token_limit=request.minimum_viable_tokens,
+                    model_call_limit=request.minimum_model_calls,
+                    action_limit=request.expected_actions,
+                    http_limit=request.expected_http_requests,
+                    cost_limit_microusd=None,
+                    used_tokens=0,
+                    reserved_tokens=0,
+                    used_model_calls=0,
+                    used_actions=0,
+                    used_http_requests=0,
+                    used_cost_microusd=0,
+                    reserved_cost_microusd=0,
+                )
+            )
+            await tx.append(
+                TaskBudgetGranted(
+                    run_id=run_id,
+                    actor="scheduler",
+                    worker_id=worker_id,
+                    task_id=task_id,
+                    kind=kind,
+                    request=request,
+                    token_limit=request.minimum_viable_tokens,
+                    model_call_limit=request.minimum_model_calls,
+                    action_limit=request.expected_actions,
+                    http_limit=request.expected_http_requests,
+                )
+            )
+            if objective is not None:
+                await tx.append(
+                    WorkerScheduled(
+                        run_id=run_id,
+                        actor="scheduler",
+                        worker_id=worker_id,
+                        task_id=task_id,
+                        objective=objective,
+                        scheduling="elastic_sequential",
+                    )
+                )
+        return None
+
+    @staticmethod
+    async def _release_elastic_account(
+        tx: RunTransaction, worker_id: UUID, task_id: UUID, reason: str
+    ) -> None:
+        row = (
+            (
+                await tx.connection.execute(
+                    select(worker_budget_accounts).where(
+                        worker_budget_accounts.c.run_id == tx.run_id,
+                        worker_budget_accounts.c.worker_id == worker_id,
+                    )
+                )
+            )
+            .mappings()
+            .one_or_none()
+        )
+        if row is None or not row["elastic"]:
+            return
+        if row["task_id"] != task_id:
+            raise ValueError("elastic task ownership mismatch")
+        final = {
+            "token_limit": row["used_tokens"] + row["reserved_tokens"],
+            "model_call_limit": row["used_model_calls"],
+            "action_limit": row["used_actions"],
+            "http_limit": row["used_http_requests"],
+        }
+        released = {
+            "tokens": row["token_limit"] - final["token_limit"],
+            "model_calls": row["model_call_limit"] - final["model_call_limit"],
+            "actions": row["action_limit"] - final["action_limit"],
+            "http_requests": row["http_limit"] - final["http_limit"],
+        }
+        if min(released.values()) < 0:
+            raise ValueError("elastic account exceeded its grant")
+        await tx.connection.execute(
+            update(worker_budget_accounts)
+            .where(
+                worker_budget_accounts.c.run_id == tx.run_id,
+                worker_budget_accounts.c.worker_id == worker_id,
+            )
+            .values(**final)
+        )
+        await tx.append(
+            TaskBudgetReleased(
+                run_id=tx.run_id,
+                actor="controller",
+                worker_id=worker_id,
+                task_id=task_id,
+                released_tokens=released["tokens"],
+                released_model_calls=released["model_calls"],
+                released_actions=released["actions"],
+                released_http_requests=released["http_requests"],
+                final_token_limit=final["token_limit"],
+                final_model_call_limit=final["model_call_limit"],
+                final_action_limit=final["action_limit"],
+                final_http_limit=final["http_limit"],
+                reason_code=reason,
+            )
+        )
+
+    async def cancel_unspawned_elastic_task(
+        self, run_id: UUID, worker_id: UUID, task_id: UUID
+    ) -> None:
+        """Return a grant if worker creation failed before its slot existed."""
+        async with self.events.run_transaction(run_id) as tx:
+            slot = (
+                await tx.connection.execute(
+                    select(worker_slots.c.worker_id).where(
+                        worker_slots.c.run_id == run_id,
+                        worker_slots.c.worker_id == worker_id,
+                    )
+                )
+            ).first()
+            if slot is None:
+                await self._release_elastic_account(tx, worker_id, task_id, "worker_not_spawned")
 
     @staticmethod
     async def _worker_slot_active(
@@ -643,6 +926,92 @@ class PostgresControllerState:
                 )
             ).first():
                 return await reject("duplicate_model_call", escrow)
+            if escrow is not None and escrow["elastic"]:
+                extra_calls = max(0, escrow["used_model_calls"] + 1 - escrow["model_call_limit"])
+                extra_tokens = max(
+                    0,
+                    escrow["used_tokens"]
+                    + escrow["reserved_tokens"]
+                    + estimated_tokens
+                    - escrow["token_limit"],
+                )
+                if extra_calls or extra_tokens:
+                    rows = (
+                        (
+                            await tx.connection.execute(
+                                select(worker_budget_accounts).where(
+                                    worker_budget_accounts.c.run_id == run_id
+                                )
+                            )
+                        )
+                        .mappings()
+                        .all()
+                    )
+                    other_token_protection = sum(
+                        row["token_limit"] - row["used_tokens"] - row["reserved_tokens"]
+                        for row in rows
+                        if row["worker_id"] != worker_id
+                    )
+                    other_call_protection = sum(
+                        row["model_call_limit"] - row["used_model_calls"]
+                        for row in rows
+                        if row["worker_id"] != worker_id
+                    )
+                    token_room = (
+                        budget.max_total_tokens
+                        - usage["used_tokens"]
+                        - usage["reserved_tokens"]
+                        - other_token_protection
+                        - (
+                            escrow["token_limit"]
+                            - escrow["used_tokens"]
+                            - escrow["reserved_tokens"]
+                        )
+                        if budget.max_total_tokens is not None
+                        else 0
+                    )
+                    call_room = (
+                        budget.max_model_calls
+                        - usage["used_model_calls"]
+                        - other_call_protection
+                        - (escrow["model_call_limit"] - escrow["used_model_calls"])
+                        if budget.max_model_calls is not None
+                        else 0
+                    )
+                    if (
+                        escrow["token_limit"] + extra_tokens <= escrow["token_cap"]
+                        and escrow["model_call_limit"] + extra_calls <= escrow["model_call_cap"]
+                        and extra_tokens <= token_room
+                        and extra_calls <= call_room
+                    ):
+                        prior = escrow
+                        escrow = dict(escrow)
+                        escrow["token_limit"] += extra_tokens
+                        escrow["model_call_limit"] += extra_calls
+                        await tx.connection.execute(
+                            update(worker_budget_accounts)
+                            .where(
+                                worker_budget_accounts.c.run_id == run_id,
+                                worker_budget_accounts.c.worker_id == worker_id,
+                            )
+                            .values(
+                                token_limit=escrow["token_limit"],
+                                model_call_limit=escrow["model_call_limit"],
+                            )
+                        )
+                        await tx.append(
+                            TaskBudgetExtended(
+                                run_id=run_id,
+                                actor="scheduler",
+                                worker_id=worker_id,
+                                task_id=task_id,
+                                prior_token_limit=prior["token_limit"],
+                                token_limit=escrow["token_limit"],
+                                prior_model_call_limit=prior["model_call_limit"],
+                                model_call_limit=escrow["model_call_limit"],
+                                reason_code="model_preflight_required",
+                            )
+                        )
             if (
                 budget.max_model_calls is not None
                 and usage["used_model_calls"] + 1 + protected_future_model_calls
@@ -970,6 +1339,7 @@ class PostgresControllerState:
                     status="failed",
                 )
             )
+            await self._release_elastic_account(tx, worker_id, task_id, "worker_setup_failed")
 
     async def finish_worker(
         self,
@@ -1014,6 +1384,7 @@ class PostgresControllerState:
                     status=status,
                 )
             )
+            await self._release_elastic_account(tx, worker_id, task_id, status)
 
     async def reconcile_stale_workers(self, run_id: UUID, *, now: datetime | None = None) -> int:
         """Close crashed workers only after their lease expired and session lock is free."""
@@ -1341,6 +1712,9 @@ class PostgresControllerState:
                             task_id=task_id,
                             status="failed",
                         )
+                    )
+                    await self._release_elastic_account(
+                        tx, worker_id, task_id, "worker_lease_recovered"
                     )
                     recovered += 1
         return recovered

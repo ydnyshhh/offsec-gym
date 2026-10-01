@@ -35,6 +35,11 @@ from offsecgym.schemas.events import (
     ModelCallStarted,
     ModelReservationRejected,
     ModelToolRejected,
+    SchedulerDecision,
+    TaskBudgetDenied,
+    TaskBudgetExtended,
+    TaskBudgetGranted,
+    TaskBudgetReleased,
     WorkerBlocked,
     WorkerBudgetEscrowDeclared,
     WorkerContractViolated,
@@ -47,6 +52,7 @@ from offsecgym.schemas.events import (
     WorkerSpawned,
     WorkerStarted,
 )
+from offsecgym.schemas.scheduler import TaskBudgetRequest
 from offsecgym.schemas.specs import Budget, ModelSpec
 from offsecgym.solver.matched_workers import MatchedWorkerCoordinator
 from offsecgym.solver.monolithic import MonolithicSaasAgent
@@ -55,6 +61,20 @@ from offsecgym.storage.controller import PostgresControllerState
 from offsecgym.storage.event_store import PostgresEventStore
 from offsecgym.storage.projection import project_controller_events
 from offsecgym.worldview import EventWorldState
+
+
+def _elastic_request(minimum: int, maximum: int) -> TaskBudgetRequest:
+    return TaskBudgetRequest(
+        minimum_viable_tokens=minimum,
+        preferred_tokens=maximum,
+        max_tokens=maximum,
+        minimum_model_calls=1,
+        max_model_calls=3,
+        expected_actions=2,
+        max_actions=3,
+        expected_http_requests=2,
+        max_http_requests=3,
+    )
 
 
 @pytest.fixture
@@ -421,6 +441,273 @@ async def test_worker_slots_and_model_reservations_remain_bounded(controllers) -
         for item in trace
         if isinstance(item, (ModelBudgetReserved, ModelBudgetSettled))
     )
+
+
+@pytest.mark.postgres
+async def test_elastic_scheduler_grants_extend_and_release_atomically(controllers) -> None:
+    first, second, events, _ = controllers
+    run_id = uuid4()
+    budget = Budget(
+        max_total_tokens=35000,
+        max_model_calls=6,
+        max_actions=20,
+        max_http_requests=20,
+        max_workers=2,
+        max_concurrency=2,
+    )
+    workers = [
+        (uuid4(), uuid4(), kind, minimum) for kind, minimum in (("alpha", 10000), ("beta", 20000))
+    ]
+    states = {"alpha": "READY", "beta": "READY"}
+    grants = await asyncio.gather(
+        *(
+            controller.schedule_elastic_task(
+                run_id,
+                worker_id,
+                task_id,
+                kind,
+                _elastic_request(minimum, 30000),
+                states,
+                budget,
+                budget,
+            )
+            for controller, (worker_id, task_id, kind, minimum) in zip(
+                (first, second), workers, strict=True
+            )
+        )
+    )
+    assert grants == [None, None]
+    duplicate = await asyncio.gather(
+        *(
+            controller.schedule_elastic_task(
+                run_id,
+                uuid4(),
+                uuid4(),
+                "alpha",
+                _elastic_request(10000, 30000),
+                states,
+                budget,
+                budget,
+            )
+            for controller in (first, second)
+        )
+    )
+    assert duplicate == ["task_already_resolved"] * 2
+    with pytest.raises(ValueError, match="READY"):
+        await first.schedule_elastic_task(
+            run_id,
+            uuid4(),
+            uuid4(),
+            "gamma",
+            _elastic_request(10000, 30000),
+            {"gamma": "PENDING"},
+            budget,
+            budget,
+        )
+    for worker_id, task_id, _, _ in workers:
+        assert await first.spawn_worker(run_id, worker_id, task_id, "fake", budget) is None
+        assert await first.start_worker(run_id, worker_id, task_id, budget) is None
+    calls = [uuid4(), uuid4()]
+    reservations = await asyncio.gather(
+        first.reserve_model_call(
+            run_id,
+            calls[0],
+            budget,
+            reserved_input_tokens=11000,
+            reserved_output_tokens=4000,
+            request_bytes=100,
+            worker_id=workers[0][0],
+            task_id=workers[0][1],
+        ),
+        second.reserve_model_call(
+            run_id,
+            calls[1],
+            budget,
+            reserved_input_tokens=21000,
+            reserved_output_tokens=4000,
+            request_bytes=100,
+            worker_id=workers[1][0],
+            task_id=workers[1][1],
+        ),
+    )
+    assert reservations.count(None) == 1
+    assert sum(item is not None for item in reservations) == 1
+    winner = reservations.index(None)
+    loser = 1 - winner
+    await first.settle_model_call(
+        run_id,
+        calls[winner],
+        actual_input_tokens=4000,
+        actual_output_tokens=1000,
+        worker_id=workers[winner][0],
+        task_id=workers[winner][1],
+    )
+    await first.finish_worker(run_id, workers[winner][0], workers[winner][1], "completed")
+    retry = await second.reserve_model_call(
+        run_id,
+        calls[loser],
+        budget,
+        reserved_input_tokens=11000 if loser == 0 else 21000,
+        reserved_output_tokens=4000,
+        request_bytes=100,
+        worker_id=workers[loser][0],
+        task_id=workers[loser][1],
+    )
+    assert retry is None
+    await second.settle_model_call(
+        run_id,
+        calls[loser],
+        actual_input_tokens=4000,
+        actual_output_tokens=1000,
+        worker_id=workers[loser][0],
+        task_id=workers[loser][1],
+    )
+    await second.finish_worker(run_id, workers[loser][0], workers[loser][1], "completed")
+    accounts = await first.worker_escrow_snapshot(run_id)
+    assert sum(row["token_limit"] for row in accounts) == 10000
+    assert all(row["token_limit"] == row["used_tokens"] == 5000 for row in accounts)
+    trace = await events.read_run(run_id)
+    assert len([event for event in trace if isinstance(event, SchedulerDecision)]) == 4
+    assert len([event for event in trace if isinstance(event, TaskBudgetGranted)]) == 2
+    assert len([event for event in trace if isinstance(event, TaskBudgetDenied)]) == 2
+    assert len([event for event in trace if isinstance(event, TaskBudgetExtended)]) == 2
+    assert len([event for event in trace if isinstance(event, TaskBudgetReleased)]) == 2
+    projection = project_controller_events(trace)
+    for account in accounts:
+        replay = projection.worker_escrows[account["worker_id"]]
+        assert replay.token_limit == account["token_limit"]
+        assert replay.used_tokens == account["used_tokens"]
+
+
+@pytest.mark.postgres
+async def test_elastic_minimum_budget_prevents_fragmented_launch(controllers) -> None:
+    first, second, events, _ = controllers
+    run_id = uuid4()
+    budget = Budget(
+        max_total_tokens=40000,
+        max_model_calls=6,
+        max_actions=20,
+        max_http_requests=20,
+        max_workers=3,
+        max_concurrency=3,
+    )
+    profiles = [("small", 10000), ("medium", 20000), ("large", 35000)]
+    outcomes = await asyncio.gather(
+        *(
+            controller.schedule_elastic_task(
+                run_id,
+                uuid4(),
+                uuid4(),
+                kind,
+                _elastic_request(minimum, 35000),
+                {kind: "READY"},
+                budget,
+                budget,
+            )
+            for controller, (kind, minimum) in zip((first, second, first), profiles, strict=True)
+        )
+    )
+    assert outcomes.count(None) <= 2
+    accounts = await first.worker_escrow_snapshot(run_id)
+    assert sum(row["token_limit"] for row in accounts) <= 40000
+    assert all(row["token_limit"] in {10000, 20000, 35000} for row in accounts)
+    assert (
+        len(
+            [
+                event
+                for event in await events.read_run(run_id)
+                if isinstance(event, TaskBudgetDenied)
+            ]
+        )
+        >= 1
+    )
+
+
+@pytest.mark.postgres
+async def test_elastic_crash_releases_unused_budget_for_next_task(controllers) -> None:
+    first, second, events, _ = controllers
+    run_id, first_worker, first_task, second_worker, second_task = (uuid4() for _ in range(5))
+    budget = Budget(
+        max_total_tokens=30000,
+        max_model_calls=3,
+        max_actions=8,
+        max_http_requests=8,
+        max_workers=2,
+        max_concurrency=1,
+    )
+    request = _elastic_request(20000, 30000)
+    assert (
+        await first.schedule_elastic_task(
+            run_id,
+            first_worker,
+            first_task,
+            "alpha",
+            request,
+            {"alpha": "READY", "beta": "PENDING"},
+            budget,
+            budget,
+        )
+        is None
+    )
+    assert await first.spawn_worker(run_id, first_worker, first_task, "fake", budget) is None
+    assert await first.start_worker(run_id, first_worker, first_task, budget) is None
+    call_id = uuid4()
+    assert (
+        await first.reserve_model_call(
+            run_id,
+            call_id,
+            budget,
+            reserved_input_tokens=5000,
+            reserved_output_tokens=1000,
+            request_bytes=50,
+            worker_id=first_worker,
+            task_id=first_task,
+        )
+        is None
+    )
+    assert (
+        await second.schedule_elastic_task(
+            run_id,
+            second_worker,
+            second_task,
+            "beta",
+            request,
+            {"alpha": "RUNNING", "beta": "READY"},
+            budget,
+            budget,
+        )
+        == "minimum_budget_unavailable"
+    )
+    start = next(
+        event
+        for event in await events.read_run(run_id)
+        if isinstance(event, WorkerStarted) and event.worker_id == first_worker
+    )
+    assert (
+        await second.reconcile_stale_workers(
+            run_id, now=start.lease_expires_at + timedelta(seconds=1)
+        )
+        == 1
+    )
+    assert (
+        await second.schedule_elastic_task(
+            run_id,
+            second_worker,
+            second_task,
+            "beta",
+            request,
+            {"alpha": "FAILED", "beta": "READY"},
+            budget,
+            budget,
+        )
+        is None
+    )
+    accounts = await first.worker_escrow_snapshot(run_id)
+    recovered = next(row for row in accounts if row["worker_id"] == first_worker)
+    assert recovered["reserved_tokens"] == recovered["token_limit"] == 0
+    projection = project_controller_events(await events.read_run(run_id))
+    assert projection.worker_escrows[first_worker].token_limit == 0
+    assert not projection.model_reservations
 
 
 @pytest.mark.postgres

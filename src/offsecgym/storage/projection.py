@@ -18,6 +18,12 @@ from offsecgym.schemas.events import (
     CoverageLeaseReleased,
     ModelBudgetReserved,
     ModelBudgetSettled,
+    ModelReservationRejected,
+    SchedulerDecision,
+    TaskBudgetDenied,
+    TaskBudgetExtended,
+    TaskBudgetGranted,
+    TaskBudgetReleased,
     WorkerBlocked,
     WorkerBudgetEscrowDeclared,
     WorkerContractViolated,
@@ -32,13 +38,20 @@ from offsecgym.schemas.events import (
     WorkerSpawned,
     WorkerStarted,
 )
+from offsecgym.schemas.scheduler import TaskBudgetRequest
 from offsecgym.schemas.specs import Budget
 
 
 @dataclass
 class WorkerEscrowProjection:
     task_id: UUID
-    budget: Budget
+    token_limit: int
+    model_call_limit: int
+    action_limit: int
+    http_limit: int
+    elastic: bool = False
+    kind: str | None = None
+    request: TaskBudgetRequest | None = None
     used_tokens: int = 0
     reserved_tokens: int = 0
     used_model_calls: int = 0
@@ -79,6 +92,9 @@ class ControllerProjection:
         default_factory=dict
     )
     worker_escrows: dict[UUID, WorkerEscrowProjection] = field(default_factory=dict)
+    scheduler_decisions: list[SchedulerDecision] = field(default_factory=list)
+    model_rejections: list[ModelReservationRejected] = field(default_factory=list)
+    budget_denials: list[TaskBudgetDenied] = field(default_factory=list)
 
 
 def _escrow_for(
@@ -105,23 +121,83 @@ def project_controller_events(trace: Sequence[AnyTraceEvent]) -> ControllerProje
             if state.budget is None:
                 raise ValueError("worker escrow has no declared global budget")
             state.worker_escrows[event.worker_id] = WorkerEscrowProjection(
-                task_id=event.task_id, budget=event.budget
+                task_id=event.task_id,
+                token_limit=event.budget.max_total_tokens,
+                model_call_limit=event.budget.max_model_calls,
+                action_limit=event.budget.max_actions,
+                http_limit=event.budget.max_http_requests,
             )
-            for field in (
-                "max_total_tokens",
-                "max_model_calls",
-                "max_actions",
-                "max_http_requests",
+            for field, ceiling_name in (
+                ("token_limit", "max_total_tokens"),
+                ("model_call_limit", "max_model_calls"),
+                ("action_limit", "max_actions"),
+                ("http_limit", "max_http_requests"),
             ):
-                ceiling = getattr(state.budget, field)
+                ceiling = getattr(state.budget, ceiling_name)
                 if (
                     ceiling is not None
-                    and sum(
-                        getattr(account.budget, field) for account in state.worker_escrows.values()
-                    )
+                    and sum(getattr(account, field) for account in state.worker_escrows.values())
                     > ceiling
                 ):
                     raise ValueError("worker escrow declarations exceed global budget")
+        elif isinstance(event, SchedulerDecision):
+            state.scheduler_decisions.append(event)
+        elif isinstance(event, TaskBudgetDenied):
+            state.budget_denials.append(event)
+        elif isinstance(event, TaskBudgetGranted):
+            if event.worker_id in state.worker_escrows or any(
+                account.elastic and account.kind == event.kind
+                for account in state.worker_escrows.values()
+            ):
+                raise ValueError("duplicate elastic task grant")
+            state.worker_escrows[event.worker_id] = WorkerEscrowProjection(
+                task_id=event.task_id,
+                token_limit=event.token_limit,
+                model_call_limit=event.model_call_limit,
+                action_limit=event.action_limit,
+                http_limit=event.http_limit,
+                elastic=True,
+                kind=event.kind,
+                request=event.request,
+            )
+        elif isinstance(event, TaskBudgetExtended):
+            account = _escrow_for(state, event.worker_id, event.task_id)
+            if (
+                account is None
+                or not account.elastic
+                or account.request is None
+                or (
+                    account.token_limit != event.prior_token_limit
+                    or account.model_call_limit != event.prior_model_call_limit
+                    or event.token_limit < account.token_limit
+                    or event.model_call_limit < account.model_call_limit
+                    or event.token_limit > account.request.max_tokens
+                    or event.model_call_limit > account.request.max_model_calls
+                )
+            ):
+                raise ValueError("invalid elastic task extension")
+            account.token_limit = event.token_limit
+            account.model_call_limit = event.model_call_limit
+        elif isinstance(event, TaskBudgetReleased):
+            account = _escrow_for(state, event.worker_id, event.task_id)
+            if (
+                account is None
+                or not account.elastic
+                or (
+                    account.token_limit - event.released_tokens != event.final_token_limit
+                    or account.model_call_limit - event.released_model_calls
+                    != event.final_model_call_limit
+                    or account.action_limit - event.released_actions != event.final_action_limit
+                    or account.http_limit - event.released_http_requests != event.final_http_limit
+                )
+            ):
+                raise ValueError("invalid elastic task release")
+            account.token_limit = event.final_token_limit
+            account.model_call_limit = event.final_model_call_limit
+            account.action_limit = event.final_action_limit
+            account.http_limit = event.final_http_limit
+        elif isinstance(event, ModelReservationRejected):
+            state.model_rejections.append(event)
         elif isinstance(event, ActionAttemptReserved):
             if event.action_id in state.action_owners:
                 raise ValueError("duplicate action attempt in event stream")
@@ -130,7 +206,7 @@ def project_controller_events(trace: Sequence[AnyTraceEvent]) -> ControllerProje
             escrow = _escrow_for(state, event.worker_id, event.task_id)
             if escrow is not None:
                 escrow.used_actions += 1
-                if escrow.used_actions > escrow.budget.max_actions:
+                if escrow.used_actions > escrow.action_limit:
                     raise ValueError("worker action escrow exceeded")
         elif isinstance(event, ActionReservationAcquired):
             if event.fingerprint in state.active_actions:
@@ -141,7 +217,7 @@ def project_controller_events(trace: Sequence[AnyTraceEvent]) -> ControllerProje
             escrow = _escrow_for(state, event.worker_id, event.task_id)
             if escrow is not None:
                 escrow.used_http_requests += 1
-                if escrow.used_http_requests > escrow.budget.max_http_requests:
+                if escrow.used_http_requests > escrow.http_limit:
                     raise ValueError("worker HTTP escrow exceeded")
             state.active_actions[event.fingerprint] = event.action_id
             state.last_dispatch_at = event.occurred_at
@@ -175,8 +251,8 @@ def project_controller_events(trace: Sequence[AnyTraceEvent]) -> ControllerProje
                 escrow.used_model_calls += 1
                 escrow.reserved_tokens += event.reserved_tokens
                 escrow.reserved_cost_microusd += event.reserved_cost_microusd
-                if escrow.used_model_calls > escrow.budget.max_model_calls or (
-                    escrow.used_tokens + escrow.reserved_tokens > escrow.budget.max_total_tokens
+                if escrow.used_model_calls > escrow.model_call_limit or (
+                    escrow.used_tokens + escrow.reserved_tokens > escrow.token_limit
                 ):
                     raise ValueError("worker model escrow exceeded")
             state.model_reservations[event.call_id] = (
@@ -211,7 +287,7 @@ def project_controller_events(trace: Sequence[AnyTraceEvent]) -> ControllerProje
                 escrow.reserved_cost_microusd -= reservation[1]
                 escrow.used_tokens += event.actual_tokens
                 escrow.used_cost_microusd += event.actual_cost_microusd
-                if escrow.used_tokens + escrow.reserved_tokens > escrow.budget.max_total_tokens:
+                if escrow.used_tokens + escrow.reserved_tokens > escrow.token_limit:
                     raise ValueError("worker actual token usage exceeded escrow")
         elif isinstance(event, WorkerScheduled):
             if event.worker_id in state.worker_scheduled:
@@ -335,4 +411,41 @@ def project_controller_events(trace: Sequence[AnyTraceEvent]) -> ControllerProje
                 state.active_workers -= 1
             state.worker_status[event.worker_id] = "finished"
             state.worker_leases.pop(event.worker_id, None)
+        if state.budget is not None:
+            for limit, consumed, outstanding in (
+                (
+                    state.budget.max_total_tokens,
+                    state.used_tokens + state.reserved_tokens,
+                    sum(
+                        account.token_limit - account.used_tokens - account.reserved_tokens
+                        for account in state.worker_escrows.values()
+                    ),
+                ),
+                (
+                    state.budget.max_model_calls,
+                    state.used_model_calls,
+                    sum(
+                        account.model_call_limit - account.used_model_calls
+                        for account in state.worker_escrows.values()
+                    ),
+                ),
+                (
+                    state.budget.max_actions,
+                    state.used_actions,
+                    sum(
+                        account.action_limit - account.used_actions
+                        for account in state.worker_escrows.values()
+                    ),
+                ),
+                (
+                    state.budget.max_http_requests,
+                    state.used_http_requests,
+                    sum(
+                        account.http_limit - account.used_http_requests
+                        for account in state.worker_escrows.values()
+                    ),
+                ),
+            ):
+                if outstanding < 0 or (limit is not None and consumed + outstanding > limit):
+                    raise ValueError("event replay exceeds conserved controller budget")
     return state

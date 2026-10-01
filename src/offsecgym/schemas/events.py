@@ -10,6 +10,7 @@ from pydantic import Field, TypeAdapter, field_validator, model_validator
 
 from offsecgym.schemas.common import StrictModel, new_id
 from offsecgym.schemas.domain import CandidateFinding, CoverageClaim, ValidationResult, WorldFact
+from offsecgym.schemas.scheduler import TaskBudgetRequest, TaskState
 from offsecgym.schemas.specs import BootstrapBudget, Budget
 from offsecgym.schemas.workers import WorkerTaskPacket
 
@@ -473,12 +474,73 @@ class WorkerBudgetEscrowDeclared(TraceEvent):
         return self
 
 
+class SchedulerDecision(TraceEvent):
+    type: Literal["scheduler_decision"] = "scheduler_decision"
+    ready_tasks: tuple[str, ...]
+    selected_task: str | None = None
+    available_tokens: int = Field(ge=0)
+    available_model_calls: int = Field(ge=0)
+    available_actions: int = Field(ge=0)
+    available_http_requests: int = Field(ge=0)
+    task_states: dict[str, TaskState]
+    reason_codes: dict[str, str]
+    state_snapshot_hash: str = Field(pattern=r"^[0-9a-f]{64}$")
+
+
+class TaskBudgetGranted(TraceEvent):
+    type: Literal["task_budget_granted"] = "task_budget_granted"
+    worker_id: UUID
+    task_id: UUID
+    kind: str = Field(min_length=1)
+    request: TaskBudgetRequest
+    token_limit: int = Field(gt=0)
+    model_call_limit: int = Field(gt=0)
+    action_limit: int = Field(gt=0)
+    http_limit: int = Field(gt=0)
+
+
+class TaskBudgetExtended(TraceEvent):
+    type: Literal["task_budget_extended"] = "task_budget_extended"
+    worker_id: UUID
+    task_id: UUID
+    prior_token_limit: int = Field(ge=0)
+    token_limit: int = Field(ge=0)
+    prior_model_call_limit: int = Field(ge=0)
+    model_call_limit: int = Field(ge=0)
+    reason_code: str = Field(min_length=1)
+
+
+class TaskBudgetReleased(TraceEvent):
+    type: Literal["task_budget_released"] = "task_budget_released"
+    worker_id: UUID
+    task_id: UUID
+    released_tokens: int = Field(ge=0)
+    released_model_calls: int = Field(ge=0)
+    released_actions: int = Field(ge=0)
+    released_http_requests: int = Field(ge=0)
+    final_token_limit: int = Field(ge=0)
+    final_model_call_limit: int = Field(ge=0)
+    final_action_limit: int = Field(ge=0)
+    final_http_limit: int = Field(ge=0)
+    reason_code: str = Field(min_length=1)
+
+
+class TaskBudgetDenied(TraceEvent):
+    type: Literal["task_budget_denied"] = "task_budget_denied"
+    worker_id: UUID
+    task_id: UUID
+    kind: str = Field(min_length=1)
+    reason_code: str = Field(min_length=1)
+    available_tokens: int = Field(ge=0)
+    minimum_viable_tokens: int = Field(gt=0)
+
+
 class WorkerScheduled(TraceEvent):
     type: Literal["worker_scheduled"] = "worker_scheduled"
     worker_id: UUID
     task_id: UUID
     objective: str = Field(min_length=1)
-    scheduling: Literal["matched_sequential", "matched_parallel"]
+    scheduling: Literal["matched_sequential", "matched_parallel", "elastic_sequential"]
 
 
 class WorkerStarted(TraceEvent):
@@ -651,6 +713,11 @@ AnyTraceEvent = Annotated[
     | ModelBudgetSettled
     | WorkerSpawned
     | WorkerBudgetEscrowDeclared
+    | SchedulerDecision
+    | TaskBudgetGranted
+    | TaskBudgetExtended
+    | TaskBudgetReleased
+    | TaskBudgetDenied
     | WorkerScheduled
     | WorkerStarted
     | WorkerHeartbeat

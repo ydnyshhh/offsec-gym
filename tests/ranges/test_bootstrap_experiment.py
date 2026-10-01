@@ -23,6 +23,9 @@ from offsecgym.schemas.events import (
     ModelCallStarted,
     PrerequisiteBootstrapCompleted,
     PrerequisiteBootstrapStarted,
+    SchedulerDecision,
+    TaskBudgetGranted,
+    TaskBudgetReleased,
     WorkerFinished,
     WorkerPacketPrepared,
     WorkerScheduled,
@@ -326,5 +329,62 @@ async def test_escrowed_bootstrap_accounts_match_across_schedulers(tmp_path: Pat
                 )
             )
         assert signatures[0] == signatures[1]
+    finally:
+        await engine.dispose()
+
+
+@pytest.mark.postgres
+@pytest.mark.docker
+async def test_elastic_scheduler_fake_workers_replay_all_leases(tmp_path: Path) -> None:
+    url = os.getenv("OFFSECGYM_TEST_DATABASE_URL")
+    if not url:
+        pytest.skip("OFFSECGYM_TEST_DATABASE_URL is not set")
+    docker = subprocess.run(
+        ["docker", "info", "--format", "{{.ServerVersion}}"],
+        capture_output=True,
+        text=True,
+        timeout=10,
+        check=False,
+    )
+    if docker.returncode:
+        if os.getenv("OFFSECGYM_REQUIRE_DOCKER") == "1":
+            pytest.fail(f"Docker required by CI: {docker.stderr[-400:]}")
+        pytest.skip("Docker daemon is unavailable")
+    engine = create_async_engine(url)
+    runtime = ComposeRangeRuntime(tmp_path)
+    events = PostgresEventStore(engine)
+    try:
+        config = (
+            Path(__file__).parents[2]
+            / "experiments"
+            / "configs"
+            / "kimi-k3-m63-elastic-sequential.yaml"
+        )
+        spec = ExperimentSpec.model_validate(yaml.safe_load(config.read_text()))
+        outcome = await WorkerExperimentRunner(runtime, events, BlockProvider()).run(spec)
+        trace = await events.read_run(outcome.run_id)
+        grants = [event for event in trace if isinstance(event, TaskBudgetGranted)]
+        releases = [event for event in trace if isinstance(event, TaskBudgetReleased)]
+        decisions = [event for event in trace if isinstance(event, SchedulerDecision)]
+        assert len(grants) == len(releases) == len(decisions) == 6
+        assert [event.kind for event in grants] == [
+            "identity",
+            "invoice",
+            "refund",
+            "public",
+            "document",
+            "ticket",
+        ]
+        assert all(event.reason_codes[event.selected_task] == "selected" for event in decisions)
+        assert decisions[0].reason_codes["refund"] == "dependency_not_ready"
+        accounts = await PostgresControllerState(events).worker_escrow_snapshot(outcome.run_id)
+        assert len(accounts) == 6
+        projection = project_controller_events(trace)
+        assert not projection.active_actions and not projection.model_reservations
+        for account in accounts:
+            replay = projection.worker_escrows[account["worker_id"]]
+            assert replay.token_limit == account["token_limit"] == account["used_tokens"]
+            assert replay.model_call_limit == account["model_call_limit"]
+            assert replay.used_model_calls == account["used_model_calls"]
     finally:
         await engine.dispose()

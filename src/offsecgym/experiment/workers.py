@@ -7,6 +7,7 @@ from offsecgym.experiment.monolithic import MonolithicExperimentRunner
 from offsecgym.experiment.scripted import BoundFindingSink, BoundGatewayTools
 from offsecgym.schemas.domain import AgentContext
 from offsecgym.schemas.specs import Budget, ExperimentSpec
+from offsecgym.solver.elastic_workers import ElasticWorkerCoordinator
 from offsecgym.solver.matched_workers import MatchedWorkerCoordinator
 from offsecgym.solver.scripted import ExperimentInfrastructureError
 from offsecgym.solver.workers import SequentialWorkerCoordinator
@@ -25,6 +26,7 @@ class WorkerExperimentRunner(MonolithicExperimentRunner):
                 "bootstrapped_parallel_workers",
                 "escrowed_sequential_workers",
                 "escrowed_parallel_workers",
+                "elastic_sequential_workers",
             }
             and spec.memory == "structured"
             and spec.validation == "deterministic"
@@ -66,6 +68,8 @@ class WorkerExperimentRunner(MonolithicExperimentRunner):
         coordinator_type = (
             SequentialWorkerCoordinator
             if spec.orchestrator == "ephemeral_workers"
+            else ElasticWorkerCoordinator
+            if spec.orchestrator == "elastic_sequential_workers"
             else MatchedWorkerCoordinator
         )
         return coordinator_type(

@@ -2,6 +2,7 @@
 
 from sqlalchemy import (
     BigInteger,
+    Boolean,
     Column,
     DateTime,
     ForeignKey,
@@ -105,6 +106,10 @@ worker_budget_accounts = Table(
     Column("run_id", UUID(as_uuid=True), ForeignKey("runs.run_id"), primary_key=True),
     Column("worker_id", UUID(as_uuid=True), primary_key=True),
     Column("task_id", UUID(as_uuid=True), nullable=False),
+    Column("elastic", Boolean, nullable=False, default=False),
+    Column("kind", String(32)),
+    Column("token_cap", BigInteger),
+    Column("model_call_cap", Integer),
     Column("token_limit", BigInteger, nullable=False),
     Column("model_call_limit", Integer, nullable=False),
     Column("action_limit", Integer, nullable=False),
@@ -117,4 +122,11 @@ worker_budget_accounts = Table(
     Column("used_http_requests", Integer, nullable=False, default=0),
     Column("used_cost_microusd", BigInteger, nullable=False, default=0),
     Column("reserved_cost_microusd", BigInteger, nullable=False, default=0),
+)
+Index(
+    "uq_elastic_task_kind",
+    worker_budget_accounts.c.run_id,
+    worker_budget_accounts.c.kind,
+    unique=True,
+    postgresql_where=worker_budget_accounts.c.elastic.is_(True),
 )
