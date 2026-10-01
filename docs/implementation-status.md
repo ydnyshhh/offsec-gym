@@ -83,6 +83,9 @@
   input-size, and controller integrity gates, but missed objective-specific
   HTTP action, identity/workspace packet relevance, and refund exploration
   gates. The exact failures remain in its diagnostic.
+- M6.1.2 corrects identity selection toward distinct workspace memberships
+  and exposes the existing ticket-list route in known-routes instructions.
+  Its three-run verification gates are declared before execution.
 
 ## Partially implemented
 
@@ -109,9 +112,9 @@
 
 ## Next milestone
 
-Correct identity/workspace packet selection and ticket route discovery in a
-separately versioned follow-up, then inspect retrieval-only worker turns.
-The [M6.1.1 diagnostic](diagnostics/kimi-k3-openrouter-m611.md) has failed
+Run the [M6.1.2 relationship and route verification](milestone-6.1.2.md),
+then inspect whether retrieval-only worker turns persist. The
+[M6.1.1 diagnostic](diagnostics/kimi-k3-openrouter-m611.md) has failed
 mechanistic gates, so sequential orchestration is not frozen for M6.2. The
 original [M6.1 diagnostic](diagnostics/kimi-k3-openrouter-m61.md) remains frozen.
 

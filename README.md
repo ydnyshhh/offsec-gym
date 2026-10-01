@@ -31,6 +31,8 @@ traces, earlier first findings, and lower worker root-cause recall.
 duplicated context with predeclared three-run smoke gates.
 The [M6.1.1 smoke](docs/diagnostics/kimi-k3-openrouter-m611.md) cleared
 budget and context gates but missed objective-action and refund-exploration gates.
+[M6.1.2](docs/milestone-6.1.2.md) corrects workspace-aware identity selection
+and the known ticket-list route under a separately predeclared verification.
 
 ## Development
 
