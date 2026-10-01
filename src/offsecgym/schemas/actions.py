@@ -69,6 +69,9 @@ class ActionRequest(StrictModel):
     run_id: UUID
     worker_id: UUID | None = None
     task_id: UUID | None = None
+    source_phase: Literal["bootstrap"] | None = None
+    originating_call_id: UUID | None = None
+    originating_tool_call_id: str | None = Field(default=None, min_length=1)
     identity_id: UUID | None = None
     kind: Literal["http_request"]
     destination: str = Field(min_length=1)
@@ -80,6 +83,14 @@ class ActionRequest(StrictModel):
     def bind_worker_task(self) -> ActionRequest:
         if self.worker_id is not None and self.task_id is None:
             raise ValueError("worker actions require task_id")
+        if self.source_phase == "bootstrap" and (
+            self.worker_id is not None or self.task_id is not None or self.method != "GET"
+        ):
+            raise ValueError("bootstrap actions require an unowned GET request")
+        if (self.originating_call_id is None) != (self.originating_tool_call_id is None):
+            raise ValueError("model-call and tool-call action origins must be paired")
+        if self.source_phase is not None and self.originating_call_id is not None:
+            raise ValueError("bootstrap actions cannot originate from a model turn")
         return self
 
     @field_validator("json_body", mode="before")

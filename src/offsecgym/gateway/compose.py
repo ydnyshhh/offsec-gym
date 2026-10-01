@@ -72,6 +72,9 @@ class ComposeActionGateway:
                 range_generation=context.range_generation,
                 worker_id=action.worker_id,
                 task_id=action.task_id,
+                source_phase=action.source_phase,
+                originating_call_id=action.originating_call_id,
+                originating_tool_call_id=action.originating_tool_call_id,
                 identity_id=action.identity_id,
                 destination=action.destination,
                 method=action.method,
@@ -95,6 +98,9 @@ class ComposeActionGateway:
                 path_sha256=hashlib.sha256(action.path.encode("utf-8")).hexdigest(),
                 worker_id=action.worker_id,
                 task_id=action.task_id,
+                source_phase=action.source_phase,
+                originating_call_id=action.originating_call_id,
+                originating_tool_call_id=action.originating_tool_call_id,
                 identity_id=action.identity_id,
                 body_sha256=hashlib.sha256(
                     json.dumps(action.json_body, sort_keys=True, separators=(",", ":")).encode()

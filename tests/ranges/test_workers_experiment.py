@@ -16,7 +16,12 @@ from offsecgym.experiment import WorkerExperimentRunner
 from offsecgym.orchestration_metrics import orchestration_metrics
 from offsecgym.providers.base import ModelTurn
 from offsecgym.runtime.compose import ComposeRangeRuntime
-from offsecgym.schemas.events import FindingSubmitted, WorkerPacketPrepared
+from offsecgym.schemas.events import (
+    ActionRequested,
+    FindingSubmitted,
+    ModelCallCompleted,
+    WorkerPacketPrepared,
+)
 from offsecgym.schemas.specs import Budget, ExperimentSpec, ModelSpec, RangeSpec
 from offsecgym.storage.event_store import PostgresEventStore
 from offsecgym.worldview import EventWorldState
@@ -229,6 +234,17 @@ async def test_sequential_worker_handoff_validates_public_exposure(tmp_path: Pat
         assert len(findings) == 1
         assert findings[0].worker_id == packets[4].worker_id
         assert findings[0].task_id == packets[4].task_id
+        model_calls = {item.call_id for item in trace if isinstance(item, ModelCallCompleted)}
+        worker_requests = [
+            item
+            for item in trace
+            if isinstance(item, ActionRequested) and item.worker_id is not None
+        ]
+        assert worker_requests
+        assert all(
+            item.originating_call_id in model_calls and item.originating_tool_call_id
+            for item in worker_requests
+        )
         metrics = orchestration_metrics(trace)
         assert metrics.http_dispatches == 4
         assert metrics.cross_worker_duplication_rate == 0

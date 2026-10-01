@@ -204,6 +204,9 @@ class WorkerPacketBuilder:
             or request.method != event.method
             or request.identity_id != event.identity_id
             or request.destination != event.destination
+            or request.source_phase != event.source_phase
+            or request.originating_call_id != event.originating_call_id
+            or request.originating_tool_call_id != event.originating_tool_call_id
         ):
             raise ExperimentInfrastructureError("worker handoff request artifact mismatch")
         if (
@@ -238,6 +241,7 @@ class WorkerPacketBuilder:
         identity_workspace: dict[UUID, UUID] = {}
         identity_role: dict[UUID, str] = {}
         completed = {item.action_id: item for item in trace if isinstance(item, ActionCompleted)}
+        requested = {item.action_id: item for item in trace if isinstance(item, ActionRequested)}
         for index, fact in enumerate(facts):
             if fact.subject.entity_type not in relevant_types:
                 continue
@@ -270,6 +274,9 @@ class WorkerPacketBuilder:
                         action_id=action_id,
                         evidence_id=evidence_id,
                         source_worker_id=source.worker_id,
+                        source_phase=(
+                            requested[action_id].source_phase if action_id in requested else None
+                        ),
                     )
                 )
                 seen_evidence.add((fact.subject.entity_id, evidence_id))
@@ -365,7 +372,6 @@ class WorkerPacketBuilder:
             reverse=True,
         )
         ranked_evidence.extend(remaining_evidence)
-        requested = {item.action_id: item for item in trace if isinstance(item, ActionRequested)}
         fingerprints = {
             item.action_id: item.fingerprint
             for item in trace
@@ -376,7 +382,7 @@ class WorkerPacketBuilder:
             if not isinstance(item, ActionCompleted) or item.action_id not in fingerprints:
                 continue
             source = requested.get(item.action_id)
-            if source is None or source.worker_id is None:
+            if source is None or (source.worker_id is None and source.source_phase != "bootstrap"):
                 continue
             request = self._request(context, source)
             body_json = (
@@ -393,6 +399,8 @@ class WorkerPacketBuilder:
                     method=request.method,
                     path=request.path,
                     identity_id=request.identity_id,
+                    source_worker_id=source.worker_id,
+                    source_phase=source.source_phase,
                     body_sha256=source.body_sha256,
                     body_json=body_json
                     if body_json is not None and len(body_json) <= 512

@@ -10,7 +10,7 @@ from pydantic import Field, TypeAdapter, field_validator, model_validator
 
 from offsecgym.schemas.common import StrictModel, new_id
 from offsecgym.schemas.domain import CandidateFinding, CoverageClaim, ValidationResult, WorldFact
-from offsecgym.schemas.specs import Budget
+from offsecgym.schemas.specs import BootstrapBudget, Budget
 from offsecgym.schemas.workers import WorkerTaskPacket
 
 
@@ -60,6 +60,25 @@ class RangeStarted(TraceEvent):
         return self
 
 
+class PrerequisiteBootstrapStarted(TraceEvent):
+    type: Literal["prerequisite_bootstrap_started"] = "prerequisite_bootstrap_started"
+    budget: BootstrapBudget
+    visible_identity_count: int = Field(ge=0)
+
+
+class PrerequisiteBootstrapCompleted(TraceEvent):
+    type: Literal["prerequisite_bootstrap_completed"] = "prerequisite_bootstrap_completed"
+    snapshot_hash: str = Field(pattern=r"^[0-9a-f]{64}$")
+    identity_count: int = Field(ge=0)
+    workspace_count: int = Field(ge=0)
+    document_count: int = Field(ge=0)
+    invoice_count: int = Field(ge=0)
+    ticket_count: int = Field(ge=0)
+    action_count: int = Field(ge=0)
+    http_request_count: int = Field(ge=0)
+    model_call_count: Literal[0] = 0
+
+
 class ActionRequested(TraceEvent):
     schema_version: Literal["1", "2"] = "2"
     type: Literal["action_requested"] = "action_requested"
@@ -70,6 +89,9 @@ class ActionRequested(TraceEvent):
     path_sha256: str | None = Field(default=None, pattern=r"^[0-9a-f]{64}$")
     worker_id: UUID | None = None
     task_id: UUID | None = None
+    source_phase: Literal["bootstrap"] | None = None
+    originating_call_id: UUID | None = None
+    originating_tool_call_id: str | None = Field(default=None, min_length=1)
     identity_id: UUID | None = None
     body_sha256: str | None = Field(default=None, pattern=r"^[0-9a-f]{64}$")
     range_instance_id: UUID | None = None
@@ -80,6 +102,14 @@ class ActionRequested(TraceEvent):
     def require_v2_provenance(self) -> ActionRequested:
         if self.worker_id is not None and self.task_id is None:
             raise ValueError("worker action event requires task_id")
+        if self.source_phase == "bootstrap" and (
+            self.worker_id is not None or self.task_id is not None or self.method != "GET"
+        ):
+            raise ValueError("bootstrap event requires an unowned GET request")
+        if (self.originating_call_id is None) != (self.originating_tool_call_id is None):
+            raise ValueError("model-call and tool-call event origins must be paired")
+        if self.source_phase is not None and self.originating_call_id is not None:
+            raise ValueError("bootstrap event cannot originate from a model turn")
         if self.schema_version == "2" and (
             self.range_instance_id is None
             or self.range_generation is None
@@ -550,6 +580,8 @@ class FindingValidated(TraceEvent):
 AnyTraceEvent = Annotated[
     RunStarted
     | RangeStarted
+    | PrerequisiteBootstrapStarted
+    | PrerequisiteBootstrapCompleted
     | ActionRequested
     | ActionBlocked
     | ActionCompleted

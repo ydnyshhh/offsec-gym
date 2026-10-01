@@ -4,7 +4,7 @@ import pytest
 from pydantic import ValidationError
 
 from offsecgym.schemas.common import derived_id, new_id
-from offsecgym.schemas.specs import Budget, ExperimentSpec, RangeSpec
+from offsecgym.schemas.specs import BootstrapBudget, Budget, ExperimentSpec, RangeSpec
 
 
 def test_range_spec_rejects_unknown_fields_and_negative_counts() -> None:
@@ -43,6 +43,19 @@ def test_budget_requires_a_limit_and_bounded_concurrency() -> None:
     with pytest.raises(ValidationError):
         Budget(max_workers=2, max_concurrency=3)
     assert Budget(max_workers=3, max_concurrency=2).max_concurrency == 2
+
+
+def test_bootstrap_budget_is_separate_and_zero_model() -> None:
+    assert (
+        BootstrapBudget(max_actions=32, max_http_requests=32, max_wall_seconds=120).max_model_calls
+        == 0
+    )
+    with pytest.raises(ValidationError):
+        BootstrapBudget(max_actions=32, max_http_requests=31, max_wall_seconds=120)
+    with pytest.raises(ValidationError):
+        BootstrapBudget(
+            max_actions=32, max_http_requests=32, max_wall_seconds=120, max_model_calls=1
+        )
 
 
 def test_derived_ids_are_stable() -> None:

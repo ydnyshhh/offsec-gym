@@ -37,7 +37,7 @@ from offsecgym.schemas.events import (
     RunCompleted,
     RunStarted,
 )
-from offsecgym.schemas.specs import ExperimentSpec
+from offsecgym.schemas.specs import Budget, ExperimentSpec
 from offsecgym.solver.scripted import (
     AgentBudgetExhausted,
     ExperimentInfrastructureError,
@@ -171,6 +171,17 @@ class ScriptedExperimentRunner:
             and spec.validation == "deterministic"
         )
 
+    def _controller_budget(self, spec: ExperimentSpec) -> Budget:
+        return spec.budget
+
+    async def _before_agent(
+        self,
+        spec: ExperimentSpec,
+        context: AgentContext,
+        tools: BoundGatewayTools,
+    ) -> None:
+        return None
+
     async def run(self, spec: ExperimentSpec) -> ScriptedExperimentOutcome:
         if not self._supported(spec):
             raise ValueError("runner requires a supported deterministic SaaS experiment")
@@ -210,7 +221,7 @@ class ScriptedExperimentRunner:
                 run_id=run_id,
                 range_instance_id=instance_id,
                 range_generation=status.generation,
-                budget=spec.budget,
+                budget=self._controller_budget(spec),
                 allowed_identity_ids=visible.identity_ids,
             )
             gateway = ComposeActionGateway(self.runtime, self.events, min_interval_seconds=0)
@@ -223,9 +234,13 @@ class ScriptedExperimentRunner:
                 budget=spec.budget,
             )
             agent_context = AgentContext(
-                run_id=run_id, objective=task.goal, range=visible, global_budget=spec.budget
+                run_id=run_id,
+                objective=task.goal,
+                range=visible,
+                global_budget=experiment.budget,
             )
             tools = BoundGatewayTools(gateway, experiment)
+            await self._before_agent(spec, agent_context, tools)
             phase = "agent"
             try:
                 if spec.budget.max_wall_seconds is None:

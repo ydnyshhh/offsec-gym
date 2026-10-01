@@ -9,11 +9,13 @@ from offsecgym.schemas.events import (
     ActionAttemptReserved,
     ActionBlocked,
     ActionCompleted,
+    ActionRequested,
     ActionReservationAcquired,
     AnyTraceEvent,
     FindingSubmitted,
     FindingValidated,
     ModelCallCompleted,
+    PrerequisiteBootstrapCompleted,
     RunStarted,
     WorkerDebriefed,
     WorkerFinished,
@@ -42,19 +44,30 @@ class OrchestrationMetrics(StrictModel):
     reservation_conflict_rate: float | None = None
     worker_overlap_pairs: int = 0
     mean_worker_queue_wait_seconds: float | None = None
+    bootstrap_http_dispatches: int = 0
+    worker_http_dispatches: int = 0
+    origin_linked_worker_dispatches: int = 0
+    exact_repeat_source_turns: int = 0
+    tokens_on_turns_with_exact_repeats: int = 0
+    bootstrap_snapshot_hash: str | None = None
+    worker_exact_repeat_dispatches: int = 0
+    worker_repeats_of_bootstrap: int = 0
 
 
 def orchestration_metrics(trace: Sequence[AnyTraceEvent]) -> OrchestrationMetrics:
     dispatches = [item for item in trace if isinstance(item, ActionReservationAcquired)]
     previous: dict[str, set[object]] = {}
-    exact = cross = within = 0
+    exact = cross = within = worker_exact = bootstrap_repeats = 0
     for item in dispatches:
         owners = previous.setdefault(item.fingerprint, set())
         if owners:
             exact += 1
             if item.worker_id is not None:
+                worker_exact += 1
                 if any(owner is not None and owner != item.worker_id for owner in owners):
                     cross += 1
+                elif owners == {None}:
+                    bootstrap_repeats += 1
                 else:
                     within += 1
         owners.add(item.worker_id)
@@ -127,13 +140,33 @@ def orchestration_metrics(trace: Sequence[AnyTraceEvent]) -> OrchestrationMetric
         for worker_id, item in worker_starts.items()
         if worker_id in scheduled
     ]
+    requests = {item.action_id: item for item in trace if isinstance(item, ActionRequested)}
+    calls = {item.call_id: item for item in trace if isinstance(item, ModelCallCompleted)}
+    previous_action: dict[str, object] = {}
+    completed_actions: set[object] = set()
+    repeated_turns: set[object] = set()
+    for item in trace:
+        if isinstance(item, ActionCompleted):
+            completed_actions.add(item.action_id)
+        elif isinstance(item, ActionReservationAcquired):
+            request = requests.get(item.action_id)
+            if (
+                previous_action.get(item.fingerprint) in completed_actions
+                and request is not None
+                and request.originating_call_id in calls
+            ):
+                repeated_turns.add(request.originating_call_id)
+            previous_action[item.fingerprint] = item.action_id
+    bootstrap_done = next(
+        (item for item in trace if isinstance(item, PrerequisiteBootstrapCompleted)), None
+    )
     return OrchestrationMetrics(
         http_dispatches=len(dispatches),
         exact_repeat_dispatches=exact,
         cross_worker_repeat_dispatches=cross,
         within_worker_repeat_dispatches=within,
         cross_worker_duplication_rate=(
-            cross / len(dispatches)
+            cross / sum(item.worker_id is not None for item in dispatches)
             if any(item.worker_id is not None for item in dispatches)
             else None
         ),
@@ -156,4 +189,24 @@ def orchestration_metrics(trace: Sequence[AnyTraceEvent]) -> OrchestrationMetric
         reservation_conflict_rate=conflicts / attempts if attempts else None,
         worker_overlap_pairs=overlap_pairs,
         mean_worker_queue_wait_seconds=sum(waits) / len(waits) if waits else None,
+        bootstrap_http_dispatches=sum(
+            requests.get(item.action_id) is not None
+            and requests[item.action_id].source_phase == "bootstrap"
+            for item in dispatches
+        ),
+        worker_http_dispatches=sum(item.worker_id is not None for item in dispatches),
+        origin_linked_worker_dispatches=sum(
+            item.worker_id is not None
+            and requests.get(item.action_id) is not None
+            and requests[item.action_id].originating_call_id in calls
+            and requests[item.action_id].originating_tool_call_id is not None
+            for item in dispatches
+        ),
+        exact_repeat_source_turns=len(repeated_turns),
+        tokens_on_turns_with_exact_repeats=sum(
+            calls[call_id].input_tokens + calls[call_id].output_tokens for call_id in repeated_turns
+        ),
+        bootstrap_snapshot_hash=bootstrap_done.snapshot_hash if bootstrap_done else None,
+        worker_exact_repeat_dispatches=worker_exact,
+        worker_repeats_of_bootstrap=bootstrap_repeats,
     )

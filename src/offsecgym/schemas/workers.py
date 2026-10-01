@@ -23,6 +23,7 @@ class WorkerEvidence(StrictModel):
     action_id: UUID
     evidence_id: UUID
     source_worker_id: UUID | None = None
+    source_phase: Literal["bootstrap"] | None = None
 
 
 class CheckedAction(StrictModel):
@@ -31,6 +32,8 @@ class CheckedAction(StrictModel):
     method: str = Field(min_length=1, max_length=8)
     path: str = Field(min_length=1, max_length=2048)
     identity_id: UUID | None = None
+    source_worker_id: UUID | None = None
+    source_phase: Literal["bootstrap"] | None = None
     body_sha256: str | None = Field(default=None, pattern=r"^[0-9a-f]{64}$")
     body_json: str | None = Field(default=None, max_length=512)
     body_summary: str | None = Field(default=None, max_length=256)

@@ -295,8 +295,8 @@ class MatchedWorkerCoordinator(SequentialWorkerCoordinator):
             return result.model_copy(update={"status": status})
 
     async def run(self, task: AgentTask, context: AgentContext, tools: ToolRegistry) -> AgentResult:
-        budget = context.global_budget
-        if budget is None or context.range is None or budget.max_model_calls is None:
+        budget = task.budget
+        if context.global_budget is None or context.range is None or budget.max_model_calls is None:
             raise ValueError("matched workers require a visible range and global model budget")
         count = len(WORKER_OBJECTIVES)
         output = min(
