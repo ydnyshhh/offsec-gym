@@ -3,10 +3,13 @@
 from __future__ import annotations
 
 import asyncio
+import errno
+import fcntl
 import hashlib
 import hmac
 import json
 import os
+import stat
 from pathlib import Path
 from uuid import UUID, uuid4
 
@@ -24,6 +27,59 @@ from offsecgym.schemas.specs import RangeSpec
 
 class DockerCommandError(RuntimeError):
     """A bounded Docker operation failed."""
+
+
+class _InstanceGuard:
+    """Process-shared instance fence; the manifest generation is checked while held."""
+
+    def __init__(self, path: Path, local_lock: asyncio.Lock) -> None:
+        self.path = path
+        self.local_lock = local_lock
+        self.descriptor: int | None = None
+
+    async def __aenter__(self) -> _InstanceGuard:
+        await self.local_lock.acquire()
+        try:
+            self.path.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
+            if (
+                self.path.parent.is_symlink()
+                or not self.path.parent.is_dir()
+                or stat.S_IMODE(self.path.parent.stat().st_mode) & 0o077
+            ):
+                raise OSError("instance lock directory is unsafe")
+            descriptor = os.open(
+                self.path,
+                os.O_RDWR | os.O_CREAT | os.O_CLOEXEC | os.O_NOFOLLOW,
+                0o600,
+            )
+            self.descriptor = descriptor
+            lock_mode = os.fstat(descriptor).st_mode
+            if not stat.S_ISREG(lock_mode) or stat.S_IMODE(lock_mode) & 0o077:
+                raise OSError("instance lock is not a regular file")
+            while True:
+                try:
+                    fcntl.flock(descriptor, fcntl.LOCK_EX | fcntl.LOCK_NB)
+                    break
+                except OSError as exc:
+                    if exc.errno not in {errno.EAGAIN, errno.EWOULDBLOCK}:
+                        raise
+                    await asyncio.sleep(0.02)
+            return self
+        except BaseException:
+            if self.descriptor is not None:
+                os.close(self.descriptor)
+                self.descriptor = None
+            self.local_lock.release()
+            raise
+
+    async def __aexit__(self, *_exc: object) -> None:
+        try:
+            assert self.descriptor is not None
+            fcntl.flock(self.descriptor, fcntl.LOCK_UN)
+            os.close(self.descriptor)
+            self.descriptor = None
+        finally:
+            self.local_lock.release()
 
 
 async def run_command(
@@ -66,10 +122,13 @@ class ComposeRangeRuntime:
         self.saas_compiler = SaasRangeCompiler(self.state)
         self._instance_locks: dict[UUID, asyncio.Lock] = {}
 
-    def get_instance_guard(self, instance_id: UUID) -> asyncio.Lock:
-        """Serialize an instance action with reset/teardown in this controller process."""
+    def get_instance_guard(self, instance_id: UUID) -> _InstanceGuard:
+        """Serialize dispatch and lifecycle across processes sharing this state root."""
 
-        return self._instance_locks.setdefault(instance_id, asyncio.Lock())
+        return _InstanceGuard(
+            self.state.root / "instance_locks" / f"{instance_id.hex}.lock",
+            self._instance_locks.setdefault(instance_id, asyncio.Lock()),
+        )
 
     async def build(self, spec: RangeSpec) -> UUID:
         if spec.family == "hello":

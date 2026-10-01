@@ -2,8 +2,12 @@
 
 from __future__ import annotations
 
+import asyncio
 import json
+import multiprocessing
+import os
 from pathlib import Path
+from uuid import UUID, uuid4
 
 import pytest
 
@@ -18,8 +22,73 @@ from offsecgym.runtime.manifests import (
 from offsecgym.schemas.specs import RangeSpec
 
 
+def _hold_process_lock(root: str, instance_id: UUID, entered, release) -> None:
+    async def hold() -> None:
+        runtime = ComposeRangeRuntime(Path(root))
+        async with runtime.get_instance_guard(instance_id):
+            entered.set()
+            await asyncio.to_thread(release.wait)
+
+    asyncio.run(hold())
+
+
+def _crash_with_process_lock(root: str, instance_id: UUID, entered) -> None:
+    async def hold() -> None:
+        runtime = ComposeRangeRuntime(Path(root))
+        async with runtime.get_instance_guard(instance_id):
+            entered.set()
+            os._exit(0)
+
+    asyncio.run(hold())
+
+
 def hello_spec() -> RangeSpec:
     return RangeSpec(family="hello", scenario="health_check", seed=42, topology={"hello": True})
+
+
+@pytest.mark.asyncio
+async def test_instance_guard_waits_for_other_process_and_survives_crash(tmp_path: Path) -> None:
+    context = multiprocessing.get_context("spawn")
+    instance_id = uuid4()
+    entered, release = context.Event(), context.Event()
+    holder = context.Process(
+        target=_hold_process_lock,
+        args=(str(tmp_path), instance_id, entered, release),
+    )
+    holder.start()
+    try:
+        assert await asyncio.to_thread(entered.wait, 10)
+        runtime = ComposeRangeRuntime(tmp_path)
+        acquired = asyncio.Event()
+
+        async def compete() -> None:
+            async with runtime.get_instance_guard(instance_id):
+                acquired.set()
+
+        waiting = asyncio.create_task(compete())
+        await asyncio.sleep(0.1)
+        assert not acquired.is_set()
+        release.set()
+        await asyncio.wait_for(waiting, 10)
+        assert acquired.is_set()
+    finally:
+        release.set()
+        await asyncio.to_thread(holder.join, 10)
+        if holder.is_alive():
+            holder.terminate()
+            await asyncio.to_thread(holder.join, 5)
+    assert holder.exitcode == 0
+
+    crash_entered = context.Event()
+    crashed = context.Process(
+        target=_crash_with_process_lock,
+        args=(str(tmp_path), instance_id, crash_entered),
+    )
+    crashed.start()
+    await asyncio.to_thread(crashed.join, 10)
+    assert crashed.exitcode == 0
+    async with ComposeRangeRuntime(tmp_path).get_instance_guard(instance_id):
+        pass
 
 
 @pytest.mark.parametrize("name", ["compose.yaml", "hello_service.py", "Dockerfile"])
