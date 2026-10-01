@@ -71,3 +71,13 @@ worker routes, and latency remain observational. There is no score gate.
 Run one live vulnerable smoke after unit, concurrent-controller, and fake
 range tests pass. Freeze its observed gates and trace without tuning Kimi or
 rerunning the same protocol.
+
+## Frozen outcome
+
+The single live run and gate audit are recorded in
+[the M6.3.1 diagnostic](diagnostics/kimi-k3-openrouter-m631.md). All five
+scheduler gates passed. The run itself ended `agent_failed`; refund reached
+readiness through invoice evidence but its worker did not execute the refund
+route. Ticket remained unfunded because its 29,000-token minimum exceeded
+the final 20,182-token balance. These observations are frozen without a
+rerun or worker-policy change.
