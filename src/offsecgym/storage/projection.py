@@ -27,6 +27,7 @@ from offsecgym.schemas.events import (
     WorkerObjectiveAction,
     WorkerOriented,
     WorkerPacketPrepared,
+    WorkerScheduled,
     WorkerSpawned,
     WorkerStarted,
 )
@@ -54,6 +55,7 @@ class ControllerProjection:
     worker_status: dict[UUID, str] = field(default_factory=dict)
     worker_tasks: dict[UUID, UUID] = field(default_factory=dict)
     worker_packets: dict[UUID, WorkerPacketPrepared] = field(default_factory=dict)
+    worker_scheduled: dict[UUID, WorkerScheduled] = field(default_factory=dict)
     worker_debriefs: dict[UUID, WorkerDebriefed] = field(default_factory=dict)
     worker_leases: dict[UUID, datetime] = field(default_factory=dict)
     recovered_workers: set[UUID] = field(default_factory=set)
@@ -135,9 +137,16 @@ def project_controller_events(trace: Sequence[AnyTraceEvent]) -> ControllerProje
             state.reserved_cost_microusd -= reservation[1]
             state.used_tokens += event.actual_tokens
             state.used_cost_microusd += event.actual_cost_microusd
+        elif isinstance(event, WorkerScheduled):
+            if event.worker_id in state.worker_scheduled:
+                raise ValueError("worker scheduled more than once")
+            state.worker_scheduled[event.worker_id] = event
         elif isinstance(event, WorkerSpawned):
             if event.worker_id in state.worker_status:
                 raise ValueError("duplicate worker spawn")
+            scheduled = state.worker_scheduled.get(event.worker_id)
+            if scheduled is not None and scheduled.task_id != event.task_id:
+                raise ValueError("scheduled worker has different task ownership")
             state.spawned_workers += 1
             state.worker_status[event.worker_id] = "spawned"
             state.worker_tasks[event.worker_id] = event.task_id

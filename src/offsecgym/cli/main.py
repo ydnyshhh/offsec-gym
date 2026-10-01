@@ -97,7 +97,14 @@ def experiment_run(
     try:
         spec = _load_spec(path, ExperimentSpec)
         if (
-            spec.orchestrator not in {"scripted", "monolithic", "ephemeral_workers"}
+            spec.orchestrator
+            not in {
+                "scripted",
+                "monolithic",
+                "ephemeral_workers",
+                "matched_sequential_workers",
+                "matched_parallel_workers",
+            }
             or spec.validation != "deterministic"
         ):
             raise ValueError("only scripted, monolithic, or sequential-worker runs are supported")
@@ -113,7 +120,12 @@ def experiment_run(
         if not settings.database_url.startswith("postgresql+asyncpg://"):
             raise ValueError("OFFSECGYM_DATABASE_URL must use postgresql+asyncpg")
         api_key = None
-        if spec.orchestrator in {"monolithic", "ephemeral_workers"}:
+        if spec.orchestrator in {
+            "monolithic",
+            "ephemeral_workers",
+            "matched_sequential_workers",
+            "matched_parallel_workers",
+        }:
             if spec.model is None or spec.model.provider not in {"openai", "openrouter"}:
                 raise ValueError("the monolithic runner supports provider=openai or openrouter")
             if spec.model.name.startswith("REPLACE_"):
@@ -137,7 +149,12 @@ def experiment_run(
                 else:
                     runner_type = (
                         WorkerExperimentRunner
-                        if spec.orchestrator == "ephemeral_workers"
+                        if spec.orchestrator
+                        in {
+                            "ephemeral_workers",
+                            "matched_sequential_workers",
+                            "matched_parallel_workers",
+                        }
                         else MonolithicExperimentRunner
                     )
                     runner = runner_type(

@@ -6,6 +6,8 @@ from collections.abc import Sequence
 
 from offsecgym.schemas.common import StrictModel
 from offsecgym.schemas.events import (
+    ActionAttemptReserved,
+    ActionBlocked,
     ActionCompleted,
     ActionReservationAcquired,
     AnyTraceEvent,
@@ -14,7 +16,10 @@ from offsecgym.schemas.events import (
     ModelCallCompleted,
     RunStarted,
     WorkerDebriefed,
+    WorkerFinished,
     WorkerPacketPrepared,
+    WorkerScheduled,
+    WorkerStarted,
 )
 
 
@@ -32,6 +37,11 @@ class OrchestrationMetrics(StrictModel):
     worker_debriefs: int
     coordinator_model_calls: int
     time_to_first_valid_finding_seconds: float | None
+    time_to_last_valid_finding_seconds: float | None = None
+    reservation_conflicts: int = 0
+    reservation_conflict_rate: float | None = None
+    worker_overlap_pairs: int = 0
+    mean_worker_queue_wait_seconds: float | None = None
 
 
 def orchestration_metrics(trace: Sequence[AnyTraceEvent]) -> OrchestrationMetrics:
@@ -79,11 +89,44 @@ def orchestration_metrics(trace: Sequence[AnyTraceEvent]) -> OrchestrationMetric
         ),
         None,
     )
+    valid_submissions = [
+        item
+        for item in trace
+        if isinstance(item, FindingSubmitted) and item.finding.finding_id in validated_ids
+    ]
     time_to_first = (
         (first_valid_submission.occurred_at - started.occurred_at).total_seconds()
         if started is not None and first_valid_submission is not None
         else None
     )
+    time_to_last = (
+        (valid_submissions[-1].occurred_at - started.occurred_at).total_seconds()
+        if started is not None and valid_submissions
+        else None
+    )
+    attempts = sum(isinstance(item, ActionAttemptReserved) for item in trace)
+    conflicts = sum(
+        isinstance(item, ActionBlocked) and item.reason_code == "action_already_reserved"
+        for item in trace
+    )
+    scheduled = {item.worker_id: item for item in trace if isinstance(item, WorkerScheduled)}
+    worker_starts = {item.worker_id: item for item in trace if isinstance(item, WorkerStarted)}
+    worker_finishes = {item.worker_id: item for item in trace if isinstance(item, WorkerFinished)}
+    intervals = [
+        (item.occurred_at, worker_finishes[worker_id].occurred_at)
+        for worker_id, item in worker_starts.items()
+        if worker_id in worker_finishes
+    ]
+    overlap_pairs = sum(
+        first_start < second_end and second_start < first_end
+        for index, (first_start, first_end) in enumerate(intervals)
+        for second_start, second_end in intervals[index + 1 :]
+    )
+    waits = [
+        (item.occurred_at - scheduled[worker_id].occurred_at).total_seconds()
+        for worker_id, item in worker_starts.items()
+        if worker_id in scheduled
+    ]
     return OrchestrationMetrics(
         http_dispatches=len(dispatches),
         exact_repeat_dispatches=exact,
@@ -108,4 +151,9 @@ def orchestration_metrics(trace: Sequence[AnyTraceEvent]) -> OrchestrationMetric
         if packets
         else 0,
         time_to_first_valid_finding_seconds=time_to_first,
+        time_to_last_valid_finding_seconds=time_to_last,
+        reservation_conflicts=conflicts,
+        reservation_conflict_rate=conflicts / attempts if attempts else None,
+        worker_overlap_pairs=overlap_pairs,
+        mean_worker_queue_wait_seconds=sum(waits) / len(waits) if waits else None,
     )

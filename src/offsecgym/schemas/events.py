@@ -398,6 +398,14 @@ class WorkerSpawned(TraceEvent):
     lease_expires_at: datetime | None = None
 
 
+class WorkerScheduled(TraceEvent):
+    type: Literal["worker_scheduled"] = "worker_scheduled"
+    worker_id: UUID
+    task_id: UUID
+    objective: str = Field(min_length=1)
+    scheduling: Literal["matched_sequential", "matched_parallel"]
+
+
 class WorkerStarted(TraceEvent):
     type: Literal["worker_started"] = "worker_started"
     worker_id: UUID
@@ -564,6 +572,7 @@ AnyTraceEvent = Annotated[
     | ModelBudgetReserved
     | ModelBudgetSettled
     | WorkerSpawned
+    | WorkerScheduled
     | WorkerStarted
     | WorkerHeartbeat
     | WorkerLeaseRecovered

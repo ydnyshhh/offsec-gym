@@ -46,6 +46,7 @@ from offsecgym.schemas.events import (
     WorkerStarted,
 )
 from offsecgym.schemas.specs import Budget, ModelSpec
+from offsecgym.solver.matched_workers import MatchedWorkerCoordinator
 from offsecgym.solver.monolithic import MonolithicSaasAgent
 from offsecgym.solver.workers import SequentialWorkerCoordinator
 from offsecgym.storage.controller import PostgresControllerState
@@ -697,6 +698,101 @@ async def test_worker_tool_rejections_have_typed_attributed_reasons(controllers,
         for event in http
     )
     assert {event.proposed_method for event in http} == {"GET", "POST"}
+
+
+@pytest.mark.postgres
+async def test_matched_packets_vary_only_worker_scheduling(controllers, tmp_path) -> None:
+    _, _, events, _ = controllers
+
+    class SlowOneTurnProvider:
+        def __init__(self):
+            self.active = 0
+            self.peak = 0
+
+        def prepare_request(self, model, instructions, input_items, tools, max_output_tokens):
+            return {"input": input_items, "max_output_tokens": max_output_tokens}
+
+        async def complete(self, request_payload):
+            self.active += 1
+            self.peak = max(self.peak, self.active)
+            try:
+                await asyncio.sleep(0.03)
+                raw = {
+                    "id": "synthetic",
+                    "status": "completed",
+                    "output": [],
+                    "usage": {"input_tokens": 200, "output_tokens": 10},
+                }
+                return ModelTurn(
+                    response_id="synthetic",
+                    status="completed",
+                    output=(),
+                    usage=raw["usage"],
+                    raw_response=raw,
+                )
+            finally:
+                self.active -= 1
+
+    packets_by_arm = []
+    for parallel in (False, True):
+        run_id = uuid4()
+        budget = Budget(
+            max_actions=60,
+            max_http_requests=60,
+            max_model_calls=20,
+            max_total_tokens=120000,
+            max_output_tokens_per_call=8192,
+            max_workers=6,
+            max_concurrency=6 if parallel else 1,
+        )
+        provider = SlowOneTurnProvider()
+        coordinator = MatchedWorkerCoordinator(
+            provider,
+            ModelSpec(provider="openai", name="synthetic"),
+            None,
+            events,
+            tmp_path,
+            parallel=parallel,
+        )
+        task = AgentTask(task_id=uuid4(), goal="Test SaaS security", budget=budget)
+        context = AgentContext(
+            run_id=run_id,
+            objective=task.goal,
+            global_budget=budget,
+            range=AgentVisibleRangeContext(range_instance_id=uuid4(), family="saas"),
+        )
+        result = await coordinator.run(task, context, None)
+        assert result.status == "failed"
+        assert provider.peak >= (2 if parallel else 1)
+        if not parallel:
+            assert provider.peak == 1
+        trace = await events.read_run(run_id)
+        assert project_controller_events(trace).active_workers == 0
+        metrics = orchestration_metrics(trace)
+        if parallel:
+            assert metrics.worker_overlap_pairs > 0
+        else:
+            assert metrics.worker_overlap_pairs == 0
+        assert metrics.mean_worker_queue_wait_seconds is not None
+        assert len([event for event in trace if isinstance(event, WorkerContractViolated)]) == 6
+        packets = [event.packet for event in trace if isinstance(event, WorkerPacketPrepared)]
+        packets_by_arm.append(
+            sorted(
+                [
+                    (
+                        packet.objective,
+                        packet.contract,
+                        packet.budget_slice,
+                        packet.relevant_entities,
+                        packet.relevant_evidence,
+                        packet.prior_checked_actions,
+                    )
+                    for packet in packets
+                ],
+                key=lambda item: item[0],
+            )
+        )
+    assert packets_by_arm[0] == packets_by_arm[1]
 
 
 @pytest.mark.postgres

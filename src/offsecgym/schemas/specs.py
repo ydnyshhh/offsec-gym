@@ -88,7 +88,14 @@ class ExperimentSpec(StrictModel):
     seed: int = Field(ge=0)
     range: RangeSpec
     budget: Budget
-    orchestrator: Literal["scripted", "monolithic", "planner_executor", "ephemeral_workers"]
+    orchestrator: Literal[
+        "scripted",
+        "monolithic",
+        "planner_executor",
+        "ephemeral_workers",
+        "matched_sequential_workers",
+        "matched_parallel_workers",
+    ]
     memory: Literal["none", "transcript", "summary", "structured"] = "none"
     validation: Literal["deterministic", "self", "independent_model"] = "deterministic"
     surface_visibility: Literal["known_routes", "openapi", "discoverable", "black_box"] | None = (
@@ -104,15 +111,23 @@ class ExperimentSpec(StrictModel):
             raise ValueError("monolithic runs require explicit surface_visibility")
         if self.orchestrator == "monolithic" and self.budget.max_model_calls is None:
             raise ValueError("monolithic runs require explicit max_model_calls")
-        if self.orchestrator == "ephemeral_workers":
+        if self.orchestrator in {
+            "ephemeral_workers",
+            "matched_sequential_workers",
+            "matched_parallel_workers",
+        }:
             if self.memory != "structured":
                 raise ValueError("ephemeral workers require structured memory")
             if self.surface_visibility != "known_routes":
                 raise ValueError("ephemeral workers require known_routes visibility")
             if self.budget.max_model_calls is None or self.budget.max_model_calls < 6:
                 raise ValueError("ephemeral workers require at least six model calls")
-            if self.budget.max_workers != 6 or self.budget.max_concurrency != 1:
-                raise ValueError("sequential workers require max_workers=6 and max_concurrency=1")
+            expected_concurrency = 6 if self.orchestrator == "matched_parallel_workers" else 1
+            if self.budget.max_workers != 6 or self.budget.max_concurrency != expected_concurrency:
+                raise ValueError(
+                    f"{self.orchestrator} requires max_workers=6 and "
+                    f"max_concurrency={expected_concurrency}"
+                )
             if self.budget.max_actions is not None and self.budget.max_actions < 6:
                 raise ValueError("ephemeral workers require at least six actions")
             if self.budget.max_http_requests is not None and self.budget.max_http_requests < 6:
@@ -121,13 +136,24 @@ class ExperimentSpec(StrictModel):
                 raise ValueError("ephemeral workers require at least six total tokens")
         if self.orchestrator == "scripted" and self.surface_visibility is not None:
             raise ValueError("surface_visibility is only supported for model orchestrators")
-        if self.orchestrator in {"monolithic", "ephemeral_workers"} and all(
+        if self.orchestrator in {
+            "monolithic",
+            "ephemeral_workers",
+            "matched_sequential_workers",
+            "matched_parallel_workers",
+        } and all(
             limit is None
             for limit in (self.budget.max_total_tokens, self.budget.max_output_tokens_per_call)
         ):
             raise ValueError("model runs require a total or per-call output token limit")
         if (
-            self.orchestrator in {"monolithic", "ephemeral_workers"}
+            self.orchestrator
+            in {
+                "monolithic",
+                "ephemeral_workers",
+                "matched_sequential_workers",
+                "matched_parallel_workers",
+            }
             and self.budget.max_cost_usd is not None
             and self.model is not None
             and self.model.input_usd_per_million_tokens is None
