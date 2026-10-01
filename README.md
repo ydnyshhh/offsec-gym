@@ -22,6 +22,9 @@ The corrected M5.4 code at `0f27533` is the frozen comparison baseline, with
 its two failed research gates preserved in the [diagnostic](docs/diagnostics/kimi-k3-openrouter-m54.md).
 Milestone 6.0 adds atomic PostgreSQL controller reservations and worker
 lifecycle contracts; see [Milestone 6.0](docs/milestone-6.0.md).
+Milestone 6.1 adds a deterministic sequential coordinator with bounded worker
+packets, attributed findings, and typed debriefs; see
+[Milestone 6.1](docs/milestone-6.1.md).
 
 ## Development
 

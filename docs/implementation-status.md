@@ -66,6 +66,10 @@
 - Concurrent fake-worker PostgreSQL acceptance tests across independent event
   store instances. They verify unique active reservations, bounded action/model/
   worker counts, and reconstruction from the event stream.
+- M6.1 fixed sequential worker decomposition, bounded event-recorded packets,
+  typed debriefs, worker-attributed findings, matched Kimi control/worker configs,
+  and trace-derived orchestration metrics. Fake-provider PostgreSQL and Docker
+  tests verify the lifecycle and one validated cross-worker state handoff.
 
 ## Partially implemented
 
@@ -92,13 +96,10 @@
 
 ## Next milestone
 
-Build M6.1 sequential coordinator and ephemeral workers on the M6.0 shared
-controller primitives. Require bounded worker packets and typed debriefs, then
-compare them with the M5.4 monolithic structured *policy rerun on the same
-controller code* under matched
-model, range, visibility, provider, validator, and global budget. Add actual
-concurrency only after sequential traces behave sensibly. See
-[Milestone 6.0](milestone-6.0.md).
+Run the matched M6.1 three-control/three-worker diagnostic using current
+controller code, then inspect packet utility, repetition, attribution, and
+validated findings before M6.2 concurrency. See
+[Milestone 6.1](milestone-6.1.md).
 
 ## Known architectural debt
 

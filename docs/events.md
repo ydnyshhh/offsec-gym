@@ -81,6 +81,10 @@ V2 model budget events add request bytes, reserved input/output tokens, actual
 input/output tokens, and signed reservation errors. Positive error means actual
 usage exceeded the corresponding reservation; a failed provider call settles
 with zero reported usage. V1 budget events remain parseable.
+M6.1 adds `WorkerPacketPrepared`, containing the bounded typed handoff between
+spawn and start. `WorkerDebriefed` is derived from events created during the
+worker's lifetime. V3 `FindingSubmitted` adds worker and task IDs for attributed
+findings; v2 historical submissions remain readable.
 
 Request events precede external effects. An allowed action receives exactly one terminal
 completion, blocked, failed, or outcome-unknown resolution. JSONL is an export of the
