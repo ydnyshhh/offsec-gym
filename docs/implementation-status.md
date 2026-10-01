@@ -116,11 +116,11 @@
 
 ## Next milestone
 
-Run the M6.2.1 sequential-versus-parallel scheduling comparison with the
-exact [M6.1.3](milestone-6.1.3.md) worker policy, including its recorded failed
-gates. [M6.2.0](milestone-6.2.0.md) closes the concurrency infrastructure
-blockers; it does not alter that frozen research result. Packet timing and
-budget slices need an explicit matching protocol before live comparisons.
+The [M6.2.1 matched scheduling diagnostic](diagnostics/kimi-k3-openrouter-m621.md)
+is complete. Its concurrency gates passed, but fixed pre-worker packets had no
+object targets and both arms scored 0/5. A future research protocol should
+provide equivalent useful prerequisite state to both arms before testing
+dependency-aware scheduling. Preserve the frozen M6.1.3 and M6.2.1 results.
 
 ## Known architectural debt
 

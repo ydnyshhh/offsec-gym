@@ -40,3 +40,8 @@ parallel compute by annotating tokens/actions used after equivalent work was
 already resolved by another worker. Do not infer a causal speedup from one
 pair: this first run checks whether the comparison is executable and whether
 the trace supports those measurements.
+
+The [one-pair diagnostic](diagnostics/kimi-k3-openrouter-m621.md) is complete.
+Infrastructure and packet-equivalence gates passed. Both arms scored 0/5;
+the matched initial packets lacked object IDs, so this is a scheduling and
+trace-quality result rather than an orchestration score result.

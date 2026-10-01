@@ -40,6 +40,12 @@ action-required turn. Its [three-run diagnostic](docs/diagnostics/kimi-k3-openro
 met the refund POST and bounded-context gates but exposed three contract
 failures when preparatory discovery or verification conflicted with the
 detail-only route rule. The sequential baseline is frozen with these failures.
+[M6.2.0](docs/milestone-6.2.0.md) adds cross-process range locking,
+source-action fact ordering, and crashed-worker reconciliation. The
+[M6.2.1 diagnostic](docs/diagnostics/kimi-k3-openrouter-m621.md) compares
+matched sequential and parallel worker scheduling. It observed clean
+concurrency accounting and shorter elapsed time in one parallel run, with
+0/5 validated roots in both arms because fixed initial packets lacked targets.
 
 ## Development
 
