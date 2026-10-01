@@ -29,6 +29,8 @@ packets, attributed findings, and typed debriefs; see
 traces, earlier first findings, and lower worker root-cause recall.
 [M6.1.1](docs/milestone-6.1.1.md) addresses worker budget starvation and
 duplicated context with predeclared three-run smoke gates.
+The [M6.1.1 smoke](docs/diagnostics/kimi-k3-openrouter-m611.md) cleared
+budget and context gates but missed objective-action and refund-exploration gates.
 
 ## Development
 

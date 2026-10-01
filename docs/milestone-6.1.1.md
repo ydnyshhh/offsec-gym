@@ -75,3 +75,8 @@ pass, a three-run result cannot show that workers outperform the monolithic
 policy. M6.2 still requires source-action ordering for concurrent facts,
 cross-process range dispatch/reset coordination, and stale-reservation
 recovery.
+
+The [three-run smoke](diagnostics/kimi-k3-openrouter-m611.md) is complete.
+Its budget, input-size, and attribution gates passed; objective-action,
+packet-relationship, and refund-exploration gates failed. The failed gates
+remain failed in the recorded version.

@@ -79,6 +79,10 @@
   spendable budgets, a smaller packet-aware worker context, objective-aware
   packet ranking, checked POST body hashes/previews, and coordinator-owned
   coverage. Its three-run smoke gates are predeclared separately.
+- The M6.1.1 three-run smoke passed six-worker model-call opportunity,
+  input-size, and controller integrity gates, but missed objective-specific
+  HTTP action, identity/workspace packet relevance, and refund exploration
+  gates. The exact failures remain in its diagnostic.
 
 ## Partially implemented
 
@@ -105,10 +109,11 @@
 
 ## Next milestone
 
-Run the [predeclared M6.1.1 smoke](milestone-6.1.1.md) and inspect late-worker
-actions, context size, packet relevance, and controller integrity before
-freezing sequential orchestration or enabling M6.2 concurrency. The original
-[M6.1 diagnostic](diagnostics/kimi-k3-openrouter-m61.md) remains frozen.
+Correct identity/workspace packet selection and ticket route discovery in a
+separately versioned follow-up, then inspect retrieval-only worker turns.
+The [M6.1.1 diagnostic](diagnostics/kimi-k3-openrouter-m611.md) has failed
+mechanistic gates, so sequential orchestration is not frozen for M6.2. The
+original [M6.1 diagnostic](diagnostics/kimi-k3-openrouter-m61.md) remains frozen.
 
 ## Known architectural debt
 
