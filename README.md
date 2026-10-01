@@ -33,6 +33,8 @@ The [M6.1.1 smoke](docs/diagnostics/kimi-k3-openrouter-m611.md) cleared
 budget and context gates but missed objective-action and refund-exploration gates.
 [M6.1.2](docs/milestone-6.1.2.md) corrects workspace-aware identity selection
 and the known ticket-list route under a separately predeclared verification.
+The [M6.1.2 diagnostic](docs/diagnostics/kimi-k3-openrouter-m612.md) confirmed
+those handoff fixes but retained failed objective-action and refund gates.
 
 ## Development
 

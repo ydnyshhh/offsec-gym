@@ -33,3 +33,8 @@ Record root-cause recall but apply no score gate. If retrieval-only worker
 turns still prevent relevant HTTP actions, keep that as a failed behavioral
 gate and stop packet/prompt tuning for this batch. M6.2 remains deferred until
 the sequential system has a defensible, stable behavior profile.
+
+The [three-run diagnostic](diagnostics/kimi-k3-openrouter-m612.md) is complete.
+Relationship and ticket discovery checks passed, while objective-action and
+refund-exploration gates remained failed. The recorded thresholds were not
+changed after observing the traces.

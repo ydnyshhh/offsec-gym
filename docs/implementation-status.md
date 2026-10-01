@@ -86,6 +86,9 @@
 - M6.1.2 corrects identity selection toward distinct workspace memberships
   and exposes the existing ticket-list route in known-routes instructions.
   Its three-run verification gates are declared before execution.
+- The M6.1.2 three-run smoke retained distinct identity/workspace links and
+  discovered ticket entities in all runs, with no controller leaks. It still
+  missed relevant HTTP actions and refund POSTs; one run had no finding.
 
 ## Partially implemented
 
@@ -112,11 +115,11 @@
 
 ## Next milestone
 
-Run the [M6.1.2 relationship and route verification](milestone-6.1.2.md),
-then inspect whether retrieval-only worker turns persist. The
-[M6.1.1 diagnostic](diagnostics/kimi-k3-openrouter-m611.md) has failed
-mechanistic gates, so sequential orchestration is not frozen for M6.2. The
-original [M6.1 diagnostic](diagnostics/kimi-k3-openrouter-m61.md) remains frozen.
+Investigate retrieval-only worker turns as a separate trajectory-policy
+question with a new frozen protocol. The [M6.1.2 diagnostic](diagnostics/kimi-k3-openrouter-m612.md)
+still has failed objective-action and refund gates, so sequential orchestration
+is not frozen for M6.2. Earlier [M6.1](diagnostics/kimi-k3-openrouter-m61.md)
+and [M6.1.1](diagnostics/kimi-k3-openrouter-m611.md) diagnostics remain frozen.
 
 ## Known architectural debt
 
