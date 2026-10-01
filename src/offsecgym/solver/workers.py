@@ -9,6 +9,8 @@ from collections import defaultdict
 from pathlib import Path
 from uuid import UUID, uuid4
 
+from pydantic import ValidationError
+
 from offsecgym.interfaces import EventStore, ToolRegistry
 from offsecgym.providers.base import ModelProvider
 from offsecgym.schemas.actions import ActionRequest, ActionResult
@@ -191,27 +193,82 @@ class WorkerPacketBuilder:
             for item in facts
             if item.kind in {"hypothesis", "open_question"}
         ]
-        packet = WorkerTaskPacket(
-            task_id=task_id,
-            worker_id=worker_id,
-            objective=objective,
-            budget_slice=budget,
-            relevant_entities=tuple(entities[:8]),
-            relevant_evidence=tuple(evidence[-12:]),
-            prior_checked_actions=tuple(pinned + recent),
-            active_coverage=tuple(
-                f"{item.claim_id} {item.component}: {item.objective[:100]}"
-                for item in coverage
-                if item.status == "active"
-            )[-8:],
-            completed_coverage=tuple(
-                f"{item.claim_id} {item.component}: {item.objective[:100]}"
-                for item in coverage
-                if item.status == "completed"
-            )[-12:],
-            known_hypotheses=tuple(hypotheses[-12:]),
-        )
-        return packet
+        active_coverage = [
+            f"{item.claim_id} {item.component}: {item.objective[:100]}"
+            for item in coverage
+            if item.status == "active"
+        ]
+        completed_coverage = [
+            f"{item.claim_id} {item.component}: {item.objective[:100]}"
+            for item in coverage
+            if item.status == "completed"
+        ]
+        omitted = {
+            "omitted_entities": max(0, len(entities) - 8),
+            "omitted_evidence": max(0, len(evidence) - 12),
+            "omitted_checked_actions": len(checked) - len(pinned) - len(recent),
+            "omitted_coverage": (
+                max(0, len(active_coverage) - 8) + max(0, len(completed_coverage) - 12)
+            ),
+            "omitted_hypotheses": max(0, len(hypotheses) - 12),
+            "omitted_entity_details": 0,
+        }
+        entities = entities[:8]
+        evidence = evidence[-12:]
+        active_coverage = active_coverage[-8:]
+        completed_coverage = completed_coverage[-12:]
+        hypotheses = hypotheses[-12:]
+        while True:
+            try:
+                return WorkerTaskPacket(
+                    task_id=task_id,
+                    worker_id=worker_id,
+                    objective=objective,
+                    budget_slice=budget,
+                    relevant_entities=tuple(entities),
+                    relevant_evidence=tuple(evidence),
+                    prior_checked_actions=tuple(pinned + recent),
+                    active_coverage=tuple(active_coverage),
+                    completed_coverage=tuple(completed_coverage),
+                    known_hypotheses=tuple(hypotheses),
+                    **omitted,
+                )
+            except ValidationError as exc:
+                if "worker packet exceeds 10000 characters" not in str(exc):
+                    raise ExperimentInfrastructureError("worker packet validation failed") from exc
+            if hypotheses:
+                hypotheses.pop(0)
+                omitted["omitted_hypotheses"] += 1
+            elif completed_coverage:
+                completed_coverage.pop(0)
+                omitted["omitted_coverage"] += 1
+            elif any(len(item.details) > 3 for item in entities):
+                index = next(
+                    index
+                    for index in reversed(range(len(entities)))
+                    if len(entities[index].details) > 3
+                )
+                item = entities[index]
+                entities[index] = item.model_copy(update={"details": item.details[1:]})
+                omitted["omitted_entity_details"] += 1
+            elif recent:
+                recent.pop(0)
+                omitted["omitted_checked_actions"] += 1
+            elif evidence:
+                evidence.pop(0)
+                omitted["omitted_evidence"] += 1
+            elif entities:
+                removed = entities.pop()
+                omitted["omitted_entities"] += 1
+                evidence = [item for item in evidence if item.entity_id != removed.entity_id]
+            elif pinned:
+                pinned.pop(0)
+                omitted["omitted_checked_actions"] += 1
+            elif active_coverage:
+                active_coverage.pop(0)
+                omitted["omitted_coverage"] += 1
+            else:
+                raise ExperimentInfrastructureError("worker packet cannot fit bounded context")
 
 
 class _WorkerTools:
@@ -300,14 +357,14 @@ class SequentialWorkerCoordinator:
         for index, (_, objective, relevant_types) in enumerate(WORKER_OBJECTIVES):
             budget = worker_budget(context.global_budget, index)
             task_id, worker_id = uuid4(), uuid4()
+            packet = await self.packet_builder.build(
+                context, task_id, worker_id, objective, relevant_types, budget
+            )
             reason = await self.controller.spawn_worker(
                 context.run_id, worker_id, task_id, objective, context.global_budget
             )
             if reason:
                 raise AgentBudgetExhausted(reason)
-            packet = await self.packet_builder.build(
-                context, task_id, worker_id, objective, relevant_types, budget
-            )
             await self.events.append(
                 WorkerPacketPrepared(
                     run_id=context.run_id,

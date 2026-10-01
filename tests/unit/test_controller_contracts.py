@@ -6,6 +6,13 @@ import pytest
 
 from offsecgym.providers.token_budget import estimate_input_tokens
 from offsecgym.schemas.actions import ActionRequest
+from offsecgym.schemas.domain import (
+    AgentContext,
+    AgentVisibleRangeContext,
+    CoverageClaim,
+    EntityRef,
+    WorldFact,
+)
 from offsecgym.schemas.events import (
     ActionAttemptReserved,
     ActionReservationAcquired,
@@ -17,7 +24,8 @@ from offsecgym.schemas.events import (
     WorkerStarted,
     parse_event,
 )
-from offsecgym.schemas.specs import ModelSpec
+from offsecgym.schemas.specs import Budget, ModelSpec
+from offsecgym.solver.workers import WorkerPacketBuilder
 from offsecgym.storage.controller import request_fingerprint
 from offsecgym.storage.projection import project_controller_events
 
@@ -66,6 +74,70 @@ def test_model_preflight_estimate_is_configured_and_recordable() -> None:
         event.model_copy(update={"reserved_tokens": 1}).model_validate(
             event.model_copy(update={"reserved_tokens": 1}).model_dump()
         )
+
+
+async def test_worker_packet_trims_growth_before_exceeding_handoff_cap(tmp_path) -> None:
+    run_id, source_worker_id = uuid4(), uuid4()
+    facts = [
+        WorldFact(
+            fact_id=uuid4(),
+            run_id=run_id,
+            kind="hypothesis",
+            subject=EntityRef(entity_type="invoice", entity_id=entity_id),
+            predicate=f"long_predicate_{index}",
+            object_value="x" * 180,
+            source_worker_id=source_worker_id,
+            confidence=0.5,
+        )
+        for entity_id in (uuid4() for _ in range(8))
+        for index in range(6)
+    ]
+    coverage = [
+        CoverageClaim(
+            claim_id=uuid4(),
+            run_id=run_id,
+            task_id=uuid4(),
+            component="invoice",
+            objective="c" * 200,
+            status="completed",
+        )
+        for _ in range(12)
+    ]
+
+    class Events:
+        async def read_run(self, run_id):
+            return ()
+
+    class World:
+        async def query(self, run_id):
+            return facts
+
+        async def coverage(self, run_id):
+            return coverage
+
+    builder = WorkerPacketBuilder(Events(), tmp_path)
+    builder.world = World()
+    context = AgentContext(
+        run_id=run_id,
+        objective="invoice test",
+        global_budget=Budget(max_model_calls=6),
+        range=AgentVisibleRangeContext(range_instance_id=uuid4(), family="saas"),
+    )
+    packet = await builder.build(
+        context,
+        uuid4(),
+        uuid4(),
+        "invoice test",
+        ("invoice",),
+        Budget(max_model_calls=1),
+    )
+    assert len(packet.model_dump_json()) <= 10000
+    assert packet.relevant_entities
+    assert (
+        packet.omitted_entity_details > 0
+        or packet.omitted_hypotheses > 36
+        or packet.omitted_coverage > 0
+    )
 
 
 def test_worker_actions_require_task_attribution() -> None:

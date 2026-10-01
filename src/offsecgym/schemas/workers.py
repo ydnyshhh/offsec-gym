@@ -42,6 +42,12 @@ class WorkerTaskPacket(StrictModel):
     active_coverage: tuple[str, ...] = Field(default=(), max_length=8)
     completed_coverage: tuple[str, ...] = Field(default=(), max_length=12)
     known_hypotheses: tuple[str, ...] = Field(default=(), max_length=12)
+    omitted_entity_details: int = Field(default=0, ge=0)
+    omitted_entities: int = Field(default=0, ge=0)
+    omitted_evidence: int = Field(default=0, ge=0)
+    omitted_checked_actions: int = Field(default=0, ge=0)
+    omitted_coverage: int = Field(default=0, ge=0)
+    omitted_hypotheses: int = Field(default=0, ge=0)
 
     @model_validator(mode="after")
     def bounded_handoff(self) -> WorkerTaskPacket:
