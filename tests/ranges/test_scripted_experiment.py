@@ -109,3 +109,52 @@ async def test_scripted_vulnerable_and_patched_pair(tmp_path: Path) -> None:
         )
         assert isinstance(trace[-1], RunCompleted)
         assert trace[-1].status == "completed"
+
+
+@pytest.mark.docker
+@pytest.mark.parametrize("seed", range(1001, 1011))
+async def test_v2_held_out_scripted_pair(tmp_path: Path, seed: int) -> None:
+    result = subprocess.run(
+        ["docker", "info", "--format", "{{.ServerVersion}}"],
+        capture_output=True,
+        text=True,
+        timeout=10,
+        check=False,
+    )
+    if result.returncode:
+        if os.getenv("OFFSECGYM_REQUIRE_DOCKER") == "1":
+            pytest.fail(f"Docker required by CI: {result.stderr[-400:]}")
+        pytest.skip("Docker daemon is unavailable")
+    runtime = ComposeRangeRuntime(tmp_path)
+    events = MemoryEvents()
+    runner = ScriptedExperimentRunner(runtime, events)
+    base = RangeSpec.model_validate(
+        yaml.safe_load((Path(__file__).parents[2] / "examples" / "saas-range.yaml").read_text())
+    ).model_copy(update={"scenario": "tenant_boundary_v2", "seed": seed})
+    outcomes = []
+    for variant in (base, base.model_copy(update={"patched": True})):
+        outcomes.append(
+            await runner.run(
+                ExperimentSpec(
+                    name=f"v2_scripted_pair_{seed}",
+                    seed=1,
+                    range=variant,
+                    budget=Budget(max_actions=30, max_http_requests=30, max_wall_seconds=240),
+                    orchestrator="scripted",
+                    validation="deterministic",
+                )
+            )
+        )
+    vulnerable, patched = outcomes
+    assert vulnerable.build_id != patched.build_id
+    assert (
+        runtime.state.load_build(vulnerable.build_id).pair_id
+        == runtime.state.load_build(patched.build_id).pair_id
+    )
+    assert vulnerable.evaluation.score_valid and patched.evaluation.score_valid
+    assert vulnerable.evaluation.true_positives == 5
+    assert vulnerable.evaluation.false_positives == vulnerable.evaluation.false_negatives == 0
+    assert patched.evaluation.true_positives == patched.evaluation.false_positives == 0
+    assert patched.evaluation.false_negatives == 0
+    assert len(vulnerable.findings) == len(vulnerable.validations) == 5
+    assert patched.findings == patched.validations == ()

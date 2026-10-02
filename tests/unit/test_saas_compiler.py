@@ -2,12 +2,18 @@
 
 import json
 from pathlib import Path
+from uuid import UUID
 
 import pytest
 import yaml
 
 from offsecgym.runtime.manifests import BuildIntegrityError, StateStore
-from offsecgym.runtime.saas import SaasRangeCompiler, fixture_for_seed
+from offsecgym.runtime.saas import (
+    SaasRangeCompiler,
+    _fixture_targets,
+    fixture_for_seed,
+    fixture_for_seed_v2,
+)
 from offsecgym.schemas.attack_graph import AttackGraphManifest
 from offsecgym.schemas.ground_truth import GroundTruthManifest
 from offsecgym.schemas.specs import RangeSpec
@@ -23,6 +29,7 @@ def test_saas_paired_builds_share_fixture_and_hide_oracle(tmp_path: Path) -> Non
     state = StateStore(tmp_path)
     compiler = SaasRangeCompiler(state)
     vulnerable = compiler.build(load_spec())
+    assert vulnerable.build_id == UUID("c435a866-da5a-5f65-a2b5-ba2e4c2cc4db")
     patched = compiler.build(load_spec(patched=True))
     selective = compiler.build(
         load_spec().model_copy(update={"patched_properties": ("DOC-CROSS-TENANT-READ",)})
@@ -64,6 +71,77 @@ def test_saas_compiler_rejects_unsupported_surface(tmp_path: Path) -> None:
         compiler.build(load_spec().model_copy(update={"topology": {"saas": True, "redis": True}}))
     with pytest.raises(ValueError, match="five declared"):
         compiler.build(load_spec().model_copy(update={"vulnerabilities": ()}))
+
+
+def test_v2_held_out_pairs_vary_semantics_and_preserve_oracle(tmp_path: Path) -> None:
+    compiler = SaasRangeCompiler(StateStore(tmp_path))
+    witness_names = set()
+    workspace_orders = set()
+    document_titles = set()
+    target_positions = set()
+    pair_ids = set()
+    for seed in range(1001, 1011):
+        fixture = fixture_for_seed_v2(seed)
+        assert fixture == fixture_for_seed_v2(seed)
+        member, own_doc, foreign_doc, foreign_ticket, own_invoice, foreign_invoice = (
+            _fixture_targets(fixture)
+        )
+        witness_names.add(member["username"])
+        workspace_orders.add(tuple(item["name"] for item in fixture["workspaces"]))
+        document_titles.add(own_doc["title"])
+        target_positions.add(
+            next(
+                index
+                for index, item in enumerate(fixture["documents"])
+                if item["id"] == foreign_doc["id"]
+            )
+        )
+        assert own_doc["workspace_id"] == own_invoice["workspace_id"] == member["workspace_id"]
+        assert (
+            foreign_doc["workspace_id"]
+            == foreign_ticket["workspace_id"]
+            == foreign_invoice["workspace_id"]
+        )
+        assert foreign_doc["workspace_id"] != member["workspace_id"]
+        base = load_spec().model_copy(update={"scenario": "tenant_boundary_v2", "seed": seed})
+        vulnerable = compiler.build(base)
+        patched = compiler.build(base.model_copy(update={"patched": True}))
+        pair_ids.add(vulnerable.pair_id)
+        assert vulnerable.pair_id == patched.pair_id
+        assert vulnerable.build_id != patched.build_id
+        vulnerable_fixture = compiler.state.build_dir(vulnerable.build_id) / "fixture.json"
+        patched_fixture = compiler.state.build_dir(patched.build_id) / "fixture.json"
+        assert vulnerable_fixture.read_bytes() == patched_fixture.read_bytes()
+        for build, expected_active in ((vulnerable, 5), (patched, 0)):
+            oracle_dir = compiler.state.root / "oracles" / build.build_id.hex
+            oracle = GroundTruthManifest.model_validate_json(
+                (oracle_dir / "ground_truth.json").read_bytes()
+            )
+            graph = AttackGraphManifest.model_validate_json(
+                (oracle_dir / "attack_graph.json").read_bytes()
+            )
+            graph.validate_against_ground_truth(oracle)
+            assert oracle.scenario_id == "tenant_boundary_v2"
+            assert (
+                len(oracle.properties)
+                == len({item.root_cause_id for item in oracle.properties})
+                == 5
+            )
+            assert sum(item.active for item in oracle.properties) == expected_active
+            by_slug = {item.slug: item for item in oracle.properties}
+            assert by_slug["DOC-CROSS-TENANT-READ"].object.object_id == UUID(foreign_doc["id"])
+            assert by_slug["INVOICE-CROSS-TENANT-READ"].object.object_id == UUID(
+                foreign_invoice["id"]
+            )
+            assert by_slug["TICKET-CROSS-TENANT-READ"].object.object_id == UUID(
+                foreign_ticket["id"]
+            )
+            assert by_slug["MEMBER-REFUND"].object.object_id == UUID(own_invoice["id"])
+    assert len(pair_ids) == 10
+    assert len(witness_names) == 3
+    assert len(workspace_orders) >= 5
+    assert len(document_titles) >= 4
+    assert len(target_positions) >= 2
 
 
 @pytest.mark.parametrize(

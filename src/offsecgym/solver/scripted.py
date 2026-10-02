@@ -109,7 +109,7 @@ class ScriptedSaasSolver:
         for identity_id in context.range.identity_ids:
             result, _ = await call("GET", "/api/me", identity_id)
             account = _body(result)
-            if account.get("username") == "member_0" and account.get("role") == "member":
+            if account.get("role") == "member":
                 member_id = identity_id
                 workspace_id = _uuid(account.get("workspace_id"))
                 break

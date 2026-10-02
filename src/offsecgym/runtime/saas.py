@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import random
 import shutil
 import tempfile
 from importlib.resources import files
@@ -44,6 +45,7 @@ from offsecgym.schemas.specs import RangeSpec
 ENTITY_NAMESPACE = UUID("5e079198-b3e4-4a85-a40a-541d1bda1a9b")
 # Bump whenever target, oracle, or graph semantics can change without a spec/template change.
 SAAS_COMPILER_VERSION = "tenant-boundary-v1/compiler-3"
+SAAS_V2_COMPILER_VERSION = "tenant-boundary-v2/compiler-1"
 TEMPLATE_NAMES = ("Dockerfile", "gateway_idle.py", "http_worker.py", "saas_service.py")
 IDENTITIES = {
     "customers": 3,
@@ -77,8 +79,11 @@ def patched_properties(spec: RangeSpec) -> frozenset[str]:
 
 
 def validate_saas_spec(spec: RangeSpec) -> None:
-    if spec.family != "saas" or spec.scenario != "tenant_boundary_v1":
-        raise ValueError("Milestone 2 supports only saas/tenant_boundary_v1")
+    if spec.family != "saas" or spec.scenario not in {
+        "tenant_boundary_v1",
+        "tenant_boundary_v2",
+    }:
+        raise ValueError("SaaS range supports tenant_boundary_v1 and tenant_boundary_v2")
     if spec.topology != TOPOLOGY or spec.identities != IDENTITIES:
         raise ValueError("SaaS range requires the documented topology and identity counts")
     actual = [(item.family, item.component, item.variant) for item in spec.vulnerabilities]
@@ -169,6 +174,169 @@ def fixture_for_seed(seed: int) -> dict[str, object]:
     }
 
 
+def fixture_for_seed_v2(seed: int) -> dict[str, object]:
+    """Vary relationships and text while preserving one witness per property."""
+    rng = random.Random(seed)
+
+    def entity(kind: str, index: int) -> str:
+        return str(uuid5(ENTITY_NAMESPACE, f"v2:{seed}:{kind}:{index}"))
+
+    labels = rng.sample(
+        ("Northstar", "Harbor", "Cedar", "Aster", "Bracken", "Delta", "Elm", "Fjord"),
+        3,
+    )
+    workspaces = [
+        {"id": entity("workspace", index), "name": f"{label} Labs"}
+        for index, label in enumerate(labels)
+    ]
+    rng.shuffle(workspaces)
+    member_workspaces = [item["id"] for item in workspaces]
+    admin_workspaces = member_workspaces.copy()
+    rng.shuffle(member_workspaces)
+    rng.shuffle(admin_workspaces)
+    accounts = [
+        {
+            "id": entity("member", index),
+            "username": f"member_{index}",
+            "role": "member",
+            "workspace_id": member_workspaces[index],
+        }
+        for index in range(3)
+    ] + [
+        {
+            "id": entity("admin", index),
+            "username": f"admin_{index}",
+            "role": "workspace_admin",
+            "workspace_id": admin_workspaces[index],
+        }
+        for index in range(3)
+    ]
+    rng.shuffle(accounts)
+    accounts.extend(
+        [
+            {
+                "id": entity("support", 0),
+                "username": "support_0",
+                "role": "support",
+                "workspace_id": None,
+            },
+            {
+                "id": entity("platform", 0),
+                "username": "platform_0",
+                "role": "platform_admin",
+                "workspace_id": None,
+            },
+        ]
+    )
+    member = next(item for item in accounts if item["role"] == "member")
+    own_workspace = member["workspace_id"]
+    foreign_workspace = rng.choice(
+        [item["id"] for item in workspaces if item["id"] != own_workspace]
+    )
+    name_by_workspace = {item["id"]: item["name"].removesuffix(" Labs") for item in workspaces}
+
+    def title(workspace: dict, choices: tuple[str, ...]) -> str:
+        return f"{name_by_workspace[workspace['id']]} {rng.choice(choices)}"
+
+    invoices = [
+        {
+            "id": entity("invoice", index),
+            "workspace_id": workspace["id"],
+            "amount_cents": 9000 + rng.randrange(11000),
+            "billing_email": f"billing@{name_by_workspace[workspace['id']].lower()}.example",
+            "status": "paid",
+        }
+        for index, workspace in enumerate(workspaces)
+    ]
+    invoice_by_workspace = {item["workspace_id"]: item for item in invoices}
+    docs = [
+        {
+            "id": entity("document", index),
+            "workspace_id": workspace["id"],
+            "title": title(workspace, ("procurement memo", "billing brief", "account note")),
+            "body": "",
+            "reference_document_id": None,
+            "reference_ticket_id": None,
+        }
+        for index, workspace in enumerate(workspaces)
+    ]
+    tickets = [
+        {
+            "id": entity("ticket", index),
+            "workspace_id": workspace["id"],
+            "title": title(workspace, ("invoice query", "account question", "billing request")),
+            "body": "",
+        }
+        for index, workspace in enumerate(workspaces)
+    ]
+    doc_by_workspace = {item["workspace_id"]: item for item in docs}
+    ticket_by_workspace = {item["workspace_id"]: item for item in tickets}
+    own_doc = doc_by_workspace[own_workspace]
+    foreign_doc = doc_by_workspace[foreign_workspace]
+    own_doc["reference_document_id"] = foreign_doc["id"]
+    own_doc["reference_ticket_id"] = ticket_by_workspace[foreign_workspace]["id"]
+    note_templates = (
+        "Review invoice {invoice}. Archive tag {decoy} is not a live record.",
+        "Invoice {invoice} appears in this memo; ignore retired reference {decoy}.",
+        "For this account use invoice {invoice}. Historical token: {decoy}.",
+    )
+    for index, document in enumerate(docs):
+        decoy = entity("retired-reference", index)
+        document["body"] = rng.choice(note_templates).format(
+            invoice=invoice_by_workspace[document["workspace_id"]]["id"], decoy=decoy
+        )
+    for ticket in tickets:
+        ticket["body"] = rng.choice(
+            (
+                "Please review invoice {invoice}.",
+                "The account question concerns invoice {invoice}.",
+                "Can support check invoice {invoice}?",
+            )
+        ).format(invoice=invoice_by_workspace[ticket["workspace_id"]]["id"])
+    rng.shuffle(invoices)
+    rng.shuffle(docs)
+    rng.shuffle(tickets)
+    return {
+        "seed": seed,
+        "workspaces": workspaces,
+        "accounts": accounts,
+        "documents": docs,
+        "invoices": invoices,
+        "tickets": tickets,
+    }
+
+
+def _fixture_targets(fixture: dict[str, object]) -> tuple[dict, dict, dict, dict, dict, dict]:
+    member = next(item for item in fixture["accounts"] if item["role"] == "member")
+    own_workspace = member["workspace_id"]
+    own_document = next(
+        item
+        for item in fixture["documents"]
+        if item["workspace_id"] == own_workspace and item["reference_document_id"]
+    )
+    foreign_document = next(
+        item for item in fixture["documents"] if item["id"] == own_document["reference_document_id"]
+    )
+    foreign_ticket = next(
+        item for item in fixture["tickets"] if item["id"] == own_document["reference_ticket_id"]
+    )
+    own_invoice = next(
+        item for item in fixture["invoices"] if item["workspace_id"] == own_workspace
+    )
+    foreign_invoice = next(
+        item
+        for item in fixture["invoices"]
+        if item["workspace_id"] == foreign_document["workspace_id"]
+    )
+    if (
+        foreign_document["workspace_id"] == own_workspace
+        or foreign_ticket["workspace_id"] != foreign_document["workspace_id"]
+        or foreign_invoice["id"] not in foreign_document["body"]
+    ):
+        raise ValueError("SaaS fixture witness relationships are inconsistent")
+    return member, own_document, foreign_document, foreign_ticket, own_invoice, foreign_invoice
+
+
 def _semantic_id(seed: int, scenario_id: str, kind: str, slug: str) -> UUID:
     return uuid5(ENTITY_NAMESPACE, f"{scenario_id}:{seed}:{kind}:{slug}")
 
@@ -189,14 +357,16 @@ def oracle_for_fixture(
     scenario_id: str = "tenant_boundary_v1",
 ) -> GroundTruthManifest:
     seed = int(fixture["seed"])
-    member = fixture["accounts"][0]
-    foreign_workspace = fixture["workspaces"][1]["id"]
+    member, _, foreign_document, foreign_ticket, own_invoice, foreign_invoice = _fixture_targets(
+        fixture
+    )
+    foreign_workspace = foreign_document["workspace_id"]
     definitions = (
         (
             "DOC-CROSS-TENANT-READ",
             "object_authorization",
             "documents",
-            fixture["documents"][1]["id"],
+            foreign_document["id"],
             foreign_workspace,
             AuthorizationExpectation(
                 subject_role="member",
@@ -217,7 +387,7 @@ def oracle_for_fixture(
             "INVOICE-CROSS-TENANT-READ",
             "object_authorization",
             "invoices",
-            fixture["invoices"][1]["id"],
+            foreign_invoice["id"],
             foreign_workspace,
             AuthorizationExpectation(
                 subject_role="member",
@@ -238,7 +408,7 @@ def oracle_for_fixture(
             "TICKET-CROSS-TENANT-READ",
             "object_authorization",
             "support",
-            fixture["tickets"][1]["id"],
+            foreign_ticket["id"],
             foreign_workspace,
             AuthorizationExpectation(
                 subject_role="member",
@@ -259,7 +429,7 @@ def oracle_for_fixture(
             "MEMBER-REFUND",
             "workflow_authorization",
             "billing",
-            fixture["invoices"][0]["id"],
+            own_invoice["id"],
             member["workspace_id"],
             StateTransitionExpectation(
                 subject_role="member",
@@ -284,7 +454,7 @@ def oracle_for_fixture(
             "PUBLIC-INVOICE-METADATA",
             "information_exposure",
             "billing",
-            fixture["invoices"][1]["id"],
+            foreign_invoice["id"],
             foreign_workspace,
             FieldExposureExpectation(
                 subject_role="anonymous",
@@ -379,6 +549,7 @@ def graph_for_fixture(
     )
     node_id = {slug: _semantic_id(seed, scenario_id, "node", slug) for slug in node_slugs}
     properties = {item.slug: item for item in oracle.properties}
+    _, own_document, _, _, _, foreign_invoice = _fixture_targets(fixture)
     edges = []
 
     def add_edge(
@@ -432,7 +603,7 @@ def graph_for_fixture(
         "own_document_read",
         "foreign_document_id_known",
         action_family="observation",
-        evidence=(str(fixture["documents"][0]["reference_document_id"]),),
+        evidence=(str(own_document["reference_document_id"]),),
         required=True,
     )
     add_edge(
@@ -458,7 +629,7 @@ def graph_for_fixture(
         "foreign_document_read",
         "foreign_invoice_id_known",
         action_family="observation",
-        evidence=(str(fixture["invoices"][1]["id"]),),
+        evidence=(str(foreign_invoice["id"]),),
         required=True,
     )
     add_edge(
@@ -487,7 +658,7 @@ def graph_for_fixture(
         "own_document_read",
         "foreign_ticket_id_known",
         action_family="observation",
-        evidence=(str(fixture["documents"][0]["reference_ticket_id"]),),
+        evidence=(str(own_document["reference_ticket_id"]),),
     )
     add_edge(
         "test-ticket",
@@ -611,7 +782,9 @@ class SaasRangeCompiler:
 
     def build(self, spec: RangeSpec) -> BuildManifest:
         validate_saas_spec(spec)
-        fixture = fixture_for_seed(spec.seed)
+        is_v2 = spec.scenario == "tenant_boundary_v2"
+        compiler_version = SAAS_V2_COMPILER_VERSION if is_v2 else SAAS_COMPILER_VERSION
+        fixture = fixture_for_seed_v2(spec.seed) if is_v2 else fixture_for_seed(spec.seed)
         patch_set = patched_properties(spec)
         spec_bytes = json.dumps(
             spec.model_dump(mode="json"), sort_keys=True, separators=(",", ":")
@@ -622,9 +795,15 @@ class SaasRangeCompiler:
             pair_spec.model_dump(mode="json"), sort_keys=True, separators=(",", ":")
         ).encode()
         pair_spec_hash = hashlib.sha256(pair_bytes).hexdigest()
-        pair_id = uuid5(BUILD_NAMESPACE, f"{SAAS_COMPILER_VERSION}:saas-pair:{pair_spec_hash}")
+        pair_id = uuid5(BUILD_NAMESPACE, f"{compiler_version}:saas-pair:{pair_spec_hash}")
         root = files("offsecgym.runtime").joinpath("templates", "saas")
         templates = {name: root.joinpath(name).read_bytes() for name in TEMPLATE_NAMES}
+        if is_v2:
+            old = b'"scenario": "tenant_boundary_v1"'
+            new = b'"scenario": "tenant_boundary_v2"'
+            if templates["saas_service.py"].count(old) != 1:
+                raise ValueError("v2 health scenario template marker changed")
+            templates["saas_service.py"] = templates["saas_service.py"].replace(old, new)
         fixture_bytes = json.dumps(fixture, sort_keys=True, separators=(",", ":")).encode()
         compose_template = yaml.safe_dump(
             _compose_config("offsecgym-saas:placeholder", patch_set), sort_keys=True
@@ -634,7 +813,7 @@ class SaasRangeCompiler:
             + fixture_bytes
             + compose_template
         ).hexdigest()
-        build_id = uuid5(BUILD_NAMESPACE, f"{SAAS_COMPILER_VERSION}:{spec_hash}:{template_hash}")
+        build_id = uuid5(BUILD_NAMESPACE, f"{compiler_version}:{spec_hash}:{template_hash}")
         oracle = oracle_for_fixture(fixture, patch_set, build_id, pair_id, spec.scenario)
         graph = graph_for_fixture(fixture, oracle)
         oracle_bytes = (
