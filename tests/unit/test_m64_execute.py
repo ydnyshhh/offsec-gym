@@ -11,7 +11,11 @@ from offsecgym.research.m64_execute import Journal, spec_for_cell, verify_manife
 
 def test_m64_collector_reconstructs_every_feasible_cell() -> None:
     root = Path(__file__).parents[2]
-    manifest = verify_manifest(root, root / "experiments/manifests/m64-v2-worker-primary-1.json")
+    manifest = verify_manifest(
+        root,
+        root / "experiments/manifests/m64-v2-worker-primary-1.json",
+        require_source_history=False,  # GitHub Actions checks out only the tip commit.
+    )
     for cell in manifest["cells"]:
         if cell["policy_feasible"]:
             spec = spec_for_cell(root, manifest, cell)

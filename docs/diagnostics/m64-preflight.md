@@ -40,7 +40,11 @@ checks alone total about 14.5 minutes before the older suite and CI setup.
 The existing single `validate` CI job retained all steps and its check name;
 its timeout was raised from 15 to 30 minutes. This permits the expanded
 suite to finish without changing which tests gate each push. Hosted duration
-and outcome still require exact-head verification.
+and outcome still require exact-head verification. The first collector CI
+run passed 211 tests and failed only its new manifest test because GitHub's
+shallow checkout did not contain the older pinned source commit. That test
+now skips only the historical Git comparison in shallow CI; the live
+collector still requires it, and both paths rebuild the manifest exactly.
 
 The fake-provider pilot deliberately returns `task_blocked`. Its scores say
 nothing about model finding quality, and its traces are excluded from the

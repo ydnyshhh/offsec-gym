@@ -76,30 +76,33 @@ def spec_for_cell(root: Path, manifest: dict[str, Any], cell: dict[str, Any]) ->
     return spec
 
 
-def verify_manifest(root: Path, path: Path) -> dict[str, Any]:
+def verify_manifest(
+    root: Path, path: Path, *, require_source_history: bool = True
+) -> dict[str, Any]:
     recorded = json.loads(path.read_text())
     if recorded != json.loads(
         json.dumps(plan_m64_matrix(root, source_commit=recorded["source_commit"]))
     ):
         raise ValueError("manifest no longer rebuilds exactly from pinned inputs")
-    changed = subprocess.run(
-        [
-            "git",
-            "diff",
-            "--quiet",
-            recorded["source_commit"],
-            "HEAD",
-            "--",
-            "src/offsecgym",
-            ":!src/offsecgym/research/m64_execute.py",
-            "experiments/configs",
-            "examples",
-        ],
-        cwd=root,
-        check=False,
-    )
-    if changed.returncode != 0:
-        raise ValueError("runtime source differs from the manifest source commit")
+    if require_source_history:
+        changed = subprocess.run(
+            [
+                "git",
+                "diff",
+                "--quiet",
+                recorded["source_commit"],
+                "HEAD",
+                "--",
+                "src/offsecgym",
+                ":!src/offsecgym/research/m64_execute.py",
+                "experiments/configs",
+                "examples",
+            ],
+            cwd=root,
+            check=False,
+        )
+        if changed.returncode != 0:
+            raise ValueError("runtime source differs from the manifest source commit")
     dirty = subprocess.run(
         [
             "git",
