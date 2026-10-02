@@ -1,0 +1,578 @@
+{
+  "budgets": [
+    40000,
+    60000,
+    80000,
+    120000,
+    160000
+  ],
+  "common_feasible_auc": [
+    {
+      "arm": "fixed_sequential",
+      "interval": [
+        120000,
+        160000
+      ],
+      "normalized_trapezoidal_auc": 0.31,
+      "score_valid_seed_curves": 10
+    },
+    {
+      "arm": "matched_parallel",
+      "interval": [
+        120000,
+        160000
+      ],
+      "normalized_trapezoidal_auc": 0.31,
+      "score_valid_seed_curves": 10
+    },
+    {
+      "arm": "opportunity_aware",
+      "interval": [
+        120000,
+        160000
+      ],
+      "normalized_trapezoidal_auc": 0.32222222222222224,
+      "score_valid_seed_curves": 9
+    }
+  ],
+  "paired_common_feasible_auc_differences": [
+    {
+      "left_arm": "fixed_sequential",
+      "matched_score_valid_seed_curves": 10,
+      "mean_normalized_auc_left_minus_right": -1.1102230246251566e-17,
+      "right_arm": "matched_parallel",
+      "seed_bootstrap_95pct": [
+        -0.13,
+        0.12
+      ]
+    },
+    {
+      "left_arm": "fixed_sequential",
+      "matched_score_valid_seed_curves": 9,
+      "mean_normalized_auc_left_minus_right": -0.03333333333333333,
+      "right_arm": "opportunity_aware",
+      "seed_bootstrap_95pct": [
+        -0.1111111111111111,
+        0.04444444444444443
+      ]
+    },
+    {
+      "left_arm": "matched_parallel",
+      "matched_score_valid_seed_curves": 9,
+      "mean_normalized_auc_left_minus_right": 3.0839528461809902e-18,
+      "right_arm": "opportunity_aware",
+      "seed_bootstrap_95pct": [
+        -0.1111111111111111,
+        0.1111111111111111
+      ]
+    }
+  ],
+  "paired_differences": [
+    {
+      "budget": 120000,
+      "left_arm": "fixed_sequential",
+      "matched_score_valid_seeds": 10,
+      "mean_left_minus_right": -0.020000000000000007,
+      "right_arm": "matched_parallel",
+      "seed_bootstrap_95pct": [
+        -0.18000000000000002,
+        0.13999999999999999
+      ],
+      "variant": "vulnerable"
+    },
+    {
+      "budget": 120000,
+      "left_arm": "fixed_sequential",
+      "matched_score_valid_seeds": 10,
+      "mean_left_minus_right": -0.04,
+      "right_arm": "opportunity_aware",
+      "seed_bootstrap_95pct": [
+        -0.13999999999999999,
+        0.07999999999999999
+      ],
+      "variant": "vulnerable"
+    },
+    {
+      "budget": 120000,
+      "left_arm": "matched_parallel",
+      "matched_score_valid_seeds": 10,
+      "mean_left_minus_right": -0.019999999999999997,
+      "right_arm": "opportunity_aware",
+      "seed_bootstrap_95pct": [
+        -0.13999999999999999,
+        0.1
+      ],
+      "variant": "vulnerable"
+    },
+    {
+      "budget": 120000,
+      "left_arm": "fixed_sequential",
+      "matched_score_valid_seeds": 10,
+      "mean_left_minus_right": 0.2,
+      "right_arm": "matched_parallel",
+      "seed_bootstrap_95pct": [
+        -0.8,
+        1.3
+      ],
+      "variant": "patched"
+    },
+    {
+      "budget": 120000,
+      "left_arm": "fixed_sequential",
+      "matched_score_valid_seeds": 10,
+      "mean_left_minus_right": -0.5,
+      "right_arm": "opportunity_aware",
+      "seed_bootstrap_95pct": [
+        -1.7,
+        0.3
+      ],
+      "variant": "patched"
+    },
+    {
+      "budget": 120000,
+      "left_arm": "matched_parallel",
+      "matched_score_valid_seeds": 10,
+      "mean_left_minus_right": -0.7,
+      "right_arm": "opportunity_aware",
+      "seed_bootstrap_95pct": [
+        -2.0,
+        0.6
+      ],
+      "variant": "patched"
+    },
+    {
+      "budget": 160000,
+      "left_arm": "fixed_sequential",
+      "matched_score_valid_seeds": 10,
+      "mean_left_minus_right": 0.02,
+      "right_arm": "matched_parallel",
+      "seed_bootstrap_95pct": [
+        -0.12,
+        0.16
+      ],
+      "variant": "vulnerable"
+    },
+    {
+      "budget": 160000,
+      "left_arm": "fixed_sequential",
+      "matched_score_valid_seeds": 9,
+      "mean_left_minus_right": 0.022222222222222223,
+      "right_arm": "opportunity_aware",
+      "seed_bootstrap_95pct": [
+        -0.11111111111111109,
+        0.15555555555555556
+      ],
+      "variant": "vulnerable"
+    },
+    {
+      "budget": 160000,
+      "left_arm": "matched_parallel",
+      "matched_score_valid_seeds": 9,
+      "mean_left_minus_right": 0.022222222222222223,
+      "right_arm": "opportunity_aware",
+      "seed_bootstrap_95pct": [
+        -0.1111111111111111,
+        0.17777777777777776
+      ],
+      "variant": "vulnerable"
+    },
+    {
+      "budget": 160000,
+      "left_arm": "fixed_sequential",
+      "matched_score_valid_seeds": 10,
+      "mean_left_minus_right": -0.3,
+      "right_arm": "matched_parallel",
+      "seed_bootstrap_95pct": [
+        -2.7,
+        1.8
+      ],
+      "variant": "patched"
+    },
+    {
+      "budget": 160000,
+      "left_arm": "fixed_sequential",
+      "matched_score_valid_seeds": 10,
+      "mean_left_minus_right": 0.8,
+      "right_arm": "opportunity_aware",
+      "seed_bootstrap_95pct": [
+        0.0,
+        1.9
+      ],
+      "variant": "patched"
+    },
+    {
+      "budget": 160000,
+      "left_arm": "matched_parallel",
+      "matched_score_valid_seeds": 10,
+      "mean_left_minus_right": 1.1,
+      "right_arm": "opportunity_aware",
+      "seed_bootstrap_95pct": [
+        -0.2,
+        3.0
+      ],
+      "variant": "patched"
+    }
+  ],
+  "planned_feasible_cells": 180,
+  "policy_opportunity_curve": [
+    {
+      "arm": "fixed_sequential",
+      "budget": 40000,
+      "feasible_seeds": 0,
+      "includes_model_behavior": false,
+      "mean_policy_opportunity_recall": 0.0,
+      "planned_seeds": 10,
+      "structurally_infeasible_seeds": 10
+    },
+    {
+      "arm": "fixed_sequential",
+      "budget": 60000,
+      "feasible_seeds": 0,
+      "includes_model_behavior": false,
+      "mean_policy_opportunity_recall": 0.0,
+      "planned_seeds": 10,
+      "structurally_infeasible_seeds": 10
+    },
+    {
+      "arm": "fixed_sequential",
+      "budget": 80000,
+      "feasible_seeds": 0,
+      "includes_model_behavior": false,
+      "mean_policy_opportunity_recall": 0.0,
+      "planned_seeds": 10,
+      "structurally_infeasible_seeds": 10
+    },
+    {
+      "arm": "fixed_sequential",
+      "budget": 120000,
+      "feasible_seeds": 10,
+      "includes_model_behavior": true,
+      "mean_policy_opportunity_recall": 0.24000000000000002,
+      "planned_seeds": 10,
+      "structurally_infeasible_seeds": 0
+    },
+    {
+      "arm": "fixed_sequential",
+      "budget": 160000,
+      "feasible_seeds": 10,
+      "includes_model_behavior": true,
+      "mean_policy_opportunity_recall": 0.38,
+      "planned_seeds": 10,
+      "structurally_infeasible_seeds": 0
+    },
+    {
+      "arm": "matched_parallel",
+      "budget": 40000,
+      "feasible_seeds": 0,
+      "includes_model_behavior": false,
+      "mean_policy_opportunity_recall": 0.0,
+      "planned_seeds": 10,
+      "structurally_infeasible_seeds": 10
+    },
+    {
+      "arm": "matched_parallel",
+      "budget": 60000,
+      "feasible_seeds": 0,
+      "includes_model_behavior": false,
+      "mean_policy_opportunity_recall": 0.0,
+      "planned_seeds": 10,
+      "structurally_infeasible_seeds": 10
+    },
+    {
+      "arm": "matched_parallel",
+      "budget": 80000,
+      "feasible_seeds": 0,
+      "includes_model_behavior": false,
+      "mean_policy_opportunity_recall": 0.0,
+      "planned_seeds": 10,
+      "structurally_infeasible_seeds": 10
+    },
+    {
+      "arm": "matched_parallel",
+      "budget": 120000,
+      "feasible_seeds": 10,
+      "includes_model_behavior": true,
+      "mean_policy_opportunity_recall": 0.26,
+      "planned_seeds": 10,
+      "structurally_infeasible_seeds": 0
+    },
+    {
+      "arm": "matched_parallel",
+      "budget": 160000,
+      "feasible_seeds": 10,
+      "includes_model_behavior": true,
+      "mean_policy_opportunity_recall": 0.36,
+      "planned_seeds": 10,
+      "structurally_infeasible_seeds": 0
+    },
+    {
+      "arm": "opportunity_aware",
+      "budget": 40000,
+      "feasible_seeds": 10,
+      "includes_model_behavior": true,
+      "mean_policy_opportunity_recall": 0.2,
+      "planned_seeds": 10,
+      "structurally_infeasible_seeds": 0
+    },
+    {
+      "arm": "opportunity_aware",
+      "budget": 60000,
+      "feasible_seeds": 10,
+      "includes_model_behavior": true,
+      "mean_policy_opportunity_recall": 0.28,
+      "planned_seeds": 10,
+      "structurally_infeasible_seeds": 0
+    },
+    {
+      "arm": "opportunity_aware",
+      "budget": 80000,
+      "feasible_seeds": 10,
+      "includes_model_behavior": true,
+      "mean_policy_opportunity_recall": 0.28,
+      "planned_seeds": 10,
+      "structurally_infeasible_seeds": 0
+    },
+    {
+      "arm": "opportunity_aware",
+      "budget": 120000,
+      "feasible_seeds": 10,
+      "includes_model_behavior": true,
+      "mean_policy_opportunity_recall": 0.28,
+      "planned_seeds": 10,
+      "structurally_infeasible_seeds": 0
+    },
+    {
+      "arm": "opportunity_aware",
+      "budget": 160000,
+      "feasible_seeds": 10,
+      "includes_model_behavior": true,
+      "mean_policy_opportunity_recall": 0.35555555555555557,
+      "planned_seeds": 10,
+      "structurally_infeasible_seeds": 0
+    }
+  ],
+  "protocol": "m64-v2-worker-primary-1",
+  "resolved_model_revision": "moonshotai/kimi-k3-20260715",
+  "strata": [
+    {
+      "actual_model_tokens_valid_cells": 1097650,
+      "arm": "fixed_sequential",
+      "budget": 120000,
+      "invalid_statuses": [],
+      "mean_false_findings": 0.5,
+      "mean_root_recall": null,
+      "planned_cells": 10,
+      "score_valid_cells": 10,
+      "validated_roots_per_100k_actual_model_tokens": null,
+      "variant": "patched"
+    },
+    {
+      "actual_model_tokens_valid_cells": 1085454,
+      "arm": "fixed_sequential",
+      "budget": 120000,
+      "invalid_statuses": [],
+      "mean_false_findings": null,
+      "mean_root_recall": 0.24000000000000002,
+      "planned_cells": 10,
+      "score_valid_cells": 10,
+      "validated_roots_per_100k_actual_model_tokens": 1.1055281937327606,
+      "variant": "vulnerable"
+    },
+    {
+      "actual_model_tokens_valid_cells": 1467782,
+      "arm": "fixed_sequential",
+      "budget": 160000,
+      "invalid_statuses": [],
+      "mean_false_findings": 0.9,
+      "mean_root_recall": null,
+      "planned_cells": 10,
+      "score_valid_cells": 10,
+      "validated_roots_per_100k_actual_model_tokens": null,
+      "variant": "patched"
+    },
+    {
+      "actual_model_tokens_valid_cells": 1469656,
+      "arm": "fixed_sequential",
+      "budget": 160000,
+      "invalid_statuses": [],
+      "mean_false_findings": null,
+      "mean_root_recall": 0.38,
+      "planned_cells": 10,
+      "score_valid_cells": 10,
+      "validated_roots_per_100k_actual_model_tokens": 1.2928195441654373,
+      "variant": "vulnerable"
+    },
+    {
+      "actual_model_tokens_valid_cells": 992185,
+      "arm": "matched_parallel",
+      "budget": 120000,
+      "invalid_statuses": [],
+      "mean_false_findings": 0.3,
+      "mean_root_recall": null,
+      "planned_cells": 10,
+      "score_valid_cells": 10,
+      "validated_roots_per_100k_actual_model_tokens": null,
+      "variant": "patched"
+    },
+    {
+      "actual_model_tokens_valid_cells": 958308,
+      "arm": "matched_parallel",
+      "budget": 120000,
+      "invalid_statuses": [],
+      "mean_false_findings": null,
+      "mean_root_recall": 0.26,
+      "planned_cells": 10,
+      "score_valid_cells": 10,
+      "validated_roots_per_100k_actual_model_tokens": 1.356557599435672,
+      "variant": "vulnerable"
+    },
+    {
+      "actual_model_tokens_valid_cells": 1334294,
+      "arm": "matched_parallel",
+      "budget": 160000,
+      "invalid_statuses": [],
+      "mean_false_findings": 1.2,
+      "mean_root_recall": null,
+      "planned_cells": 10,
+      "score_valid_cells": 10,
+      "validated_roots_per_100k_actual_model_tokens": null,
+      "variant": "patched"
+    },
+    {
+      "actual_model_tokens_valid_cells": 1346049,
+      "arm": "matched_parallel",
+      "budget": 160000,
+      "invalid_statuses": [],
+      "mean_false_findings": null,
+      "mean_root_recall": 0.36,
+      "planned_cells": 10,
+      "score_valid_cells": 10,
+      "validated_roots_per_100k_actual_model_tokens": 1.3372470095813749,
+      "variant": "vulnerable"
+    },
+    {
+      "actual_model_tokens_valid_cells": 236344,
+      "arm": "opportunity_aware",
+      "budget": 40000,
+      "invalid_statuses": [],
+      "mean_false_findings": 0,
+      "mean_root_recall": null,
+      "planned_cells": 10,
+      "score_valid_cells": 10,
+      "validated_roots_per_100k_actual_model_tokens": null,
+      "variant": "patched"
+    },
+    {
+      "actual_model_tokens_valid_cells": 245430,
+      "arm": "opportunity_aware",
+      "budget": 40000,
+      "invalid_statuses": [],
+      "mean_false_findings": null,
+      "mean_root_recall": 0.2,
+      "planned_cells": 10,
+      "score_valid_cells": 10,
+      "validated_roots_per_100k_actual_model_tokens": 4.0744815222262964,
+      "variant": "vulnerable"
+    },
+    {
+      "actual_model_tokens_valid_cells": 446705,
+      "arm": "opportunity_aware",
+      "budget": 60000,
+      "invalid_statuses": [],
+      "mean_false_findings": 0,
+      "mean_root_recall": null,
+      "planned_cells": 10,
+      "score_valid_cells": 10,
+      "validated_roots_per_100k_actual_model_tokens": null,
+      "variant": "patched"
+    },
+    {
+      "actual_model_tokens_valid_cells": 463631,
+      "arm": "opportunity_aware",
+      "budget": 60000,
+      "invalid_statuses": [],
+      "mean_false_findings": null,
+      "mean_root_recall": 0.28,
+      "planned_cells": 10,
+      "score_valid_cells": 10,
+      "validated_roots_per_100k_actual_model_tokens": 3.0196427762595683,
+      "variant": "vulnerable"
+    },
+    {
+      "actual_model_tokens_valid_cells": 645319,
+      "arm": "opportunity_aware",
+      "budget": 80000,
+      "invalid_statuses": [],
+      "mean_false_findings": 1.1,
+      "mean_root_recall": null,
+      "planned_cells": 10,
+      "score_valid_cells": 10,
+      "validated_roots_per_100k_actual_model_tokens": null,
+      "variant": "patched"
+    },
+    {
+      "actual_model_tokens_valid_cells": 603335,
+      "arm": "opportunity_aware",
+      "budget": 80000,
+      "invalid_statuses": [],
+      "mean_false_findings": null,
+      "mean_root_recall": 0.28,
+      "planned_cells": 10,
+      "score_valid_cells": 10,
+      "validated_roots_per_100k_actual_model_tokens": 2.3204355789072406,
+      "variant": "vulnerable"
+    },
+    {
+      "actual_model_tokens_valid_cells": 1041594,
+      "arm": "opportunity_aware",
+      "budget": 120000,
+      "invalid_statuses": [],
+      "mean_false_findings": 1,
+      "mean_root_recall": null,
+      "planned_cells": 10,
+      "score_valid_cells": 10,
+      "validated_roots_per_100k_actual_model_tokens": null,
+      "variant": "patched"
+    },
+    {
+      "actual_model_tokens_valid_cells": 1033582,
+      "arm": "opportunity_aware",
+      "budget": 120000,
+      "invalid_statuses": [],
+      "mean_false_findings": null,
+      "mean_root_recall": 0.28,
+      "planned_cells": 10,
+      "score_valid_cells": 10,
+      "validated_roots_per_100k_actual_model_tokens": 1.354512752737567,
+      "variant": "vulnerable"
+    },
+    {
+      "actual_model_tokens_valid_cells": 1411626,
+      "arm": "opportunity_aware",
+      "budget": 160000,
+      "invalid_statuses": [],
+      "mean_false_findings": 0.1,
+      "mean_root_recall": null,
+      "planned_cells": 10,
+      "score_valid_cells": 10,
+      "validated_roots_per_100k_actual_model_tokens": null,
+      "variant": "patched"
+    },
+    {
+      "actual_model_tokens_valid_cells": 1250262,
+      "arm": "opportunity_aware",
+      "budget": 160000,
+      "invalid_statuses": [
+        "provider_failed"
+      ],
+      "mean_false_findings": null,
+      "mean_root_recall": 0.35555555555555557,
+      "planned_cells": 10,
+      "score_valid_cells": 9,
+      "validated_roots_per_100k_actual_model_tokens": 1.279731768221381,
+      "variant": "vulnerable"
+    }
+  ],
+  "structurally_infeasible_cells": 120,
+  "upstream_provider": "Moonshot AI"
+}

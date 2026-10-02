@@ -1,0 +1,687 @@
+{
+  "invalid_vulnerable_cells": [
+    {
+      "order": 126,
+      "status": "provider_failed"
+    }
+  ],
+  "method": "post-collection trace-proof ledger; state-change replay only occurs for submitted findings",
+  "protocol": "m64-v2-worker-primary-1",
+  "rows": [
+    {
+      "arm": "fixed_sequential",
+      "budget": 120000,
+      "root": "DOC-CROSS-TENANT-READ",
+      "stages": {
+        "admitted_not_executed": 0,
+        "executed_without_trace_proof": 0,
+        "prerequisite_not_ready": 0,
+        "ready_not_admitted": 0,
+        "submitted_not_validated": 0,
+        "trace_proof_without_submission": 6,
+        "validated": 4
+      },
+      "valid_runs": 10
+    },
+    {
+      "arm": "fixed_sequential",
+      "budget": 120000,
+      "root": "INVOICE-CROSS-TENANT-READ",
+      "stages": {
+        "admitted_not_executed": 0,
+        "executed_without_trace_proof": 0,
+        "prerequisite_not_ready": 0,
+        "ready_not_admitted": 0,
+        "submitted_not_validated": 0,
+        "trace_proof_without_submission": 6,
+        "validated": 4
+      },
+      "valid_runs": 10
+    },
+    {
+      "arm": "fixed_sequential",
+      "budget": 120000,
+      "root": "MEMBER-REFUND",
+      "stages": {
+        "admitted_not_executed": 10,
+        "executed_without_trace_proof": 0,
+        "prerequisite_not_ready": 0,
+        "ready_not_admitted": 0,
+        "submitted_not_validated": 0,
+        "trace_proof_without_submission": 0,
+        "validated": 0
+      },
+      "valid_runs": 10
+    },
+    {
+      "arm": "fixed_sequential",
+      "budget": 120000,
+      "root": "PUBLIC-INVOICE-METADATA",
+      "stages": {
+        "admitted_not_executed": 2,
+        "executed_without_trace_proof": 0,
+        "prerequisite_not_ready": 0,
+        "ready_not_admitted": 0,
+        "submitted_not_validated": 0,
+        "trace_proof_without_submission": 7,
+        "validated": 1
+      },
+      "valid_runs": 10
+    },
+    {
+      "arm": "fixed_sequential",
+      "budget": 120000,
+      "root": "TICKET-CROSS-TENANT-READ",
+      "stages": {
+        "admitted_not_executed": 0,
+        "executed_without_trace_proof": 0,
+        "prerequisite_not_ready": 0,
+        "ready_not_admitted": 0,
+        "submitted_not_validated": 0,
+        "trace_proof_without_submission": 7,
+        "validated": 3
+      },
+      "valid_runs": 10
+    },
+    {
+      "arm": "fixed_sequential",
+      "budget": 160000,
+      "root": "DOC-CROSS-TENANT-READ",
+      "stages": {
+        "admitted_not_executed": 0,
+        "executed_without_trace_proof": 0,
+        "prerequisite_not_ready": 0,
+        "ready_not_admitted": 0,
+        "submitted_not_validated": 0,
+        "trace_proof_without_submission": 6,
+        "validated": 4
+      },
+      "valid_runs": 10
+    },
+    {
+      "arm": "fixed_sequential",
+      "budget": 160000,
+      "root": "INVOICE-CROSS-TENANT-READ",
+      "stages": {
+        "admitted_not_executed": 0,
+        "executed_without_trace_proof": 0,
+        "prerequisite_not_ready": 0,
+        "ready_not_admitted": 0,
+        "submitted_not_validated": 0,
+        "trace_proof_without_submission": 6,
+        "validated": 4
+      },
+      "valid_runs": 10
+    },
+    {
+      "arm": "fixed_sequential",
+      "budget": 160000,
+      "root": "MEMBER-REFUND",
+      "stages": {
+        "admitted_not_executed": 3,
+        "executed_without_trace_proof": 7,
+        "prerequisite_not_ready": 0,
+        "ready_not_admitted": 0,
+        "submitted_not_validated": 0,
+        "trace_proof_without_submission": 0,
+        "validated": 0
+      },
+      "valid_runs": 10
+    },
+    {
+      "arm": "fixed_sequential",
+      "budget": 160000,
+      "root": "PUBLIC-INVOICE-METADATA",
+      "stages": {
+        "admitted_not_executed": 0,
+        "executed_without_trace_proof": 0,
+        "prerequisite_not_ready": 0,
+        "ready_not_admitted": 0,
+        "submitted_not_validated": 0,
+        "trace_proof_without_submission": 0,
+        "validated": 10
+      },
+      "valid_runs": 10
+    },
+    {
+      "arm": "fixed_sequential",
+      "budget": 160000,
+      "root": "TICKET-CROSS-TENANT-READ",
+      "stages": {
+        "admitted_not_executed": 0,
+        "executed_without_trace_proof": 0,
+        "prerequisite_not_ready": 0,
+        "ready_not_admitted": 0,
+        "submitted_not_validated": 0,
+        "trace_proof_without_submission": 9,
+        "validated": 1
+      },
+      "valid_runs": 10
+    },
+    {
+      "arm": "matched_parallel",
+      "budget": 120000,
+      "root": "DOC-CROSS-TENANT-READ",
+      "stages": {
+        "admitted_not_executed": 1,
+        "executed_without_trace_proof": 2,
+        "prerequisite_not_ready": 0,
+        "ready_not_admitted": 0,
+        "submitted_not_validated": 0,
+        "trace_proof_without_submission": 7,
+        "validated": 0
+      },
+      "valid_runs": 10
+    },
+    {
+      "arm": "matched_parallel",
+      "budget": 120000,
+      "root": "INVOICE-CROSS-TENANT-READ",
+      "stages": {
+        "admitted_not_executed": 1,
+        "executed_without_trace_proof": 0,
+        "prerequisite_not_ready": 0,
+        "ready_not_admitted": 0,
+        "submitted_not_validated": 0,
+        "trace_proof_without_submission": 6,
+        "validated": 3
+      },
+      "valid_runs": 10
+    },
+    {
+      "arm": "matched_parallel",
+      "budget": 120000,
+      "root": "MEMBER-REFUND",
+      "stages": {
+        "admitted_not_executed": 7,
+        "executed_without_trace_proof": 3,
+        "prerequisite_not_ready": 0,
+        "ready_not_admitted": 0,
+        "submitted_not_validated": 0,
+        "trace_proof_without_submission": 0,
+        "validated": 0
+      },
+      "valid_runs": 10
+    },
+    {
+      "arm": "matched_parallel",
+      "budget": 120000,
+      "root": "PUBLIC-INVOICE-METADATA",
+      "stages": {
+        "admitted_not_executed": 0,
+        "executed_without_trace_proof": 0,
+        "prerequisite_not_ready": 0,
+        "ready_not_admitted": 0,
+        "submitted_not_validated": 0,
+        "trace_proof_without_submission": 0,
+        "validated": 10
+      },
+      "valid_runs": 10
+    },
+    {
+      "arm": "matched_parallel",
+      "budget": 120000,
+      "root": "TICKET-CROSS-TENANT-READ",
+      "stages": {
+        "admitted_not_executed": 0,
+        "executed_without_trace_proof": 0,
+        "prerequisite_not_ready": 0,
+        "ready_not_admitted": 0,
+        "submitted_not_validated": 0,
+        "trace_proof_without_submission": 10,
+        "validated": 0
+      },
+      "valid_runs": 10
+    },
+    {
+      "arm": "matched_parallel",
+      "budget": 160000,
+      "root": "DOC-CROSS-TENANT-READ",
+      "stages": {
+        "admitted_not_executed": 0,
+        "executed_without_trace_proof": 1,
+        "prerequisite_not_ready": 0,
+        "ready_not_admitted": 0,
+        "submitted_not_validated": 0,
+        "trace_proof_without_submission": 9,
+        "validated": 0
+      },
+      "valid_runs": 10
+    },
+    {
+      "arm": "matched_parallel",
+      "budget": 160000,
+      "root": "INVOICE-CROSS-TENANT-READ",
+      "stages": {
+        "admitted_not_executed": 0,
+        "executed_without_trace_proof": 0,
+        "prerequisite_not_ready": 0,
+        "ready_not_admitted": 0,
+        "submitted_not_validated": 0,
+        "trace_proof_without_submission": 4,
+        "validated": 6
+      },
+      "valid_runs": 10
+    },
+    {
+      "arm": "matched_parallel",
+      "budget": 160000,
+      "root": "MEMBER-REFUND",
+      "stages": {
+        "admitted_not_executed": 2,
+        "executed_without_trace_proof": 8,
+        "prerequisite_not_ready": 0,
+        "ready_not_admitted": 0,
+        "submitted_not_validated": 0,
+        "trace_proof_without_submission": 0,
+        "validated": 0
+      },
+      "valid_runs": 10
+    },
+    {
+      "arm": "matched_parallel",
+      "budget": 160000,
+      "root": "PUBLIC-INVOICE-METADATA",
+      "stages": {
+        "admitted_not_executed": 0,
+        "executed_without_trace_proof": 0,
+        "prerequisite_not_ready": 0,
+        "ready_not_admitted": 0,
+        "submitted_not_validated": 0,
+        "trace_proof_without_submission": 0,
+        "validated": 10
+      },
+      "valid_runs": 10
+    },
+    {
+      "arm": "matched_parallel",
+      "budget": 160000,
+      "root": "TICKET-CROSS-TENANT-READ",
+      "stages": {
+        "admitted_not_executed": 0,
+        "executed_without_trace_proof": 1,
+        "prerequisite_not_ready": 0,
+        "ready_not_admitted": 0,
+        "submitted_not_validated": 0,
+        "trace_proof_without_submission": 7,
+        "validated": 2
+      },
+      "valid_runs": 10
+    },
+    {
+      "arm": "opportunity_aware",
+      "budget": 40000,
+      "root": "DOC-CROSS-TENANT-READ",
+      "stages": {
+        "admitted_not_executed": 0,
+        "executed_without_trace_proof": 0,
+        "prerequisite_not_ready": 0,
+        "ready_not_admitted": 10,
+        "submitted_not_validated": 0,
+        "trace_proof_without_submission": 0,
+        "validated": 0
+      },
+      "valid_runs": 10
+    },
+    {
+      "arm": "opportunity_aware",
+      "budget": 40000,
+      "root": "INVOICE-CROSS-TENANT-READ",
+      "stages": {
+        "admitted_not_executed": 0,
+        "executed_without_trace_proof": 0,
+        "prerequisite_not_ready": 0,
+        "ready_not_admitted": 10,
+        "submitted_not_validated": 0,
+        "trace_proof_without_submission": 0,
+        "validated": 0
+      },
+      "valid_runs": 10
+    },
+    {
+      "arm": "opportunity_aware",
+      "budget": 40000,
+      "root": "MEMBER-REFUND",
+      "stages": {
+        "admitted_not_executed": 0,
+        "executed_without_trace_proof": 0,
+        "prerequisite_not_ready": 10,
+        "ready_not_admitted": 0,
+        "submitted_not_validated": 0,
+        "trace_proof_without_submission": 0,
+        "validated": 0
+      },
+      "valid_runs": 10
+    },
+    {
+      "arm": "opportunity_aware",
+      "budget": 40000,
+      "root": "PUBLIC-INVOICE-METADATA",
+      "stages": {
+        "admitted_not_executed": 0,
+        "executed_without_trace_proof": 0,
+        "prerequisite_not_ready": 0,
+        "ready_not_admitted": 0,
+        "submitted_not_validated": 0,
+        "trace_proof_without_submission": 0,
+        "validated": 10
+      },
+      "valid_runs": 10
+    },
+    {
+      "arm": "opportunity_aware",
+      "budget": 40000,
+      "root": "TICKET-CROSS-TENANT-READ",
+      "stages": {
+        "admitted_not_executed": 0,
+        "executed_without_trace_proof": 0,
+        "prerequisite_not_ready": 0,
+        "ready_not_admitted": 10,
+        "submitted_not_validated": 0,
+        "trace_proof_without_submission": 0,
+        "validated": 0
+      },
+      "valid_runs": 10
+    },
+    {
+      "arm": "opportunity_aware",
+      "budget": 60000,
+      "root": "DOC-CROSS-TENANT-READ",
+      "stages": {
+        "admitted_not_executed": 0,
+        "executed_without_trace_proof": 0,
+        "prerequisite_not_ready": 0,
+        "ready_not_admitted": 0,
+        "submitted_not_validated": 0,
+        "trace_proof_without_submission": 6,
+        "validated": 4
+      },
+      "valid_runs": 10
+    },
+    {
+      "arm": "opportunity_aware",
+      "budget": 60000,
+      "root": "INVOICE-CROSS-TENANT-READ",
+      "stages": {
+        "admitted_not_executed": 0,
+        "executed_without_trace_proof": 0,
+        "prerequisite_not_ready": 0,
+        "ready_not_admitted": 10,
+        "submitted_not_validated": 0,
+        "trace_proof_without_submission": 0,
+        "validated": 0
+      },
+      "valid_runs": 10
+    },
+    {
+      "arm": "opportunity_aware",
+      "budget": 60000,
+      "root": "MEMBER-REFUND",
+      "stages": {
+        "admitted_not_executed": 0,
+        "executed_without_trace_proof": 0,
+        "prerequisite_not_ready": 10,
+        "ready_not_admitted": 0,
+        "submitted_not_validated": 0,
+        "trace_proof_without_submission": 0,
+        "validated": 0
+      },
+      "valid_runs": 10
+    },
+    {
+      "arm": "opportunity_aware",
+      "budget": 60000,
+      "root": "PUBLIC-INVOICE-METADATA",
+      "stages": {
+        "admitted_not_executed": 0,
+        "executed_without_trace_proof": 0,
+        "prerequisite_not_ready": 0,
+        "ready_not_admitted": 0,
+        "submitted_not_validated": 0,
+        "trace_proof_without_submission": 0,
+        "validated": 10
+      },
+      "valid_runs": 10
+    },
+    {
+      "arm": "opportunity_aware",
+      "budget": 60000,
+      "root": "TICKET-CROSS-TENANT-READ",
+      "stages": {
+        "admitted_not_executed": 0,
+        "executed_without_trace_proof": 0,
+        "prerequisite_not_ready": 0,
+        "ready_not_admitted": 10,
+        "submitted_not_validated": 0,
+        "trace_proof_without_submission": 0,
+        "validated": 0
+      },
+      "valid_runs": 10
+    },
+    {
+      "arm": "opportunity_aware",
+      "budget": 80000,
+      "root": "DOC-CROSS-TENANT-READ",
+      "stages": {
+        "admitted_not_executed": 1,
+        "executed_without_trace_proof": 0,
+        "prerequisite_not_ready": 0,
+        "ready_not_admitted": 0,
+        "submitted_not_validated": 0,
+        "trace_proof_without_submission": 5,
+        "validated": 4
+      },
+      "valid_runs": 10
+    },
+    {
+      "arm": "opportunity_aware",
+      "budget": 80000,
+      "root": "INVOICE-CROSS-TENANT-READ",
+      "stages": {
+        "admitted_not_executed": 0,
+        "executed_without_trace_proof": 0,
+        "prerequisite_not_ready": 0,
+        "ready_not_admitted": 10,
+        "submitted_not_validated": 0,
+        "trace_proof_without_submission": 0,
+        "validated": 0
+      },
+      "valid_runs": 10
+    },
+    {
+      "arm": "opportunity_aware",
+      "budget": 80000,
+      "root": "MEMBER-REFUND",
+      "stages": {
+        "admitted_not_executed": 0,
+        "executed_without_trace_proof": 0,
+        "prerequisite_not_ready": 10,
+        "ready_not_admitted": 0,
+        "submitted_not_validated": 0,
+        "trace_proof_without_submission": 0,
+        "validated": 0
+      },
+      "valid_runs": 10
+    },
+    {
+      "arm": "opportunity_aware",
+      "budget": 80000,
+      "root": "PUBLIC-INVOICE-METADATA",
+      "stages": {
+        "admitted_not_executed": 0,
+        "executed_without_trace_proof": 0,
+        "prerequisite_not_ready": 0,
+        "ready_not_admitted": 0,
+        "submitted_not_validated": 0,
+        "trace_proof_without_submission": 0,
+        "validated": 10
+      },
+      "valid_runs": 10
+    },
+    {
+      "arm": "opportunity_aware",
+      "budget": 80000,
+      "root": "TICKET-CROSS-TENANT-READ",
+      "stages": {
+        "admitted_not_executed": 0,
+        "executed_without_trace_proof": 0,
+        "prerequisite_not_ready": 0,
+        "ready_not_admitted": 9,
+        "submitted_not_validated": 0,
+        "trace_proof_without_submission": 1,
+        "validated": 0
+      },
+      "valid_runs": 10
+    },
+    {
+      "arm": "opportunity_aware",
+      "budget": 120000,
+      "root": "DOC-CROSS-TENANT-READ",
+      "stages": {
+        "admitted_not_executed": 0,
+        "executed_without_trace_proof": 1,
+        "prerequisite_not_ready": 0,
+        "ready_not_admitted": 6,
+        "submitted_not_validated": 0,
+        "trace_proof_without_submission": 1,
+        "validated": 2
+      },
+      "valid_runs": 10
+    },
+    {
+      "arm": "opportunity_aware",
+      "budget": 120000,
+      "root": "INVOICE-CROSS-TENANT-READ",
+      "stages": {
+        "admitted_not_executed": 0,
+        "executed_without_trace_proof": 0,
+        "prerequisite_not_ready": 0,
+        "ready_not_admitted": 0,
+        "submitted_not_validated": 0,
+        "trace_proof_without_submission": 8,
+        "validated": 2
+      },
+      "valid_runs": 10
+    },
+    {
+      "arm": "opportunity_aware",
+      "budget": 120000,
+      "root": "MEMBER-REFUND",
+      "stages": {
+        "admitted_not_executed": 2,
+        "executed_without_trace_proof": 7,
+        "prerequisite_not_ready": 0,
+        "ready_not_admitted": 0,
+        "submitted_not_validated": 0,
+        "trace_proof_without_submission": 1,
+        "validated": 0
+      },
+      "valid_runs": 10
+    },
+    {
+      "arm": "opportunity_aware",
+      "budget": 120000,
+      "root": "PUBLIC-INVOICE-METADATA",
+      "stages": {
+        "admitted_not_executed": 0,
+        "executed_without_trace_proof": 0,
+        "prerequisite_not_ready": 0,
+        "ready_not_admitted": 0,
+        "submitted_not_validated": 0,
+        "trace_proof_without_submission": 0,
+        "validated": 10
+      },
+      "valid_runs": 10
+    },
+    {
+      "arm": "opportunity_aware",
+      "budget": 120000,
+      "root": "TICKET-CROSS-TENANT-READ",
+      "stages": {
+        "admitted_not_executed": 0,
+        "executed_without_trace_proof": 0,
+        "prerequisite_not_ready": 0,
+        "ready_not_admitted": 10,
+        "submitted_not_validated": 0,
+        "trace_proof_without_submission": 0,
+        "validated": 0
+      },
+      "valid_runs": 10
+    },
+    {
+      "arm": "opportunity_aware",
+      "budget": 160000,
+      "root": "DOC-CROSS-TENANT-READ",
+      "stages": {
+        "admitted_not_executed": 0,
+        "executed_without_trace_proof": 0,
+        "prerequisite_not_ready": 0,
+        "ready_not_admitted": 0,
+        "submitted_not_validated": 0,
+        "trace_proof_without_submission": 5,
+        "validated": 4
+      },
+      "valid_runs": 9
+    },
+    {
+      "arm": "opportunity_aware",
+      "budget": 160000,
+      "root": "INVOICE-CROSS-TENANT-READ",
+      "stages": {
+        "admitted_not_executed": 0,
+        "executed_without_trace_proof": 0,
+        "prerequisite_not_ready": 0,
+        "ready_not_admitted": 0,
+        "submitted_not_validated": 0,
+        "trace_proof_without_submission": 8,
+        "validated": 1
+      },
+      "valid_runs": 9
+    },
+    {
+      "arm": "opportunity_aware",
+      "budget": 160000,
+      "root": "MEMBER-REFUND",
+      "stages": {
+        "admitted_not_executed": 4,
+        "executed_without_trace_proof": 5,
+        "prerequisite_not_ready": 0,
+        "ready_not_admitted": 0,
+        "submitted_not_validated": 0,
+        "trace_proof_without_submission": 0,
+        "validated": 0
+      },
+      "valid_runs": 9
+    },
+    {
+      "arm": "opportunity_aware",
+      "budget": 160000,
+      "root": "PUBLIC-INVOICE-METADATA",
+      "stages": {
+        "admitted_not_executed": 0,
+        "executed_without_trace_proof": 0,
+        "prerequisite_not_ready": 0,
+        "ready_not_admitted": 0,
+        "submitted_not_validated": 0,
+        "trace_proof_without_submission": 1,
+        "validated": 8
+      },
+      "valid_runs": 9
+    },
+    {
+      "arm": "opportunity_aware",
+      "budget": 160000,
+      "root": "TICKET-CROSS-TENANT-READ",
+      "stages": {
+        "admitted_not_executed": 1,
+        "executed_without_trace_proof": 0,
+        "prerequisite_not_ready": 0,
+        "ready_not_admitted": 0,
+        "submitted_not_validated": 0,
+        "trace_proof_without_submission": 5,
+        "validated": 3
+      },
+      "valid_runs": 9
+    }
+  ]
+}
