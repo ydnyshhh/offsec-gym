@@ -89,6 +89,23 @@
 - The M6.1.2 three-run smoke retained distinct identity/workspace links and
   discovered ticket entities in all runs, with no controller leaks. It still
   missed relevant HTTP actions and refund POSTs; one run had no finding.
+- M6.1.3 froze the strict worker objective contract and its three-run
+  diagnostic, including failed action-or-block gates.
+- M6.2.0 added source-action-ordered controller facts, cross-process local
+  range dispatch/reset coordination, stale worker lease recovery, and typed
+  tool rejection reasons before parallel live runs.
+- M6.2.1–2 froze matched sequential/parallel and bootstrapped worker
+  diagnostics with their observed coverage failures.
+- M6.2.3 froze the hard-partition diagnostic. Its replay and ownership gates
+  passed, but fixed 20,000-token slices blocked second turns.
+- M6.3.0 added elastic worker grants. Its single smoke funded multi-turn
+  identity, invoice, and refund workers, but public, document, and ticket
+  were denied viable trajectories; those failed gates remain frozen.
+- M6.3.1 added state-based task dependencies and atomic, opportunity-aware
+  admission holds. Its one smoke funded invoice, refund, public, and document
+  without displacement or accounting drift. It ended `agent_failed` from
+  worker behavior; the exact trace and all scheduler gates are frozen in
+  [the diagnostic](diagnostics/kimi-k3-openrouter-m631.md).
 
 ## Partially implemented
 
@@ -98,8 +115,8 @@
   provider-reported usage. Hidden tokenizer overhead or
   a provider exceeding its output cap can still make the actual use exceed a
   preflight reservation. Wall time remains enforced at the experiment runner.
-- Event export and crash reconciliation are pending. The M6 controller accounting
-  and ownership state has a replay projection.
+- Managed event export and non-worker crash reconciliation remain pending.
+  The M6 controller accounting and ownership state has a replay projection.
 - Request artifacts can remain unreferenced if event append fails. Add artifact indexing
   and reconciliation before claiming complete crash recovery.
 - WorldState still rebuilds facts and coverage from a full run event scan, but
@@ -116,13 +133,13 @@
 
 ## Next milestone
 
-The [M6.2.3 hard-escrow diagnostic](diagnostics/kimi-k3-openrouter-m623.md)
-is complete. Its state, packet, account, replay, and concurrency gates
-passed. Every worker received one model call, but each second-turn preflight
-exceeded the fixed 20,000-token account. Both arms missed the domain-work
-gate and submitted no findings. Preserve the frozen M6.1.3 and M6.2.1–3
-results. Dependency-aware scheduling and any budget-policy change require
-a separate future protocol.
+[M6.4](milestone-6.4.md) is an orchestration policy evaluation, not another
+seed-42 scheduler tuning pass. Keep the M6.3.1 utility weights and task
+minimums frozen. First make held-out range seeds vary actual scenario
+semantics and align each comparison arm's initial information and budget
+accounting. Then predeclare paired vulnerable/patched ranges, token-budget
+curves, objective-stage metrics, and a bounded run matrix before spending
+model credits. Do not rerun or retune any frozen M6.3.0/M6.3.1 smoke.
 
 ## Known architectural debt
 
@@ -131,12 +148,17 @@ a separate future protocol.
   range currently uses local instance manifests and evidence files.
 - Historical offline revalidation after a reset needs immutable run-to-build/generation
   bindings rather than the current mutable instance manifest.
-- The live scripted range test uses an in-memory event store; PostgreSQL event persistence
-  is tested separately. A full Docker plus PostgreSQL path remains future acceptance work.
-- Build and instance operations assume one trusted local controller; concurrent controllers
-  and crash recovery need coordination and reconciliation.
-- The range runtime uses an OS file lock across processes sharing one local
-  state directory. Cross-host coordination is not supported.
+- The scripted range acceptance test uses an in-memory event store, while
+  worker fake-provider acceptance and live diagnostics use Docker plus
+  PostgreSQL. A unified scripted Docker/PostgreSQL acceptance path remains
+  future test work.
+- The range runtime coordinates dispatch/reset with an OS file lock across
+  processes sharing one local state directory. Cross-host coordination is
+  not supported.
+- SaaS range seeds currently change entity UUIDs and invoice amounts, while
+  workspace layout, role assignment, object placement, text patterns, and
+  decoys remain fixed. Held-out seeds alone do not establish semantic
+  scenario generalization.
 - Existing Milestone 2 generated `.offsecgym` manifests require a fresh state directory
   and rebuild after stopping/destroying old live instances.
 - The first SaaS API is one service with an in-process SQLite fixture; service-level

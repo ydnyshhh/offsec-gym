@@ -54,6 +54,14 @@ The [M6.2.3 hard-escrow diagnostic](docs/diagnostics/kimi-k3-openrouter-m623.md)
 gave every worker one model turn under an atomic account, but the fixed
 20,000-token slices could not admit second turns. Both arms missed the
 domain-work gate and submitted no findings; the result is frozen.
+[M6.3.0](docs/milestone-6.3.md) added elastic grants, which enabled
+multi-turn workers but let earlier tasks exhaust later opportunities.
+[M6.3.1](docs/milestone-6.3.1.md) added state-based dependencies and
+opportunity-aware admission with protected minimum budgets. Its single
+[diagnostic](docs/diagnostics/kimi-k3-openrouter-m631.md) passed scheduler
+accounting gates while retaining worker execution failures. The next phase
+is the [M6.4 orchestration policy evaluation](docs/milestone-6.4.md), with
+frozen weights and held-out, paired ranges.
 
 ## Development
 
