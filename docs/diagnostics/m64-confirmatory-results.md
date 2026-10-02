@@ -60,17 +60,17 @@ Each vulnerable build has five distinct configured root causes. Recall is
 the mean fraction validated across score-valid vulnerable runs. Patched
 false findings are rejected candidate findings per score-valid patched run.
 
-| Arm | Token budget | Valid vulnerable runs | Mean root recall | Valid patched runs | Mean patched false findings |
-| --- | ---: | ---: | ---: | ---: | ---: |
-| Fixed sequential | 120k | 10 | 0.24 | 10 | 0.5 |
-| Fixed sequential | 160k | 10 | 0.38 | 10 | 0.9 |
-| Matched parallel | 120k | 10 | 0.26 | 10 | 0.3 |
-| Matched parallel | 160k | 10 | 0.36 | 10 | 1.2 |
-| Opportunity-aware | 40k | 10 | 0.20 | 10 | 0.0 |
-| Opportunity-aware | 60k | 10 | 0.28 | 10 | 0.0 |
-| Opportunity-aware | 80k | 10 | 0.28 | 10 | 1.1 |
-| Opportunity-aware | 120k | 10 | 0.28 | 10 | 1.0 |
-| Opportunity-aware | 160k | 9 | 0.356 | 10 | 0.1 |
+| Arm | Token budget | Valid vulnerable runs | Mean root recall | Validated roots per 100k reported model tokens | Valid patched runs | Mean patched false findings |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| Fixed sequential | 120k | 10 | 0.24 | 1.11 | 10 | 0.5 |
+| Fixed sequential | 160k | 10 | 0.38 | 1.29 | 10 | 0.9 |
+| Matched parallel | 120k | 10 | 0.26 | 1.36 | 10 | 0.3 |
+| Matched parallel | 160k | 10 | 0.36 | 1.34 | 10 | 1.2 |
+| Opportunity-aware | 40k | 10 | 0.20 | 4.07 | 10 | 0.0 |
+| Opportunity-aware | 60k | 10 | 0.28 | 3.02 | 10 | 0.0 |
+| Opportunity-aware | 80k | 10 | 0.28 | 2.32 | 10 | 1.1 |
+| Opportunity-aware | 120k | 10 | 0.28 | 1.35 | 10 | 1.0 |
+| Opportunity-aware | 160k | 9 | 0.356 | 1.28 | 10 | 0.1 |
 
 The common-feasible comparison uses only 120k–160k vulnerable cells. Its
 normalized trapezoidal recall AUC is **0.310** for fixed sequential (10
@@ -88,6 +88,20 @@ All three intervals span zero. With ten held-out seeds, this sample does not
 establish a root-recall winner at common feasible budgets. Budget-specific
 paired differences and patched false-finding intervals are preserved in the
 aggregate JSON; patched false findings remain nonzero and variable.
+
+Candidate accounting across score-valid common-budget runs separates
+submissions, validator outcomes, and repeated validated roots:
+
+| Arm | Scored cells | Candidates | Validated submissions | Rejected submissions | Duplicate validated roots |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| Fixed sequential | 40 | 107 | 68 | 39 | 37 |
+| Matched parallel | 40 | 110 | 77 | 33 | 46 |
+| Opportunity-aware | 39 | 116 | 82 | 34 | 52 |
+
+`Validated submissions` includes duplicates; distinct validated vulnerable
+roots in these cells were 31, 31, and 30 respectively. There were no
+inconclusive validations. Rejected submissions count as false positives in
+the frozen evaluation, including on vulnerable runs.
 
 At 40k, 60k, and 80k, only opportunity-aware admits runs under the frozen
 policies. Its observed vulnerable recall is 0.20, 0.28, and 0.28. The fixed
@@ -153,6 +167,17 @@ provenance, not useful evidence reuse. At common budgets, matched parallel
 ran a mean 124 seconds versus 419 seconds for fixed sequential, with similar
 recall. That latency observation is descriptive and includes provider-time
 variation; the randomized order reduced but did not remove temporal effects.
+Among vulnerable common-budget runs that produced a valid finding, median
+time to first valid submission was 232 seconds for fixed (17/20 runs), 52
+seconds for parallel (20/20), and 254 seconds for opportunity-aware (18/19).
+This conditional measure omits runs without a valid finding. Coordinator
+model calls were zero in all three worker arms; each common-budget run paid
+for 17 deterministic bootstrap HTTP dispatches.
+
+For opportunity-aware at 40k, 60k, and 80k, mean readiness coverage was
+0.800 at each budget; admission coverage was 0.250, 0.500, and 0.512; and
+execution coverage after admission was 1.000, 1.000, and 0.983. These are
+objective-stage measures across both variants, not root-recall estimates.
 
 ## Interpretation and limits
 
@@ -173,3 +198,14 @@ utility. The stage ledger was coded after data collection and omits clone
 replay for unsubmitted transitions. Do not tune or rerun this frozen protocol
 to improve these results. A new protocol can target witness formation,
 finding submission, and common-bootstrap controls explicitly.
+
+The 100 `budget_exhausted` run statuses do not each retain the specific
+terminal ceiling (task slice, model calls, tokens, actions, HTTP, cost, or
+global budget). Reservation-rejection events identify some local limits, but
+the event stream does not support an exact ceiling attribution for every
+run. The prespecified request to report that per run therefore remains an
+instrumentation limitation, not an inferred result.
+
+Semantic duplication, abandoned-branch recovery, and the secondary
+architecture-by-budget interaction were not quantified; exact fingerprint
+repeats and objective stages should not be used as substitutes for them.
