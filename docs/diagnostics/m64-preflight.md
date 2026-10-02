@@ -112,7 +112,12 @@ the 2026-10-02 listed $3/M input and $15/M output rates; provider billing
 may differ if rates or token accounting change.
 
 During collection, stop or partition the analysis if a selected endpoint
-   changes or metadata becomes unavailable; the predeclared analyzer rejects
-   a mixed revision/upstream sample.
+changes or metadata becomes unavailable; the predeclared analyzer rejects
+a mixed revision/upstream sample.
 
-No confirmatory Kimi/OpenRouter run has started for M6.4.
+Collection began on 2026-10-02 after CI passed at `7540a45`. Cell 1 of 180
+completed with a valid score and pinned endpoint. The local wrapper stopped
+before starting cell 2 because it expanded an empty options array under
+`set -u`; the journal had no interrupted cell. A zero-cell replay verified
+the corrected wrapper, and the collector resumed at cell 2 without retrying
+cell 1. The append-only journal remains the source of truth for progress.

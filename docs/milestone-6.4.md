@@ -104,8 +104,12 @@ pilot on non-held-out v2 seed 1101 ran vulnerable and patched siblings at
 40k tokens and a $1 configured cost cap each. It verified selected endpoint
 metadata, matched bootstrap snapshots, score validity, and clean controller
 replay for both runs; see the [preflight diagnostic](diagnostics/m64-preflight.md).
-Its scores are excluded from the confirmatory sample. No confirmatory model
-run has started.
+Its scores are excluded from the confirmatory sample. Confirmatory collection
+began on 2026-10-02 after exact-head CI passed at `7540a45`. The first
+manifest cell completed with a valid score, clean controller replay, and the
+pinned Moonshot endpoint. The append-only local journal is the authoritative
+record of collection progress; the sample remains incomplete until all 180
+feasible cells and the predeclared analysis pass their gates.
 
 The [predeclared analysis code](../src/offsecgym/research/m64_analysis.py)
 rejects incomplete cells and changed model revisions, keeps invalid score

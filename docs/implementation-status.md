@@ -148,11 +148,11 @@
 
 ## Next milestone
 
-Review the [M6.4](milestone-6.4.md) 180-cell manifest and estimated cost
-before confirmatory model runs, then collect paired held-out runs in manifest
-order while checking the selected endpoint on every turn. Keep M6.3.1 worker
-policy, utility weights, and task minima frozen. Do not rerun or retune any
-frozen M6.3.0/M6.3.1 smoke.
+The [M6.4](milestone-6.4.md) 180-cell confirmatory collection began on
+2026-10-02 after approval and exact-head CI. Collect paired held-out runs in
+manifest order while checking the selected endpoint on every turn. Keep
+M6.3.1 worker policy, utility weights, and task minima frozen. Do not rerun
+or retune any frozen M6.3.0/M6.3.1 smoke.
 
 ## Known architectural debt
 
