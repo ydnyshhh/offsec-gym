@@ -60,8 +60,10 @@ multi-turn workers but let earlier tasks exhaust later opportunities.
 opportunity-aware admission with protected minimum budgets. Its single
 [diagnostic](docs/diagnostics/kimi-k3-openrouter-m631.md) passed scheduler
 accounting gates while retaining worker execution failures. The next phase
-is the [M6.4 orchestration policy evaluation](docs/milestone-6.4.md), with
-frozen weights and held-out, paired ranges.
+was the [M6.4 orchestration policy evaluation](docs/milestone-6.4.md), with
+frozen weights and held-out, paired ranges. Its
+[confirmatory results](docs/diagnostics/m64-confirmatory-results.md) are now
+available.
 
 ## Development
 

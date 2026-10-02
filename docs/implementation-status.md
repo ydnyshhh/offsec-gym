@@ -112,7 +112,7 @@
   oracle and validator checks, with five validated roots versus zero findings.
 - M6.4.1–2 adds objective readiness/admission/execution metrics and a
   deterministic 300-cell worker-policy matrix. It marks 120 low-budget fixed
-  worker cells structurally infeasible, leaving 180 prospective live cells.
+  worker cells structurally infeasible, leaving 180 feasible live cells.
   Twelve fake-provider worker runs passed across three arms, two patch states,
   and both feasible budget endpoints. Predeclared paired analysis checks
   complete samples, invalid scores, model revisions, and separate common
@@ -120,7 +120,11 @@
   record selected OpenRouter endpoints when response metadata supplies them.
   A bounded vulnerable/patched live pilot on non-held-out v2 seed 1101
   verified selected endpoint attribution, paired bootstrap, score validity,
-  and clean event replay. No confirmatory model run has started.
+  and clean event replay. The approved confirmatory collection completed all
+  180 feasible cells, with 179 score-valid outcomes and one recorded provider
+  failure. The [results report](diagnostics/m64-confirmatory-results.md)
+  preserves paired uncertainty, patched false findings, objective stages,
+  and limits on interpretation.
 
 ## Partially implemented
 
@@ -148,11 +152,11 @@
 
 ## Next milestone
 
-The [M6.4](milestone-6.4.md) 180-cell confirmatory collection began on
-2026-10-02 after approval and exact-head CI. Collect paired held-out runs in
-manifest order while checking the selected endpoint on every turn. Keep
-M6.3.1 worker policy, utility weights, and task minima frozen. Do not rerun
-or retune any frozen M6.3.0/M6.3.1 smoke.
+Review the frozen [M6.4 results](diagnostics/m64-confirmatory-results.md)
+before defining a new protocol. The main unresolved behavior is witness
+formation and finding submission, especially the refund root. Keep M6.4
+worker policy, utility weights, task minima, and held-out observations frozen;
+do not rerun or retune them to improve the score.
 
 ## Known architectural debt
 
