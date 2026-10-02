@@ -244,3 +244,10 @@ def test_opportunity_displacement_counts_extension_crossing_ready_minimum() -> N
     metrics = orchestration_metrics(trace)
     assert metrics.opportunity_displacement_tokens == 31
     assert metrics.admissible_unused_tokens == 0
+    assert (metrics.ready_objectives, metrics.admitted_objectives, metrics.executed_objectives) == (
+        2,
+        1,
+        0,
+    )
+    assert metrics.admission_coverage == 0.5
+    assert metrics.execution_coverage == 0.0

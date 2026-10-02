@@ -445,6 +445,12 @@ async def test_admission_scheduler_uses_bootstrap_state_and_evidence_dependencie
                 outcome.run_id
             )
         )
-        assert orchestration_metrics(trace).opportunity_displacement_tokens == 0
+        metrics = orchestration_metrics(trace)
+        assert metrics.opportunity_displacement_tokens == 0
+        assert metrics.ready_objectives == 4
+        assert metrics.admitted_objectives == 4
+        assert metrics.executed_objectives == 0
+        assert metrics.admission_coverage == 1.0
+        assert metrics.execution_coverage == 0.0
     finally:
         await engine.dispose()

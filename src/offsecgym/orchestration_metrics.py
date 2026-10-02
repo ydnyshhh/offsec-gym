@@ -19,8 +19,10 @@ from offsecgym.schemas.events import (
     PrerequisiteBootstrapCompleted,
     RunStarted,
     TaskBudgetExtended,
+    TaskBudgetGranted,
     WorkerDebriefed,
     WorkerFinished,
+    WorkerObjectiveAction,
     WorkerPacketPrepared,
     WorkerScheduled,
     WorkerStarted,
@@ -57,6 +59,69 @@ class OrchestrationMetrics(StrictModel):
     worker_repeats_of_bootstrap: int = 0
     admissible_unused_tokens: int = 0
     opportunity_displacement_tokens: int = 0
+    ready_objectives: int | None = None
+    admitted_objectives: int | None = None
+    executed_objectives: int | None = None
+    ready_coverage: float | None = None
+    admission_coverage: float | None = None
+    execution_coverage: float | None = None
+
+
+NONIDENTITY_ROUTES = frozenset(
+    {
+        "GET /api/documents/{id}",
+        "GET /api/invoices/{id}",
+        "GET /api/support/tickets/{id}",
+        "GET /api/public/invoices/{id}/preview",
+        "POST /api/invoices/{id}/refund",
+    }
+)
+NONIDENTITY_KINDS = frozenset({"document", "invoice", "ticket", "public", "refund"})
+
+
+def _objective_stage_metrics(trace: Sequence[AnyTraceEvent]) -> dict[str, int | float | None]:
+    decisions = [item for item in trace if isinstance(item, AdmissionDecision)]
+    grants = [item for item in trace if isinstance(item, TaskBudgetGranted)]
+    packets = [item for item in trace if isinstance(item, WorkerPacketPrepared)]
+    if not decisions and not grants and not packets:
+        return {}
+    if decisions:
+        ready = {
+            kind
+            for decision in decisions
+            for kind, status in decision.task_states.items()
+            if kind in NONIDENTITY_KINDS and status == "READY"
+        }
+        admitted = {item.worker_id for item in grants if item.kind in NONIDENTITY_KINDS}
+        admitted_count = len({item.kind for item in grants if item.kind in NONIDENTITY_KINDS})
+    else:
+        ready = None
+        admitted = {
+            item.worker_id
+            for item in packets
+            if item.packet.contract is not None
+            and item.packet.contract.route_family in NONIDENTITY_ROUTES
+        }
+        admitted_count = len(admitted)
+    completed = {item.action_id for item in trace if isinstance(item, ActionCompleted)}
+    executed = {
+        item.worker_id
+        for item in trace
+        if isinstance(item, WorkerObjectiveAction)
+        and item.worker_id in admitted
+        and item.route_family in NONIDENTITY_ROUTES
+        and item.action_id in completed
+    }
+    ready_count = len(ready) if ready is not None else None
+    executed_count = len(executed)
+    return {
+        "ready_objectives": ready_count,
+        "admitted_objectives": admitted_count,
+        "executed_objectives": executed_count,
+        "ready_coverage": ready_count / len(NONIDENTITY_KINDS) if ready_count is not None else None,
+        "admission_coverage": (admitted_count / ready_count if ready_count else None),
+        "execution_coverage": executed_count / admitted_count if admitted_count else None,
+    }
 
 
 def _free_admission_tokens(state: ControllerProjection) -> int:
@@ -106,6 +171,7 @@ def _admission_opportunity_metrics(trace: Sequence[AnyTraceEvent]) -> tuple[int,
 
 def orchestration_metrics(trace: Sequence[AnyTraceEvent]) -> OrchestrationMetrics:
     admissible_unused, opportunity_displacement = _admission_opportunity_metrics(trace)
+    objective_stages = _objective_stage_metrics(trace)
     dispatches = [item for item in trace if isinstance(item, ActionReservationAcquired)]
     previous: dict[str, set[object]] = {}
     exact = cross = within = worker_exact = bootstrap_repeats = 0
@@ -262,4 +328,5 @@ def orchestration_metrics(trace: Sequence[AnyTraceEvent]) -> OrchestrationMetric
         worker_repeats_of_bootstrap=bootstrap_repeats,
         admissible_unused_tokens=admissible_unused,
         opportunity_displacement_tokens=opportunity_displacement,
+        **objective_stages,
     )
