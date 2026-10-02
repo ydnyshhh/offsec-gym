@@ -124,6 +124,11 @@ route without sufficient trace proof in 30, and had trace proof without a
 matching submission in one. There were no submitted refund findings. The
 public metadata root was validated in 79/89 runs. Document, invoice, and
 ticket roots were validated in 22, 20, and 9 runs respectively.
+The unsubmitted refund trace proof is cell 124 (opportunity-aware, seed
+1010, 120k): a member read a paid own-workspace invoice, received HTTP 200
+and `refunded` from the refund POST, then read the refunded state. The model
+submitted no refund finding. This is action-level evidence; no clone replay
+was invoked without a submitted candidate.
 
 `Trace proof, no submission` occurs 131 times across all roots. This means
 the gateway record contains proof-capable actions, **not** that the model
