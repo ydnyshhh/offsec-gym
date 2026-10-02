@@ -34,6 +34,14 @@ frozen diagnostic arms.
 | Analysis rules | Complete-sample and matching checks, invalid-score handling, paired seed differences, bootstrap intervals, and both curve definitions passed synthetic tests |
 | Selected endpoint visibility | All 12 archived M6.3.1 OpenRouter responses and all six new non-held-out pilot calls selected `moonshotai/kimi-k3-20260715` via `Moonshot AI`; the new completed-model event retained both fields |
 
+The ten new scripted pairs took 591.57 seconds locally, and the twelve
+fake-provider worker cases took 279.57 seconds across two invocations. These
+checks alone total about 14.5 minutes before the older suite and CI setup.
+The existing single `validate` CI job retained all steps and its check name;
+its timeout was raised from 15 to 30 minutes. This permits the expanded
+suite to finish without changing which tests gate each push. Hosted duration
+and outcome still require exact-head verification.
+
 The fake-provider pilot deliberately returns `task_blocked`. Its scores say
 nothing about model finding quality, and its traces are excluded from the
 confirmatory sample. Fixed-worker 40k, 60k, and 80k cells are structural
