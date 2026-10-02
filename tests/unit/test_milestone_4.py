@@ -16,6 +16,7 @@ from offsecgym.experiment import MonolithicExperimentRunner
 from offsecgym.providers.artifacts import ModelCallArtifacts
 from offsecgym.providers.base import ModelTurn, ProviderFailure, ProviderRequestError
 from offsecgym.providers.openai import OpenAIResponsesProvider
+from offsecgym.providers.openrouter import selected_endpoint
 from offsecgym.schemas.events import (
     ModelCallCompleted,
     ModelCallFailed,
@@ -213,6 +214,47 @@ async def test_model_usage_and_agent_budget_are_scored(tmp_path, monkeypatch) ->
     assert len(completed) == 1
     assert (completed[0].input_tokens, completed[0].output_tokens) == (9, 7)
     assert completed[0].estimated_cost_usd == pytest.approx(0.000023)
+
+
+@pytest.mark.asyncio
+async def test_selected_openrouter_endpoint_is_recorded_per_model_turn(
+    tmp_path, monkeypatch
+) -> None:
+    selected = {
+        "endpoints": {
+            "available": [
+                {
+                    "model": "moonshotai/kimi-k3-20260715",
+                    "provider": "Moonshot AI",
+                    "selected": True,
+                }
+            ]
+        }
+    }
+    response = turn(input_tokens=9, output_tokens=7)
+    response = response.model_copy(
+        update={"raw_response": {**response.raw_response, "openrouter_metadata": selected}}
+    )
+    spec = model_spec(tokens=16).model_copy(
+        update={
+            "model": ModelSpec(
+                provider="openrouter",
+                name="moonshotai/kimi-k3",
+                upstream_provider="moonshotai",
+                input_usd_per_million_tokens=3,
+                output_usd_per_million_tokens=15,
+            )
+        }
+    )
+    events = MemoryEvents()
+    outcome = await MonolithicExperimentRunner(
+        no_docker_runtime(tmp_path, monkeypatch), events, QueueProvider(response)
+    ).run(spec)
+    assert outcome.evaluation.score_valid
+    completed = next(item for item in events.items if isinstance(item, ModelCallCompleted))
+    assert completed.resolved_model_revision == "moonshotai/kimi-k3-20260715"
+    assert completed.resolved_upstream_provider == "Moonshot AI"
+    assert selected_endpoint({"openrouter_metadata": {"endpoints": {"available": []}}}) is None
 
 
 @pytest.mark.asyncio

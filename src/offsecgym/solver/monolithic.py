@@ -14,6 +14,7 @@ from pydantic import Field, ValidationError, field_validator, model_validator
 from offsecgym.interfaces import EventStore, ToolRegistry
 from offsecgym.providers.artifacts import ModelCallArtifacts
 from offsecgym.providers.base import ModelProvider, ProviderFailure, ProviderRequestError
+from offsecgym.providers.openrouter import selected_endpoint
 from offsecgym.providers.token_budget import estimate_input_tokens
 from offsecgym.schemas.actions import ActionRequest
 from offsecgym.schemas.common import StrictModel
@@ -651,6 +652,11 @@ class MonolithicSaasAgent:
             cost = self._turn_cost(turn.usage.input_tokens, turn.usage.output_tokens)
             used_tokens += turn.usage.input_tokens + turn.usage.output_tokens
             used_cost += cost or 0.0
+            endpoint = (
+                selected_endpoint(turn.raw_response)
+                if self.model.provider == "openrouter"
+                else None
+            )
             completed = await self.events.append(
                 ModelCallCompleted(
                     run_id=context.run_id,
@@ -660,6 +666,8 @@ class MonolithicSaasAgent:
                     task_id=task.task_id,
                     provider_response_id=turn.response_id,
                     provider_status=turn.status,
+                    resolved_model_revision=endpoint[0] if endpoint else None,
+                    resolved_upstream_provider=endpoint[1] if endpoint else None,
                     tool_call_count=sum(
                         item.get("type") == "function_call" for item in turn.output
                     ),

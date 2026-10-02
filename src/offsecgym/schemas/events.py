@@ -196,6 +196,8 @@ class ModelCallCompleted(TraceEvent):
     task_id: UUID | None = None
     provider_response_id: str | None = None
     provider_status: str = Field(min_length=1)
+    resolved_model_revision: str | None = Field(default=None, min_length=1)
+    resolved_upstream_provider: str | None = Field(default=None, min_length=1)
     tool_call_count: int = Field(ge=0)
     input_tokens: int = Field(ge=0)
     output_tokens: int = Field(ge=0)
@@ -205,6 +207,8 @@ class ModelCallCompleted(TraceEvent):
 
     @model_validator(mode="after")
     def require_response_artifact(self) -> ModelCallCompleted:
+        if (self.resolved_model_revision is None) != (self.resolved_upstream_provider is None):
+            raise ValueError("resolved model revision and upstream provider must be paired")
         if self.schema_version == "2" and (
             self.response_artifact_id is None or self.response_sha256 is None
         ):
