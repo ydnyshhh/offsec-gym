@@ -110,6 +110,9 @@ manifest cell completed with a valid score, clean controller replay, and the
 pinned Moonshot endpoint. The append-only local journal is the authoritative
 record of collection progress; the sample remains incomplete until all 180
 feasible cells and the predeclared analysis pass their gates.
+The [collection incident log](diagnostics/m64-collection-incidents.md) records
+the fully observed, unscored provider failure at cell 126 and its no-retry
+continuation.
 
 The [predeclared analysis code](../src/offsecgym/research/m64_analysis.py)
 rejects incomplete cells and changed model revisions, keeps invalid score
