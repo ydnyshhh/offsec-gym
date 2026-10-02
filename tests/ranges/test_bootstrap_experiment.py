@@ -463,9 +463,12 @@ async def test_admission_scheduler_uses_bootstrap_state_and_evidence_dependencie
 @pytest.mark.parametrize(
     ("arm", "config_name", "tokens"),
     [
+        ("fixed_sequential", "kimi-k3-m622-bootstrapped-sequential.yaml", 120000),
         ("fixed_sequential", "kimi-k3-m622-bootstrapped-sequential.yaml", 160000),
+        ("matched_parallel", "kimi-k3-m622-bootstrapped-parallel.yaml", 120000),
         ("matched_parallel", "kimi-k3-m622-bootstrapped-parallel.yaml", 160000),
         ("opportunity_aware", "kimi-k3-m631-admitted-sequential.yaml", 40000),
+        ("opportunity_aware", "kimi-k3-m631-admitted-sequential.yaml", 160000),
     ],
 )
 async def test_m64_v2_worker_fake_provider_pilot(
@@ -490,7 +493,7 @@ async def test_m64_v2_worker_fake_provider_pilot(
     spec = ExperimentSpec.model_validate(
         {
             **base.model_dump(mode="json"),
-            "name": f"m64_fake_{arm}_{'patched' if patched else 'vulnerable'}",
+            "name": f"m64_fake_{arm}_{tokens}_{'patched' if patched else 'vulnerable'}",
             "range": {
                 **base.range.model_dump(mode="json"),
                 "scenario": "tenant_boundary_v2",
