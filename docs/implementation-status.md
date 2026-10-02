@@ -106,6 +106,21 @@
   without displacement or accounting drift. It ended `agent_failed` from
   worker behavior; the exact trace and all scheduler gates are frozen in
   [the diagnostic](diagnostics/kimi-k3-openrouter-m631.md).
+- M6.4.0 adds a versioned `tenant_boundary_v2` range with varied workspace
+  assignments, object placement, document/ticket wording, and decoy clues.
+  Ten held-out vulnerable/fully patched pairs passed live Docker scripted
+  oracle and validator checks, with five validated roots versus zero findings.
+- M6.4.1–2 adds objective readiness/admission/execution metrics and a
+  deterministic 300-cell worker-policy matrix. It marks 120 low-budget fixed
+  worker cells structurally infeasible, leaving 180 prospective live cells.
+  Twelve fake-provider worker runs passed across three arms, two patch states,
+  and both feasible budget endpoints. Predeclared paired analysis checks
+  complete samples, invalid scores, model revisions, and separate common
+  feasible versus policy opportunity curves. Completed model-call events now
+  record selected OpenRouter endpoints when response metadata supplies them.
+  A bounded vulnerable/patched live pilot on non-held-out v2 seed 1101
+  verified selected endpoint attribution, paired bootstrap, score validity,
+  and clean event replay. No confirmatory model run has started.
 
 ## Partially implemented
 
@@ -133,13 +148,11 @@
 
 ## Next milestone
 
-[M6.4](milestone-6.4.md) is an orchestration policy evaluation, not another
-seed-42 scheduler tuning pass. Keep the M6.3.1 utility weights and task
-minimums frozen. First make held-out range seeds vary actual scenario
-semantics and align each comparison arm's initial information and budget
-accounting. Then predeclare paired vulnerable/patched ranges, token-budget
-curves, objective-stage metrics, and a bounded run matrix before spending
-model credits. Do not rerun or retune any frozen M6.3.0/M6.3.1 smoke.
+Review the [M6.4](milestone-6.4.md) 180-cell manifest and estimated cost
+before confirmatory model runs, then collect paired held-out runs in manifest
+order while checking the selected endpoint on every turn. Keep M6.3.1 worker
+policy, utility weights, and task minima frozen. Do not rerun or retune any
+frozen M6.3.0/M6.3.1 smoke.
 
 ## Known architectural debt
 
@@ -155,10 +168,9 @@ model credits. Do not rerun or retune any frozen M6.3.0/M6.3.1 smoke.
 - The range runtime coordinates dispatch/reset with an OS file lock across
   processes sharing one local state directory. Cross-host coordination is
   not supported.
-- SaaS range seeds currently change entity UUIDs and invoice amounts, while
-  workspace layout, role assignment, object placement, text patterns, and
-  decoys remain fixed. Held-out seeds alone do not establish semantic
-  scenario generalization.
+- The v2 SaaS seeds vary semantic surface details and relationships within
+  the same five vulnerability families. They do not test entirely new
+  vulnerability configurations or service-level distribution.
 - Existing Milestone 2 generated `.offsecgym` manifests require a fresh state directory
   and rebuild after stopping/destroying old live instances.
 - The first SaaS API is one service with an in-process SQLite fixture; service-level

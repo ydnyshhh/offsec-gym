@@ -24,8 +24,8 @@ fixed. A ten-seed sweep of this fixture would mostly test ID robustness.
 
 Introduce a versioned `tenant_boundary_v2` generator, leaving v1 and its
 frozen diagnostics unchanged. Make the seed vary at least workspace labels
-and order, target and decoy placements, cross-object reference location,
-document/ticket wording, and which member/admin identity witnesses each
+and order, target placement and decoy clue placement, cross-object reference
+location, document/ticket wording, and which member/admin identity witnesses each
 property. Keep the same five vulnerability families and a stable count of
 configured roots per vulnerable build. Every patched counterpart must
 share the vulnerable build's public fixture and differ only in patch state.
@@ -34,6 +34,14 @@ root IDs, target reachability, and no accidental cross-tenant access in the
 patched sibling. Freeze the generator version, ten held-out seeds, fixture
 hashes, and vulnerability manifest before any model run. Treat old v1
 results as diagnostics, not observations in the new statistical sample.
+
+The implementation uses seeds **1001–1010**. It varies account-to-workspace
+assignment, witness member, foreign target workspace, object ordering,
+document/ticket wording, and retired UUID clues. The clues do not create
+additional live assets or undeclared vulnerabilities. The ten paired
+Docker/scripted/validator checks passed: each vulnerable build produced five
+validated roots and each fully patched sibling produced none. The v1
+seed-42 build ID remains `c435a866-da5a-5f65-a2b5-ba2e4c2cc4db`.
 
 ## M6.4.1: align the comparison arms
 
@@ -64,17 +72,73 @@ token cap, and wall-time handling before the matrix starts.
 
 ## M6.4.2: predeclared matrix and analysis
 
-The proposed primary matrix uses ten held-out v2 range seeds, each with
+The worker-policy matrix uses ten held-out v2 range seeds, each with
 vulnerable and fully patched counterparts, and worker token budgets of
-40k, 60k, 80k, 120k, and 160k. With four aligned arms, that is
-`10 × 2 × 5 × 4 = 400` live runs for one model before any replication or
-second-model study. This is a proposal, not authorization to spend those
+40k, 60k, 80k, 120k, and 160k. Three currently aligned worker arms define
+`10 × 2 × 5 × 3 = 300` cells. The fixed sequential and matched parallel
+implementations reject budgets below **117,000** tokens before starting a
+worker: six reserved turns require `6 × (15,500 input + 4,000 output)`.
+Therefore 120 cells at 40k/60k/80k are marked **policy infeasible**, with
+no model run. The other **180 cells** are prospective live runs with
+**20.4 million configured model tokens** and **3,600 model calls** in total.
+Provider-reported token use can exceed a preflight reservation, so the token
+sum is an allocation ceiling rather than an absolute billing cap. If a
+common-bootstrap monolithic control is added, its cells and cost are a
+separate manifest revision. This is a proposal, not authorization to spend
 model credits. First publish a machine-readable manifest with the exact
 seeds, pair/build IDs, configurations, arm SHAs, model revision/upstream,
 budget dimensions, run order, and expected maximum calls/tokens. Estimate
 cost and wall time from the manifest and a bounded infrastructure pilot;
 review the concrete matrix before launching it. Pilot traces can validate
 instrumentation but do not enter the confirmatory sample.
+
+The locked prospective matrix is
+[`m64-v2-worker-primary-1.json`](../experiments/manifests/m64-v2-worker-primary-1.json),
+generated from source commit `4de2249`. Its `order` field covers only the
+180 feasible cells. A twelve-run **fake-provider** pilot exercised all three
+arms at their smallest and largest feasible token budgets on v2 seed 1001
+in both patch states; it passed score-validity, bootstrap, packet, and
+lease-cleanup checks without billed model calls.
+The paired scripted checks covered all ten seeds. A bounded live provider
+pilot on non-held-out v2 seed 1101 ran vulnerable and patched siblings at
+40k tokens and a $1 configured cost cap each. It verified selected endpoint
+metadata, matched bootstrap snapshots, score validity, and clean controller
+replay for both runs; see the [preflight diagnostic](diagnostics/m64-preflight.md).
+Its scores are excluded from the confirmatory sample. No confirmatory model
+run has started.
+
+The [predeclared analysis code](../src/offsecgym/research/m64_analysis.py)
+rejects incomplete cells and changed model revisions, keeps invalid score
+states out of paired means, and reports their counts separately. It computes
+seed-paired differences and a normalized trapezoidal AUC over the common
+feasible 120k–160k interval, plus a separately labeled 40k–160k policy
+opportunity curve with structural infeasibility explicitly shown. Completed
+OpenRouter model-call events now record the selected endpoint revision and
+upstream provider when response metadata supplies them. All 12 response
+artifacts from the earlier M6.3.1 smoke identified the same selected
+`moonshotai/kimi-k3-20260715` / `Moonshot AI` endpoint; a current live
+pilot verified that all six new completed-model events populated both fields.
+
+At the 2026-10-02 [OpenRouter Kimi K3 provider listing](https://openrouter.ai/moonshotai/kimi-k3),
+the pinned Moonshot AI upstream lists **$3 per million input tokens** and
+**$15 per million output tokens**. If all 20.4 million permitted tokens
+were billed at that snapshot's output rate, the token-only planning bound
+would be **$306** for the configured allocation. Actual usage can exceed
+that allocation; input/output mix, any provider price changes,
+fees, and pilot usage need checking before a spending decision. The
+manifest deliberately leaves `usd_ceiling` unset because the experiment
+configs do not yet enforce a USD budget. One previous 120k live smoke took
+333.59 seconds; the proposed 900-second per-run limit implies 45 hours of
+serial run time for 180 cells if every run reaches that limit, excluding
+range lifecycle overhead. The current synchronous provider request can
+outlive coroutine cancellation, so this is not a strict wall-time ceiling.
+
+Report structural infeasibility separately from agent failure. For a
+common-feasible model-behavior comparison, use the 120k and 160k cells.
+Across the full 40k–160k opportunity curve, show the fixed policies'
+infeasible region explicitly. If a scalar policy opportunity AUC counts
+those cells as zero reachability, label it as a combined feasibility and
+model-performance measure; do not present it as observed model recall.
 
 Hold model-call, action, HTTP, and per-call output ceilings fixed across the
 token-budget curve, and report which ceiling actually ends each run. Set a
@@ -88,9 +152,11 @@ Primary outcomes are distinct validated root-cause recall on vulnerable
 ranges and false findings per run on patched ranges. Report candidate count,
 validation status, duplicates, score validity, and failure reason separately.
 For each budget, report recall per actual model token and paired differences
-between arms on the same seed and patch state. Summarize efficiency with
-trapezoidal recall-budget area over the predeclared **40k–160k** interval,
-normalized by that interval's width; do not extrapolate the curve to zero.
+between arms on the same seed and patch state. Summarize model-performance
+efficiency with trapezoidal recall-budget area over the common-feasible
+**120k–160k** interval, normalized by that interval's width. Report a
+separate, clearly labeled **40k–160k policy opportunity curve** that includes
+structural infeasibility; do not extrapolate either curve to zero.
 Use seed-clustered uncertainty intervals for paired arm differences.
 An architecture-by-budget interaction is a secondary analysis; with ten
 seeds, report its uncertainty rather than a score-winner claim.
@@ -119,7 +185,10 @@ became READY, four were admitted, and three reached their objective route:
 `AdmissionCoverage=4/5`, `ExecutionCoverage=3/4`. These are diagnostic
 reference values, not part of the held-out sample. Monolithic has no worker
 admission stage; mark that metric inapplicable and compare its route/evidence
-coverage separately. Do not turn absence of a `WorkerObjectiveAction` into
+coverage separately. Fixed workers have no explicit READY predicate, so
+their ready/admission coverage is inapplicable until a common readiness
+ledger exists; their execution coverage remains measurable from packets and
+objective actions. Do not turn absence of a `WorkerObjectiveAction` into
 proof that no security-relevant action occurred.
 
 Use an offline, oracle-audited stage ledger to classify each missed root as
@@ -138,8 +207,9 @@ counted once. Keep hidden oracle state out of agent packets and scheduling.
 3. Event replay reconstructs controller usage, worker ownership, and
    admission/coverage stages; run failures retain typed causes.
 4. The infrastructure pilot exercises both patch states, the smallest and
-   largest token budgets, and each arm without changing frozen worker
-   policy. Failures trigger a new protocol version before confirmatory data.
+   largest **feasible** token budgets for each arm without changing frozen
+   worker policy. Structurally infeasible cells get a no-provider preflight
+   check. Failures trigger a new protocol version before confirmatory data.
 5. The confirmatory analysis code and denominator rules are fixed before
    model runs. No policy-weight search or seed-42 hill climbing is included.
 
