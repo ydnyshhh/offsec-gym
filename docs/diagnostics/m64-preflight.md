@@ -96,9 +96,18 @@ coroutine cancellation, so wall time is not a strict cap yet.
 
 ## Remaining preflight gates
 
-1. Review the full manifest and spending envelope before live collection.
-   `usd_ceiling` remains unset because no enforced cost budget is configured.
-2. During collection, stop or partition the analysis if a selected endpoint
+The user approved the 180-cell collection on 2026-10-02 after reviewing the
+20.4-million-token allocation and approximate $306 price-snapshot estimate.
+The [collector](../../src/offsecgym/research/m64_execute.py) requires the
+exact manifest, selected endpoint, and a cumulative estimated-cost limit
+no greater than $306. It journals and fsyncs each cell before execution,
+archives its trace, verifies replay and endpoint attribution, and resumes
+only completed cells. An interrupted cell requires manual event-store
+reconciliation before any continuation. The $306 software threshold uses
+the 2026-10-02 listed $3/M input and $15/M output rates; provider billing
+may differ if rates or token accounting change.
+
+During collection, stop or partition the analysis if a selected endpoint
    changes or metadata becomes unavailable; the predeclared analyzer rejects
    a mixed revision/upstream sample.
 

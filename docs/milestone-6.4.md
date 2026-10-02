@@ -124,14 +124,21 @@ the pinned Moonshot AI upstream lists **$3 per million input tokens** and
 **$15 per million output tokens**. If all 20.4 million permitted tokens
 were billed at that snapshot's output rate, the token-only planning bound
 would be **$306** for the configured allocation. Actual usage can exceed
-that allocation; input/output mix, any provider price changes,
-fees, and pilot usage need checking before a spending decision. The
+that allocation; input/output mix, any provider price changes, and fees
+affect the actual bill. The
 manifest deliberately leaves `usd_ceiling` unset because the experiment
 configs do not yet enforce a USD budget. One previous 120k live smoke took
 333.59 seconds; the proposed 900-second per-run limit implies 45 hours of
 serial run time for 180 cells if every run reaches that limit, excluding
 range lifecycle overhead. The current synchronous provider request can
 outlive coroutine cancellation, so this is not a strict wall-time ceiling.
+
+The user approved collecting the 180 feasible cells on 2026-10-02 after
+this cost review. The collector applies a $306 cumulative **estimated**
+token-cost threshold and stops on endpoint drift, unscored runs, or
+controller replay failure. That threshold does not promise an exact provider
+bill. The collection journal and per-run trace exports remain outside Git
+in `.offsecgym/`.
 
 Report structural infeasibility separately from agent failure. For a
 common-feasible model-behavior comparison, use the 120k and 160k cells.
