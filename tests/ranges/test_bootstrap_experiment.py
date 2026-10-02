@@ -24,6 +24,7 @@ from offsecgym.schemas.events import (
     ModelCallStarted,
     PrerequisiteBootstrapCompleted,
     PrerequisiteBootstrapStarted,
+    RangeStarted,
     SchedulerDecision,
     TaskBudgetGranted,
     TaskBudgetHeld,
@@ -452,5 +453,85 @@ async def test_admission_scheduler_uses_bootstrap_state_and_evidence_dependencie
         assert metrics.executed_objectives == 0
         assert metrics.admission_coverage == 1.0
         assert metrics.execution_coverage == 0.0
+    finally:
+        await engine.dispose()
+
+
+@pytest.mark.postgres
+@pytest.mark.docker
+@pytest.mark.parametrize("patched", [False, True])
+@pytest.mark.parametrize(
+    ("arm", "config_name", "tokens"),
+    [
+        ("fixed_sequential", "kimi-k3-m622-bootstrapped-sequential.yaml", 160000),
+        ("matched_parallel", "kimi-k3-m622-bootstrapped-parallel.yaml", 160000),
+        ("opportunity_aware", "kimi-k3-m631-admitted-sequential.yaml", 40000),
+    ],
+)
+async def test_m64_v2_worker_fake_provider_pilot(
+    tmp_path: Path, arm: str, config_name: str, tokens: int, patched: bool
+) -> None:
+    url = os.getenv("OFFSECGYM_TEST_DATABASE_URL")
+    if not url:
+        pytest.skip("OFFSECGYM_TEST_DATABASE_URL is not set")
+    docker = subprocess.run(
+        ["docker", "info", "--format", "{{.ServerVersion}}"],
+        capture_output=True,
+        text=True,
+        timeout=10,
+        check=False,
+    )
+    if docker.returncode:
+        if os.getenv("OFFSECGYM_REQUIRE_DOCKER") == "1":
+            pytest.fail(f"Docker required by CI: {docker.stderr[-400:]}")
+        pytest.skip("Docker daemon is unavailable")
+    config = Path(__file__).parents[2] / "experiments" / "configs" / config_name
+    base = ExperimentSpec.model_validate(yaml.safe_load(config.read_text()))
+    spec = ExperimentSpec.model_validate(
+        {
+            **base.model_dump(mode="json"),
+            "name": f"m64_fake_{arm}_{'patched' if patched else 'vulnerable'}",
+            "range": {
+                **base.range.model_dump(mode="json"),
+                "scenario": "tenant_boundary_v2",
+                "seed": 1001,
+                "patched": patched,
+            },
+            "budget": {
+                **base.budget.model_dump(mode="json"),
+                "max_total_tokens": tokens,
+                "max_wall_seconds": 900,
+            },
+        }
+    )
+    engine = create_async_engine(url)
+    runtime = ComposeRangeRuntime(tmp_path)
+    events = PostgresEventStore(engine)
+    try:
+        outcome = await WorkerExperimentRunner(runtime, events, BlockProvider()).run(spec)
+        assert outcome.evaluation.score_valid
+        assert outcome.evaluation.false_positives == 0
+        trace = await events.read_run(outcome.run_id)
+        bootstrap = [e for e in trace if isinstance(e, PrerequisiteBootstrapCompleted)]
+        assert len(bootstrap) == 1
+        assert bootstrap[0].identity_count >= 8
+        assert (
+            min(
+                bootstrap[0].document_count,
+                bootstrap[0].invoice_count,
+                bootstrap[0].ticket_count,
+            )
+            >= 1
+        )
+        assert len([e for e in trace if isinstance(e, RangeStarted)]) == 1
+        projection = project_controller_events(trace)
+        assert projection.active_workers == 0
+        assert not projection.active_actions
+        assert not projection.active_coverage
+        assert not projection.model_reservations
+        packets = [e for e in trace if isinstance(e, WorkerPacketPrepared)]
+        assert packets
+        assert all(packet.packet.relevant_entities for packet in packets)
+        assert all(packet.packet.budget_slice.max_total_tokens > 0 for packet in packets)
     finally:
         await engine.dispose()
