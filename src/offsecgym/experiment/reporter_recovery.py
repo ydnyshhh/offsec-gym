@@ -18,6 +18,16 @@ from offsecgym.schemas.specs import Budget, ExperimentSpec
 from offsecgym.solver.scripted import ExperimentInfrastructureError
 
 
+def recovery_experiment_hash(spec: ExperimentSpec, reporter_budget: Budget) -> str:
+    record = {
+        "probe_spec": spec.model_dump(mode="json"),
+        "reporter_budget": reporter_budget.model_dump(mode="json"),
+        "reporter_contract_version": "m65-read-only-v1",
+    }
+    raw = json.dumps(record, sort_keys=True, separators=(",", ":")).encode()
+    return hashlib.sha256(raw).hexdigest()
+
+
 def combined_budget(probe: Budget, reporter: Budget) -> Budget:
     """Reserve an explicit extra model allowance while keeping probe task caps intact."""
     if (
@@ -72,13 +82,7 @@ class ReporterRecoveryRunner(WorkerExperimentRunner):
         return combined_budget(super()._controller_budget(spec), self.reporter_budget)
 
     def _experiment_hash(self, spec: ExperimentSpec) -> str:
-        record = {
-            "probe_spec": spec.model_dump(mode="json"),
-            "reporter_budget": self.reporter_budget.model_dump(mode="json"),
-            "reporter_contract_version": "m65-read-only-v1",
-        }
-        raw = json.dumps(record, sort_keys=True, separators=(",", ":")).encode()
-        return hashlib.sha256(raw).hexdigest()
+        return recovery_experiment_hash(spec, self.reporter_budget)
 
     async def _after_agent(
         self,
