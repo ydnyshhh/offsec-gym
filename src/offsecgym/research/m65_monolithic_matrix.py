@@ -19,6 +19,8 @@ from offsecgym.schemas.specs import Budget, ExperimentSpec, RangeSpec
 PROTOCOL = "m65-common-bootstrap-monolithic-v1"
 CONFIG = "experiments/configs/kimi-k3-m65-bootstrapped-monolithic.yaml"
 HISTORICAL_MANIFEST = "experiments/manifests/m64-v2-worker-primary-1.json"
+ANALYSIS = "src/offsecgym/research/m65_monolithic_analysis.py"
+COLLECTOR = "src/offsecgym/research/m65_monolithic_execute.py"
 SEEDS = tuple(range(1001, 1011))
 TOKEN_BUDGETS = (40000, 60000, 80000, 120000, 160000)
 ORDER_SEED = 6501
@@ -141,6 +143,8 @@ def plan_m65_monolithic_matrix(root: Path, *, source_commit: str) -> dict[str, o
         "seed_set": SEEDS,
         "token_budgets": TOKEN_BUDGETS,
         "config": {"path": CONFIG, "sha256": _digest(config_path.read_bytes())},
+        "analysis": {"path": ANALYSIS, "sha256": _digest((root / ANALYSIS).read_bytes())},
+        "collector": {"path": COLLECTOR, "sha256": _digest((root / COLLECTOR).read_bytes())},
         "model_request": base.model.model_dump(mode="json"),
         "expected_selected_endpoint": {
             "revision": "moonshotai/kimi-k3-20260715",

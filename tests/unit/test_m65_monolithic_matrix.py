@@ -11,6 +11,8 @@ import yaml
 
 from offsecgym.experiment.scripted import experiment_hash
 from offsecgym.research.m65_monolithic_matrix import (
+    ANALYSIS,
+    COLLECTOR,
     CONFIG,
     HISTORICAL_MANIFEST,
     _cell_spec,
@@ -28,6 +30,8 @@ def test_m65_monolithic_matrix_matches_historical_pairs_and_caps() -> None:
     assert planned["planned_live_cells"] == 100
     assert planned["maximum_configured_model_tokens"] == 9_200_000
     assert planned["maximum_configured_model_calls"] == 2_000
+    assert planned["analysis"]["path"] == ANALYSIS
+    assert planned["collector"]["path"] == COLLECTOR
     assert [cell["order"] for cell in planned["cells"]] == list(range(1, 101))
     assert len({cell["cell_id"] for cell in planned["cells"]}) == 100
     assert Counter(cell["model_token_budget"] for cell in planned["cells"]) == {

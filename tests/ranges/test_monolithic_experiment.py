@@ -253,6 +253,10 @@ async def test_bootstrapped_monolithic_first_turn_sees_audited_state(tmp_path: P
     completed = [event for event in trace if isinstance(event, PrerequisiteBootstrapCompleted)]
     assert len(completed) == 1
     assert completed[0].action_count == completed[0].http_request_count == 17
+    assert (
+        completed[0].snapshot_hash
+        == "0e50d8ea223b31b19729e859054c8d4c3398e31aeec059ee4ecff3acbe8ba4a1"
+    )
     bootstrap_requests = [
         event
         for event in trace
