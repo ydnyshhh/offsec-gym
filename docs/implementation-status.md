@@ -152,11 +152,17 @@
 
 ## Next milestone
 
-Review the frozen [M6.4 results](diagnostics/m64-confirmatory-results.md)
-before defining a new protocol. The main unresolved behavior is witness
-formation and finding submission, especially the refund root. Keep M6.4
-worker policy, utility weights, task minima, and held-out observations frozen;
-do not rerun or retune them to improve the score.
+M6.4 is closed at `50c3374`; its [results](diagnostics/m64-confirmatory-results.md)
+and single unscored provider failure remain frozen. The common-budget recall
+comparison did not establish a winner. The post-collection ledger instead
+locates frequent action-proof-to-finding losses, especially for document,
+invoice, and ticket roots, while the refund root also fails earlier stages.
+Do not rerun or retune M6.4 to improve these observations.
+
+The next [M6.5 research design](milestone-6.5.md) separates a common-bootstrap
+monolithic control from a prospective witness-to-finding study on new seeds.
+Neither design authorizes paid model calls; each requires its own frozen
+manifest, integrity checks, cost review, and explicit collection decision.
 
 ## Known architectural debt
 
