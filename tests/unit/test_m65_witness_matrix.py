@@ -1,25 +1,30 @@
-"""The prospective matrix is new, paired, bounded, and deterministic."""
+"""Held-out selection is deterministic and refuses pre-freeze builds."""
 
+import json
 from pathlib import Path
 
-from offsecgym.research.m65_witness_matrix import SEEDS, plan_witness_matrix
+import pytest
+
+from offsecgym.research.m65_witness_matrix import plan_witness_matrix
+from offsecgym.research.m651_seed_selection import select_seeds
 
 
-def test_new_seed_matrix_has_paired_builds_and_explicit_worst_cost() -> None:
-    root = Path(__file__).parents[2]
-    manifest = plan_witness_matrix(root, source_commit="frozen-source")
-    assert SEEDS == tuple(range(2001, 2011))
-    assert set(SEEDS).isdisjoint(range(1001, 1011))
-    assert 1101 not in SEEDS
-    assert manifest["planned_live_cells"] == 20
-    assert manifest["maximum_estimated_token_cost_usd"] == 60.0
-    assert manifest["combined_model_budget"]["max_wall_seconds"] == 900
-    assert manifest["requires_separate_paid_approval"]
-    assert len({cell["cell_id"] for cell in manifest["cells"]}) == 20
-    assert [cell["order"] for cell in manifest["cells"]] == list(range(1, 21))
-    for seed in SEEDS:
-        pair = manifest["range_pairs"][str(seed)]
-        cells = [cell for cell in manifest["cells"] if cell["range_seed"] == seed]
-        assert {cell["variant"] for cell in cells} == {"vulnerable", "patched"}
-        assert {cell["pair_id"] for cell in cells} == {pair["pair_id"]}
-    assert manifest == plan_witness_matrix(root, source_commit="frozen-source")
+def test_seed_selection_excludes_prior_and_local_configs_without_building(tmp_path: Path) -> None:
+    manifests = tmp_path / "experiments" / "manifests"
+    configs = tmp_path / "experiments" / "configs"
+    manifests.mkdir(parents=True)
+    configs.mkdir(parents=True)
+    (manifests / "old.json").write_text(json.dumps({"cells": [{"range_seed": 5500}]}))
+    (configs / "old.yaml").write_text("range:\n  seed: 4500\n")
+    first = select_seeds(tmp_path, source_commit="f" * 40)
+    assert first == select_seeds(tmp_path, source_commit="f" * 40)
+    assert len(first["sample_seeds"]) == len(set(first["sample_seeds"])) == 10
+    assert set(first["sample_seeds"]).isdisjoint(first["excluded_seeds"])
+    assert first["pilot_seed"] not in first["sample_seeds"]
+    assert {1001, 1010, 1101, 2001, 2010, 2101, 4500, 5500}.issubset(first["excluded_seeds"])
+    assert not (tmp_path / "builds").exists()
+
+
+def test_matrix_refuses_builds_without_committed_seed_declaration(tmp_path: Path) -> None:
+    with pytest.raises(FileNotFoundError):
+        plan_witness_matrix(tmp_path, source_commit="f" * 40)

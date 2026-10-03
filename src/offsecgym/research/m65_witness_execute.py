@@ -45,17 +45,19 @@ from offsecgym.schemas.events import (
     ReporterStarted,
     RunCompleted,
     RunStarted,
+    WorkerSpawned,
 )
-from offsecgym.schemas.specs import Budget, ExperimentSpec
+from offsecgym.schemas.specs import ExperimentSpec, ReporterBudget
 from offsecgym.storage.event_store import PostgresEventStore
 from offsecgym.storage.projection import project_controller_events
+from offsecgym.worldview import EventWorldState
 
 
 def verify_manifest(root: Path, path: Path) -> dict[str, Any]:
     recorded = json.loads(path.read_text())
     rebuilt = plan_witness_matrix(root, source_commit=recorded["source_commit"])
     if recorded != json.loads(json.dumps(rebuilt)):
-        raise ValueError("Study B manifest no longer rebuilds from pinned inputs")
+        raise ValueError("M6.5.1 manifest no longer rebuilds from pinned inputs")
     paths = [
         "src/offsecgym",
         ":!src/offsecgym/research/m65_witness_matrix.py",
@@ -71,11 +73,16 @@ def verify_manifest(root: Path, path: Path) -> dict[str, Any]:
     )
     dirty = subprocess.run(["git", "diff", "--quiet", "HEAD", "--", *paths], cwd=root, check=False)
     if changed.returncode != 0 or dirty.returncode != 0:
-        raise ValueError("Study B runtime source differs from pinned commit")
+        raise ValueError("M6.5.1 runtime source differs from pinned commit")
     return recorded
 
 
 def spec_for_cell(root: Path, manifest: dict[str, Any], cell: dict[str, Any]):
+    if cell["range_seed"] not in manifest["seed_set"] or cell["variant"] not in {
+        "vulnerable",
+        "patched",
+    }:
+        raise ValueError("cell is outside frozen held-out pairs")
     probe_path, reporter_path = root / PROBE_CONFIG, root / REPORTER_CONFIG
     if (
         _sha256(probe_path.read_bytes()) != manifest["probe_config"]["sha256"]
@@ -83,11 +90,25 @@ def spec_for_cell(root: Path, manifest: dict[str, Any], cell: dict[str, Any]):
     ):
         raise ValueError("Study B config hash differs from pinned manifest")
     base = ExperimentSpec.model_validate(yaml.safe_load(probe_path.read_text()))
-    reporter = Budget.model_validate(yaml.safe_load(reporter_path.read_text()))
+    reporter = ReporterBudget.model_validate(yaml.safe_load(reporter_path.read_text()))
     spec = spec_for_seed(base, cell["range_seed"], cell["variant"] == "patched")
     if recovery_experiment_hash(spec, reporter) != cell["experiment_sha256"]:
         raise ValueError("Study B experiment hash differs from pinned manifest")
     return spec, reporter
+
+
+async def _close_terminal_monolithic_coverage(events, run_id) -> int:
+    """Administrative release after RunCompleted; never changes probe actions or score."""
+    trace = await events.read_run(run_id)
+    if sum(isinstance(item, RunCompleted) for item in trace) != 1:
+        raise ValueError("coverage closure requires a completed run")
+    if any(isinstance(item, WorkerSpawned) for item in trace):
+        raise ValueError("M6.5.1 probe must remain monolithic")
+    projection = project_controller_events(trace)
+    world = EventWorldState(events)
+    for claim_id, task_id in projection.active_coverage.items():
+        await world.update_coverage(run_id, claim_id, task_id, "released")
+    return len(projection.active_coverage)
 
 
 async def execute(
@@ -165,6 +186,7 @@ async def execute(
             )
             started_at = time.monotonic()
             outcome = await runner.run(spec)
+            await _close_terminal_monolithic_coverage(events, outcome.run_id)
             trace = await events.read_run(outcome.run_id)
             if outcome.build_id is None or str(outcome.build_id) != cell["build_id"]:
                 raise ValueError("Study B build differs from pinned pair")
@@ -193,6 +215,8 @@ async def execute(
                 or len(bootstrap_actions) != 17
             ):
                 raise ValueError("Study B bootstrap boundary changed")
+            if any(isinstance(item, WorkerSpawned) for item in trace):
+                raise ValueError("M6.5.1 worker event crossed monolithic probe boundary")
             projection = project_controller_events(trace)
             if (
                 projection.active_workers
