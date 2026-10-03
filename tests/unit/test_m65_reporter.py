@@ -15,7 +15,12 @@ from offsecgym.providers.base import ModelTurn, ModelUsage, ProviderFailure
 from offsecgym.research.m65_reporter import ReadOnlyReporter, reporter_tools
 from offsecgym.research.m65_witness_packet import ReadOnlyReporterTools, build_reporter_bundle
 from offsecgym.schemas.domain import CandidateFinding
-from offsecgym.schemas.events import ModelCallCompleted, ModelCallFailed, ModelCallStarted
+from offsecgym.schemas.events import (
+    ModelCallCompleted,
+    ModelCallFailed,
+    ModelCallStarted,
+    ModelToolRejected,
+)
 from offsecgym.schemas.specs import ModelSpec, ReporterBudget
 
 
@@ -175,4 +180,28 @@ async def test_reporter_rejects_foreign_lookup_without_sink_call(tmp_path: Path)
         global_budget=_budget(),
     )
     assert result.status == "budget_exhausted"
+    sink.submit.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_reporter_unknown_network_tool_is_typed_rejection(tmp_path: Path) -> None:
+    run_id, trace, _, _, _, _ = _trace(tmp_path)
+    bundle = build_reporter_bundle(trace, tmp_path, expected_run_id=run_id)
+    provider = QueueProvider([(_call("http_request", {"method": "GET", "path": "/api/me"}, 1),)])
+    events = MemoryEvents()
+    sink = AsyncMock()
+    await _reporter(tmp_path, provider, events).run(
+        bundle,
+        ReadOnlyReporterTools(bundle, sink),
+        reporter_budget=ReporterBudget(
+            max_total_tokens=30_000,
+            max_model_calls=1,
+            max_output_tokens_per_call=512,
+            max_retrieval_calls=8,
+            max_finding_submissions=4,
+        ),
+        global_budget=_budget(),
+    )
+    rejection = next(item for item in events.items if isinstance(item, ModelToolRejected))
+    assert rejection.reason_code == "unknown_reporter_tool"
     sink.submit.assert_not_awaited()

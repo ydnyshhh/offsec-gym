@@ -12,10 +12,16 @@ from uuid import UUID, uuid4
 import pytest
 
 from offsecgym.research.m65_witness_packet import ReadOnlyReporterTools, build_reporter_bundle
-from offsecgym.schemas.domain import AuthorizationExpectation, EvidenceRef, FindingProposal
+from offsecgym.schemas.domain import (
+    AuthorizationExpectation,
+    EvidenceRef,
+    FindingProposal,
+    ValidationResult,
+)
 from offsecgym.schemas.events import (
     ActionCompleted,
     ActionRequested,
+    FindingValidated,
     RangeStarted,
     RunStarted,
 )
@@ -140,6 +146,15 @@ def test_reporter_packet_preserves_action_order_and_entity_association(tmp_path:
     assert "SECRET_ORACLE_SENTINEL" not in bundle.packet.model_dump_json()
     assert "trusted response" in bundle.get_action(first[0].action_id)["response_body"]
     assert not hasattr(bundle, "execute")
+    assert (
+        bundle.packet.bundle_sha256
+        == build_reporter_bundle(trace, tmp_path, expected_run_id=run_id).packet.bundle_sha256
+    )
+    serialized = json.dumps(bundle.packet.model_dump(mode="json"))
+    for forbidden in ("SECRET_ORACLE_SENTINEL", "matched_root_cause_id", "score_valid"):
+        assert forbidden not in serialized
+    assert bundle.get_evidence(first[2])["action_id"] == str(first[0].action_id)
+    assert bundle.get_entity(target)["entity_id"] == str(target)
 
 
 def test_reporter_rejects_foreign_evidence_and_tampered_artifacts(tmp_path: Path) -> None:
@@ -200,6 +215,32 @@ def test_reporter_rejects_wrong_run_and_reordered_events(tmp_path: Path) -> None
         build_reporter_bundle(
             [*trace[:3], trace[4], trace[3], trace[5]], tmp_path, expected_run_id=run_id
         )
+    validation = FindingValidated(
+        run_id=run_id,
+        actor="validator",
+        sequence_number=7,
+        result=ValidationResult(
+            run_id=run_id, finding_id=uuid4(), status="rejected", reason_codes=("property_patched",)
+        ),
+    )
+    with pytest.raises(ValueError, match="before validation"):
+        build_reporter_bundle([*trace, validation], tmp_path, expected_run_id=run_id)
+
+
+def test_bundle_hash_changes_with_ordered_evidence(tmp_path: Path) -> None:
+    run_id, trace, _, _, _, _ = _trace(tmp_path)
+    first = build_reporter_bundle(trace, tmp_path, expected_run_id=run_id)
+    reordered = [
+        trace[0],
+        trace[1],
+        trace[4].model_copy(update={"sequence_number": 3}),
+        trace[5].model_copy(update={"sequence_number": 4}),
+        trace[2].model_copy(update={"sequence_number": 5}),
+        trace[3].model_copy(update={"sequence_number": 6}),
+    ]
+    second = build_reporter_bundle(reordered, tmp_path, expected_run_id=run_id)
+    assert first.packet.bundle_sha256 != second.packet.bundle_sha256
+    assert first.packet.actions[0].action_id != second.packet.actions[0].action_id
 
 
 @pytest.mark.asyncio

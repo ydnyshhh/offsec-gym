@@ -19,7 +19,10 @@ from offsecgym.schemas.events import (
     ActionCompleted,
     ActionRequested,
     FindingSubmitted,
+    FindingValidated,
     RangeStarted,
+    ReporterStarted,
+    RunCompleted,
     RunStarted,
     TraceEvent,
 )
@@ -260,10 +263,13 @@ def build_reporter_bundle(
         or ranges[0].run_id != expected_run_id
         or ranges[0].range_instance_id is None
         or ranges[0].range_generation is None
+        or ranges[0].build_id is None
     ):
         raise ValueError("reporter source requires one versioned run and range")
     if any(item.run_id != expected_run_id for item in trace):
         raise ValueError("reporter trace mixes run IDs")
+    if any(isinstance(item, (FindingValidated, ReporterStarted, RunCompleted)) for item in trace):
+        raise ValueError("reporter source must freeze before validation and run completion")
     trace_raw = json.dumps(
         [item.model_dump(mode="json") for item in trace],
         sort_keys=True,
