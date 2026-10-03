@@ -404,6 +404,12 @@ def conversion_ledger(
         oracle,
         status=ending.status,
     )
+    combined_score = evaluate_run(
+        tuple(e.finding for e in original + reporter),
+        tuple(verdicts[e.finding.finding_id] for e in original + reporter),
+        oracle,
+        status=ending.status,
+    )
     reporter_calls = [
         e
         for e in trace
@@ -479,5 +485,6 @@ def conversion_ledger(
         "reporter_output_tokens": sum(e.output_tokens for e in reporter_calls),
         "reporter_retrieval_calls": len(retrievals),
         "original_score": original_score.model_dump(mode="json"),
+        "combined_score": combined_score.model_dump(mode="json"),
         "rows": rows,
     }

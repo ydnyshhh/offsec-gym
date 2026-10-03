@@ -180,6 +180,7 @@ async def execute(
         by_id = {item["cell_id"]: item for item in ordered}
         if set(journal.completed) - set(by_id):
             raise ValueError("journal contains a cell outside the Study B manifest")
+        used_run_ids = set()
         for cell_id, record in journal.completed.items():
             cell = by_id[cell_id]
             trace_path = Path(record["trace_path"])
@@ -190,6 +191,10 @@ async def execute(
                 or _sha256(trace_path.read_bytes()) != record["trace_sha256"]
             ):
                 raise ValueError("completed Study B cell cannot be verified")
+            run_id = record["observation"]["run_id"]
+            if run_id in used_run_ids:
+                raise ValueError("completed Study B journal reused a run ID")
+            used_run_ids.add(run_id)
         spent = sum(record["estimated_cost_usd"] for record in journal.completed.values())
         new_cells = 0
         for cell in ordered:
@@ -216,6 +221,8 @@ async def execute(
             )
             started_at = time.monotonic()
             outcome = await runner.run(spec)
+            if str(outcome.run_id) in used_run_ids:
+                raise ValueError("M6.5.1 collector reused an existing run ID")
             await _close_terminal_monolithic_coverage(events, outcome.run_id)
             trace = await events.read_run(outcome.run_id)
             if outcome.build_id is None or str(outcome.build_id) != cell["build_id"]:
@@ -281,6 +288,8 @@ async def execute(
                 fixture_path = runtime.state.build_dir(outcome.build_id) / "fixture.json"
                 fixture = json.loads(fixture_path.read_text())
                 conversion = conversion_ledger(trace, state_dir, oracle, fixture)
+                if conversion["combined_score"] != outcome.evaluation.model_dump(mode="json"):
+                    raise ValueError("M6.5.1 evaluation differs from event-replayed score")
                 if not any(isinstance(item, ReporterStarted) for item in trace):
                     raise ValueError("Study B reporter start event is missing")
             observation = M64Observation(
@@ -315,6 +324,7 @@ async def execute(
             }
             journal.append(record)
             journal.completed[cell["cell_id"]] = record
+            used_run_ids.add(str(outcome.run_id))
             spent += estimated_cost
             new_cells += 1
             if spent > max_estimated_usd:
