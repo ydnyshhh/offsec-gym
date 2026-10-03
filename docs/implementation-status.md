@@ -133,6 +133,13 @@
 
 ## Partially implemented
 
+- M6.5.1 has an [implemented prospective witness-recovery protocol](milestone-6.5.1.md)
+  and [preflight](diagnostics/m651-witness-recovery-preflight.md). Ten new
+  vulnerable/patched seed pairs and a distinct non-sample pilot pair are pinned.
+  The read-only reporter, separate resource ledger, offline root-stage analysis,
+  journaled collector, and cost stops are ready. No M6.5.1 paid call or held-out
+  sample run has occurred. The reporter token allowance remains provisional until
+  the non-sample pilot establishes end-to-end context feasibility.
 - Model token and cost reservations use a conservative request-size preflight
   estimate, now calibrated as configurable bytes per token plus a margin and
   recorded with split input/output estimates and signed errors. They settle to
@@ -169,9 +176,10 @@ monolithic control from a prospective witness-to-finding study on new seeds.
 The [control](diagnostics/m65-common-bootstrap-control-results.md) is complete
 and frozen. Its historical matched comparison shows higher monolithic root
 recall at common feasible budgets, with temporal and system differences that
-prevent a causal architecture claim. The next live question is the separate
-witness-to-finding protocol on new paired seeds. Its pilot and full sample
-require their own cost decisions; no control cell is part of that sample.
+prevent a causal architecture claim. The [M6.5.1 recovery protocol](milestone-6.5.1.md)
+is implemented and predeclared but unrun. Its non-sample pilot is the next
+feasibility gate; the full sample requires a separate cost decision. No control
+cell is part of that sample.
 
 ## Known architectural debt
 
