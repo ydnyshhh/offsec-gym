@@ -1024,7 +1024,7 @@
   ],
   "collector": {
     "path": "src/offsecgym/research/m65_monolithic_execute.py",
-    "sha256": "abceea00995897fe912be8dcbc3a7459b49bfc2fe85de3eb4b90701da3225f7d"
+    "sha256": "bed5ba12d65634c52aebe8df32fc189b132200b1e2f27f07c549063743dbe1c3"
   },
   "config": {
     "path": "experiments/configs/kimi-k3-m65-bootstrapped-monolithic.yaml",

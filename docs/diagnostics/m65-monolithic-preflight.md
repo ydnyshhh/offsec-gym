@@ -9,7 +9,10 @@ budgets. Every proposed monolithic cell is policy-feasible. The manifest
 pins runtime source `327f1a6`, the exact control config, collector, analysis,
 build pair IDs, fixture hashes, randomized order, and historical M6.4
 manifest hash. It is **planned, not collected**. The manifest SHA-256 is
-`3b8cdb79ef3cc6efb8d0381881fb2928999730b739fc29d981ec0985901f5f79`.
+`86b57480088e402c4541741bd6821858c40900bd72dead627d4b916d2cdd2eba`.
+The earlier preflight manifest hash was superseded before any paid control
+cell or pilot; its collector source hash changed to keep the pilot runner
+outside the control runtime-drift guard.
 
 This is a matched **historical** comparison with the frozen M6.4 worker
 observations. Seeds 1001–1010 and their worker outcomes are already known;
@@ -83,8 +86,9 @@ needs a bounded live pilot.
 ## Remaining gate before paid collection
 
 1. Complete exact-head CI on the manifest/documentation commit.
-2. Review a bounded, separately journaled vulnerable/patched live pilot on
-   non-sample seed 1101 at 40k, with a declared per-run cost cap. Compare its
+2. Run the user-approved, separately journaled vulnerable/patched live pilot
+   on non-sample seed 1101 at 40k, with a $1 configured cost cap per run and
+   $2 cumulative estimated threshold. Compare its
    bootstrap snapshot, selected endpoint, score validity, event replay, and
    observed usage/latency against this preflight.
 3. Confirm a cumulative estimated-cost threshold and explicit authorization

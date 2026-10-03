@@ -72,6 +72,7 @@ def verify_manifest(
         ":!src/offsecgym/research/m65_monolithic_execute.py",
         ":!src/offsecgym/research/m65_monolithic_analysis.py",
         ":!src/offsecgym/research/m65_monolithic_matrix.py",
+        ":!src/offsecgym/research/m65_monolithic_pilot.py",
         "experiments/configs",
         "examples",
     ]
