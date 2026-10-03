@@ -1,0 +1,150 @@
+{
+  "analysis_sha256": "2fe19a4d6a8fc3e312fb05abff1cca1a43baa9594af34b7f72e2c45cf0aabeaa",
+  "bootstrap_budget": {
+    "max_actions": 32,
+    "max_http_requests": 32,
+    "max_model_calls": 0,
+    "max_total_tokens": 0,
+    "max_wall_seconds": 120
+  },
+  "cells": [
+    {
+      "build_id": "690dd867-6f0a-5589-a114-45b3349e281e",
+      "cell_id": "8cf243e62978c49f",
+      "experiment_sha256": "b2cc2b260af093abc8a4613de7cac4b9ad6d5b39e3ca30fd67d6708622c00bc6",
+      "order": 1,
+      "pair_id": "e2b377fc-74e0-5bbf-a0f3-206662faf433",
+      "range_seed": 633648,
+      "variant": "patched"
+    },
+    {
+      "build_id": "73c7b000-2d45-55bd-8bc8-d63ba00dc958",
+      "cell_id": "568d1ef008e92876",
+      "experiment_sha256": "b664185b4384446c3b6d7524a7b05fad4b07a2ae9a733631f4a85af47e51c906",
+      "order": 2,
+      "pair_id": "e2b377fc-74e0-5bbf-a0f3-206662faf433",
+      "range_seed": 633648,
+      "variant": "vulnerable"
+    }
+  ],
+  "combined_model_budget": {
+    "max_actions": 60,
+    "max_concurrency": 1,
+    "max_cost_usd": null,
+    "max_http_requests": 60,
+    "max_model_calls": 24,
+    "max_output_tokens_per_call": 8192,
+    "max_total_tokens": 150000,
+    "max_wall_seconds": 1200,
+    "max_workers": 6
+  },
+  "cumulative_estimated_cost_stop_usd": 4.5,
+  "evidence_bundle_schema_version": "3",
+  "expected_selected_endpoint": {
+    "revision": "moonshotai/kimi-k3-20260715",
+    "upstream_provider": "Moonshot AI"
+  },
+  "maximum_estimated_token_cost_usd": 4.5,
+  "model_request": {
+    "input_reservation_bytes_per_token": 2.0,
+    "input_reservation_margin_tokens": 1024,
+    "input_usd_per_million_tokens": null,
+    "name": "moonshotai/kimi-k3",
+    "output_usd_per_million_tokens": null,
+    "provider": "openrouter",
+    "reasoning": "high",
+    "upstream_provider": "moonshotai"
+  },
+  "order_seed": 2000410229368975030,
+  "pilot_seed": 633648,
+  "planned_live_cells": 2,
+  "price_snapshot": {
+    "input_usd_per_million": 3.0,
+    "output_usd_per_million": 15.0
+  },
+  "probe_budget": {
+    "max_actions": 60,
+    "max_concurrency": 1,
+    "max_cost_usd": null,
+    "max_http_requests": 60,
+    "max_model_calls": 20,
+    "max_output_tokens_per_call": 8192,
+    "max_total_tokens": 120000,
+    "max_wall_seconds": 900,
+    "max_workers": 6
+  },
+  "probe_config": {
+    "path": "experiments/configs/kimi-k3-m651-witness-probe.yaml",
+    "sha256": "1de21e52cdcc9bebcb0e0889127a06fc26bdfcdb0019d93152a196cc0cab1391"
+  },
+  "probe_policy": "bootstrapped_monolithic_structured_m65_control",
+  "protocol": "m651-witness-recovery-pilot-v1",
+  "provider_failure_policy": "retain_without_retry_and_exclude_unscored_stage",
+  "range_compiler_version": "tenant-boundary-v2/compiler-1",
+  "range_pairs": {
+    "633648": {
+      "fixture_sha256": "78056da5ebc9a27eff07a4aa58a9a64f7a6c6780d7c2f793d560466d8ffbea05",
+      "pair_id": "e2b377fc-74e0-5bbf-a0f3-206662faf433",
+      "patched_build_id": "690dd867-6f0a-5589-a114-45b3349e281e",
+      "vulnerable_build_id": "73c7b000-2d45-55bd-8bc8-d63ba00dc958"
+    }
+  },
+  "reporter_budget": {
+    "max_actions": null,
+    "max_concurrency": null,
+    "max_cost_usd": null,
+    "max_finding_submissions": 12,
+    "max_http_requests": null,
+    "max_model_calls": 4,
+    "max_output_tokens_per_call": 4096,
+    "max_retrieval_calls": 24,
+    "max_total_tokens": 30000,
+    "max_wall_seconds": 300,
+    "max_workers": null
+  },
+  "reporter_config": {
+    "path": "experiments/configs/kimi-k3-m651-witness-reporter.yaml",
+    "sha256": "7c3e1fe6b552d6a3073b68b21c191edf8cb766fe921c480e26cf129a0d93ae76"
+  },
+  "reporter_contract": "m651-read-only-v1",
+  "reporter_prompt_sha256": "795d55ef09e5ee75a8528a29333d159344568d88140e6f6a72652af88cca875c",
+  "reporter_tool_schema_sha256": "3cdbc12458673878964931ee0f8828bc3feac60f5461f79dbab42484f039e59a",
+  "requires_separate_paid_approval": true,
+  "schema_version": "1",
+  "seed_selection": {
+    "path": "experiments/manifests/m651-witness-seed-selection-v1.json",
+    "sha256": "9c994c21816bea1627c8aa3f108e9906f100aafe15fefdc4c55777c5982519b9"
+  },
+  "seed_set": [
+    633648
+  ],
+  "source_commit": "fc56310d7f767c6cd0387a1a3d86f1c62d042a4c",
+  "source_files": {
+    "src/offsecgym/experiment/bootstrap.py": "f7e2daec507b7751e91c777791a5ea94a15546f72a117fef595cc61a1331ba9e",
+    "src/offsecgym/experiment/bootstrapped_monolithic.py": "e59bf9dda28acc2b5915acb53b49f0e565801bc2b7d992da58f3c6578b92f9d4",
+    "src/offsecgym/experiment/reporter_recovery.py": "ff1e5518eaa3472a8291f05ce0acba6fbeb174f290285c204480c1c92f8c2297",
+    "src/offsecgym/experiment/scripted.py": "fa03b453e21a85693a2dc39085c989398b540b2332e25d499673084abd0838cc",
+    "src/offsecgym/experiment/workers.py": "0274a42e30e8fcf6d269a90bd43ef963a7c656bd81581e4e442d5fd09f9a618d",
+    "src/offsecgym/research/m65_conversion_ledger.py": "e486c7bbee41062c7a345a464424f49c4da10815f8f14d4832178b5d7763df26",
+    "src/offsecgym/research/m65_reporter.py": "49a4ca556dc5d314c7083235edbdcc8bbf72523e8a64a2b691d224719c2b17c5",
+    "src/offsecgym/research/m65_witness_analysis.py": "2fe19a4d6a8fc3e312fb05abff1cca1a43baa9594af34b7f72e2c45cf0aabeaa",
+    "src/offsecgym/research/m65_witness_execute.py": "35cfc815353d77e1cae7737864ea98cbd92b468d332fb4e02cc5136afc2ca75a",
+    "src/offsecgym/research/m65_witness_matrix.py": "c139168b6dae00a48663fc9f9a7dfa9095fc6d360ade9544c80d4de0bf7dc946",
+    "src/offsecgym/research/m65_witness_packet.py": "8eec63996316ad36b63e566d745cbdb3bcd7b5233d1b1e673f9aec28cfd36b38",
+    "src/offsecgym/runtime/saas.py": "04898eb01598ca815c5430d1e2a36712efb4118f78c00abe0b185312e1600f91",
+    "src/offsecgym/schemas/events.py": "4f127fcf60b5f44f83c3fea0d6ce406c01f68231718ee1a14419520d80ebcefe",
+    "src/offsecgym/schemas/specs.py": "9ebcaf8734e270ae40535e980e574149702f2791df620f4d344cce43211a7f5b",
+    "src/offsecgym/solver/bootstrap_context.py": "c0356fba534a76012d1890e7bb7f989f4d821180f449093dcaa581ff89ed4aa6",
+    "src/offsecgym/solver/monolithic.py": "df86c98306a7ec0027d66eeb108c32ec75bbed73bbac031faf543ff69106dcae",
+    "src/offsecgym/validation/deterministic.py": "5f36f008e579c6a43022a360995400622de12da086e1a2c7bdb8735de3a27053"
+  },
+  "status": "non_sample_pilot_not_executed",
+  "stopping_rules": [
+    "one probe and reporter run per cell; no silent retry",
+    "stop on interrupted or unscored probe/reporter",
+    "stop on selected endpoint or source drift",
+    "stop on artifact, packet, bootstrap, or event replay failure",
+    "stop before a next cell whose reserved worst-case cost exceeds the threshold"
+  ],
+  "validator_sha256": "5f36f008e579c6a43022a360995400622de12da086e1a2c7bdb8735de3a27053"
+}

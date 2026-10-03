@@ -33,6 +33,13 @@ class Budget(StrictModel):
         return self
 
 
+class ReporterBudget(Budget):
+    """Separate reporting limits; the frozen generic Budget schema stays unchanged."""
+
+    max_retrieval_calls: int = Field(gt=0)
+    max_finding_submissions: int = Field(gt=0)
+
+
 class BootstrapBudget(StrictModel):
     max_actions: int = Field(gt=0)
     max_http_requests: int = Field(gt=0)

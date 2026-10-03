@@ -1,0 +1,6 @@
+max_total_tokens: 80000
+max_model_calls: 4
+max_output_tokens_per_call: 4096
+max_wall_seconds: 300
+max_retrieval_calls: 24
+max_finding_submissions: 12
