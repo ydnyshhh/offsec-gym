@@ -126,6 +126,11 @@ def analyze_witness_matrix(
             totals["patched_integrated_false_findings"] += conversion["integrated_rejected"]
             totals["patched_reporter_false_findings"] += conversion["reporter_rejected"]
             patched_classes.update(conversion["patched_reporter_false_classes"])
+            for slug, count in conversion["patched_reporter_false_by_root"].items():
+                if slug in ROOTS:
+                    by_root[slug]["patched_reporter_false_findings"] += count
+                else:
+                    totals["patched_reporter_false_unmapped_or_ambiguous"] += count
             continue
         if len(conversion["rows"]) != len(ROOTS) or {x["root"] for x in conversion["rows"]} != set(
             ROOTS
@@ -174,6 +179,7 @@ def analyze_witness_matrix(
         root_rows.append(
             {
                 "root": root,
+                "patched_reporter_false_findings": c["patched_reporter_false_findings"],
                 **dict(c),
                 "integrated_proof_to_finding": _ratio(
                     c["integrated_validated"], c["complete_trace_proof"]

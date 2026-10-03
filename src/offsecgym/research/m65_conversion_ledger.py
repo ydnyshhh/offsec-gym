@@ -450,6 +450,14 @@ def conversion_ledger(
         if oracle.variant == "patched"
         else []
     )
+    patched_false_by_root: dict[str, int] = {}
+    if oracle.variant == "patched":
+        for finding in reporter:
+            if verdicts[finding.finding.finding_id].status != "rejected":
+                continue
+            matched = [prop.slug for prop in oracle.properties if _matching(finding, prop, fixture)]
+            slug = matched[0] if len(matched) == 1 else "unmapped_or_ambiguous"
+            patched_false_by_root[slug] = patched_false_by_root.get(slug, 0) + 1
 
     def changed_witness_count(items: list[FindingSubmitted]) -> int:
         first: dict[UUID, tuple[UUID, frozenset[UUID]]] = {}
@@ -504,6 +512,7 @@ def conversion_ledger(
         "probe_agent_http_attempts": len(agent_fingerprints),
         "probe_exact_repeated_http_actions": len(agent_fingerprints) - len(set(agent_fingerprints)),
         "patched_reporter_false_classes": patched_false_classes,
+        "patched_reporter_false_by_root": patched_false_by_root,
         "probe_model_calls": len(probe_calls),
         "probe_input_tokens": sum(e.input_tokens for e in probe_calls),
         "probe_output_tokens": sum(e.output_tokens for e in probe_calls),

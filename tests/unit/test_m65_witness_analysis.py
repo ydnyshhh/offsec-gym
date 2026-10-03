@@ -86,6 +86,9 @@ def test_analysis_uses_recoverable_missed_roots_and_seed_bootstrap() -> None:
             "reporter_status": "completed",
             "rows": rows,
             "patched_reporter_false_classes": ["other_unclassified"] if not vulnerable else [],
+            "patched_reporter_false_by_root": (
+                {"DOC-CROSS-TENANT-READ": 1} if not vulnerable else {}
+            ),
             **{key: 0 for key in COUNT_KEYS},
         }
         conversion["reporter_input_tokens"] = 100
@@ -111,5 +114,11 @@ def test_analysis_uses_recoverable_missed_roots_and_seed_bootstrap() -> None:
     assert result["primary"]["recovery_fraction"] == 0.1
     assert result["primary"]["paired_seed_bootstrap_95pct"] is not None
     assert result["overall"]["patched_reporter_false_findings"] == 10
+    assert (
+        next(x for x in result["root_rows"] if x["root"] == "DOC-CROSS-TENANT-READ")[
+            "patched_reporter_false_findings"
+        ]
+        == 10
+    )
     assert result["overall"]["reporter_input_tokens"] == 2000
     assert "DOC-CROSS-TENANT-READ" in result["markdown_root_table"]
