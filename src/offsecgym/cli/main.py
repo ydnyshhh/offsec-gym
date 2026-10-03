@@ -17,6 +17,7 @@ from sqlalchemy.ext.asyncio import create_async_engine
 from offsecgym import __version__
 from offsecgym.config import Settings
 from offsecgym.experiment import (
+    BootstrappedMonolithicExperimentRunner,
     MonolithicExperimentRunner,
     ScriptedExperimentRunner,
     WorkerExperimentRunner,
@@ -101,6 +102,7 @@ def experiment_run(
             not in {
                 "scripted",
                 "monolithic",
+                "bootstrapped_monolithic",
                 "ephemeral_workers",
                 "matched_sequential_workers",
                 "matched_parallel_workers",
@@ -114,9 +116,15 @@ def experiment_run(
             or spec.validation != "deterministic"
         ):
             raise ValueError("only scripted, monolithic, or worker runs are supported")
-        if spec.orchestrator == "monolithic" and spec.memory not in {"transcript", "structured"}:
+        if spec.orchestrator in {"monolithic", "bootstrapped_monolithic"} and spec.memory not in {
+            "transcript",
+            "structured",
+        }:
             raise ValueError("the monolithic baseline requires memory=transcript or structured")
-        if spec.orchestrator == "monolithic" and spec.surface_visibility != "known_routes":
+        if (
+            spec.orchestrator in {"monolithic", "bootstrapped_monolithic"}
+            and spec.surface_visibility != "known_routes"
+        ):
             raise ValueError("the monolithic baseline requires surface_visibility=known_routes")
         if paired and (spec.range.patched or spec.range.patched_properties):
             raise ValueError("--paired requires an unpatched base range")
@@ -128,6 +136,7 @@ def experiment_run(
         api_key = None
         if spec.orchestrator in {
             "monolithic",
+            "bootstrapped_monolithic",
             "ephemeral_workers",
             "matched_sequential_workers",
             "matched_parallel_workers",
@@ -160,7 +169,9 @@ def experiment_run(
                     runner = ScriptedExperimentRunner(runtime, events)
                 else:
                     runner_type = (
-                        WorkerExperimentRunner
+                        BootstrappedMonolithicExperimentRunner
+                        if spec.orchestrator == "bootstrapped_monolithic"
+                        else WorkerExperimentRunner
                         if spec.orchestrator
                         in {
                             "ephemeral_workers",

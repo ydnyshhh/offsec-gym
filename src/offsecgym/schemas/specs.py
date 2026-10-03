@@ -105,6 +105,7 @@ class ExperimentSpec(StrictModel):
     orchestrator: Literal[
         "scripted",
         "monolithic",
+        "bootstrapped_monolithic",
         "planner_executor",
         "ephemeral_workers",
         "matched_sequential_workers",
@@ -128,10 +129,19 @@ class ExperimentSpec(StrictModel):
     def require_model_for_llm(self) -> ExperimentSpec:
         if self.orchestrator != "scripted" and self.model is None:
             raise ValueError("model is required for non-scripted orchestrators")
-        if self.orchestrator == "monolithic" and self.surface_visibility is None:
+        if (
+            self.orchestrator in {"monolithic", "bootstrapped_monolithic"}
+            and self.surface_visibility is None
+        ):
             raise ValueError("monolithic runs require explicit surface_visibility")
-        if self.orchestrator == "monolithic" and self.budget.max_model_calls is None:
+        if (
+            self.orchestrator in {"monolithic", "bootstrapped_monolithic"}
+            and self.budget.max_model_calls is None
+        ):
             raise ValueError("monolithic runs require explicit max_model_calls")
+        if self.orchestrator == "bootstrapped_monolithic":
+            if self.memory != "structured" or self.surface_visibility != "known_routes":
+                raise ValueError("bootstrapped monolithic requires structured known_routes")
         if self.orchestrator in {
             "ephemeral_workers",
             "matched_sequential_workers",
@@ -171,6 +181,7 @@ class ExperimentSpec(StrictModel):
             if self.budget.max_total_tokens is not None and self.budget.max_total_tokens < 6:
                 raise ValueError("ephemeral workers require at least six total tokens")
         bootstrapped = self.orchestrator in {
+            "bootstrapped_monolithic",
             "bootstrapped_sequential_workers",
             "bootstrapped_parallel_workers",
             "escrowed_sequential_workers",
@@ -180,11 +191,9 @@ class ExperimentSpec(StrictModel):
         }
         if bootstrapped:
             if self.bootstrap_budget is None:
-                raise ValueError("bootstrapped workers require an explicit bootstrap budget")
+                raise ValueError("bootstrapped runs require an explicit bootstrap budget")
             if self.budget.max_actions is None or self.budget.max_http_requests is None:
-                raise ValueError(
-                    "bootstrapped workers require explicit worker action and HTTP limits"
-                )
+                raise ValueError("bootstrapped runs require explicit agent action and HTTP limits")
             if (
                 self.orchestrator
                 in {
@@ -197,11 +206,12 @@ class ExperimentSpec(StrictModel):
             ):
                 raise ValueError("budgeted workers require an explicit total token limit")
         elif self.bootstrap_budget is not None:
-            raise ValueError("bootstrap budget is only valid for bootstrapped workers")
+            raise ValueError("bootstrap budget is only valid for bootstrapped runs")
         if self.orchestrator == "scripted" and self.surface_visibility is not None:
             raise ValueError("surface_visibility is only supported for model orchestrators")
         if self.orchestrator in {
             "monolithic",
+            "bootstrapped_monolithic",
             "ephemeral_workers",
             "matched_sequential_workers",
             "matched_parallel_workers",
@@ -220,6 +230,7 @@ class ExperimentSpec(StrictModel):
             self.orchestrator
             in {
                 "monolithic",
+                "bootstrapped_monolithic",
                 "ephemeral_workers",
                 "matched_sequential_workers",
                 "matched_parallel_workers",
