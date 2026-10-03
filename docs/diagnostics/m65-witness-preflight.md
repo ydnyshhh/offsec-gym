@@ -73,15 +73,22 @@ Offline checks completed so far:
   targeted tests.
 - The prospective ledger checks packet hashes and the reporter boundary,
   counts configured roots once, and marks patched roots inapplicable.
-- Fifteen targeted unit tests and one PostgreSQL integration test passed
-  locally. The integration test uses a separate database and no model calls.
+- The full 182-test unit suite, Ruff checks, and one PostgreSQL integration
+  test passed locally. The integration test uses a separate database and no
+  model calls.
 - All 179 score-valid frozen M6.4 traces were accepted by the packet builder
   in an offline *format-feasibility* check; this says nothing about future
   reporter success.
 
-Before a pilot, require exact-head CI and a review of the committed manifest
-and cost ceiling. A two-cell
-non-sample pilot could use paired seed 2101 with the same policy and at most
-$6 estimated token cost, but that pilot is not authorized. It must stay
-outside the 20-cell prospective sample and cannot be silently folded into
-the primary analysis.
+The separate [two-cell pilot manifest](../../experiments/manifests/m65-witness-pilot-1.json)
+pins paired seed 2101, vulnerable then patched, the same probe and reporter
+configs, the same selected endpoint, and a $6 cumulative estimated token-cost
+ceiling. Its SHA-256 is
+`53e63b9b68c75685b00ed802d21cb0baade7ce9b88128486fce0ef08739c4801`.
+The pilot runner lives in `research_ops/` so it cannot change the frozen
+20-cell sample runtime source guard. It reserves the worst-case $3 per cell
+before launch, journals each start and completion, and never automatically
+retries an interrupted or unscored cell. The pilot needs separate paid approval
+and exact-head CI before execution. Its data will stay outside the held-out
+20-cell sample and the primary analysis; the full $60 sample requires its own
+subsequent cost decision.
