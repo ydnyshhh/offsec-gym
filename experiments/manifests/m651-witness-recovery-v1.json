@@ -1,5 +1,5 @@
 {
-  "analysis_sha256": "67de920510158971058d336646a4f68c2a1c6400ebf4fe9cc72c66270d228724",
+  "analysis_sha256": "2fe19a4d6a8fc3e312fb05abff1cca1a43baa9594af34b7f72e2c45cf0aabeaa",
   "bootstrap_budget": {
     "max_actions": 32,
     "max_http_requests": 32,
@@ -343,16 +343,16 @@
     995038,
     833452
   ],
-  "source_commit": "7cd05c3797b3d0e3bd04cb49e7892b514805089e",
+  "source_commit": "fc56310d7f767c6cd0387a1a3d86f1c62d042a4c",
   "source_files": {
     "src/offsecgym/experiment/bootstrap.py": "f7e2daec507b7751e91c777791a5ea94a15546f72a117fef595cc61a1331ba9e",
     "src/offsecgym/experiment/bootstrapped_monolithic.py": "e59bf9dda28acc2b5915acb53b49f0e565801bc2b7d992da58f3c6578b92f9d4",
     "src/offsecgym/experiment/reporter_recovery.py": "ff1e5518eaa3472a8291f05ce0acba6fbeb174f290285c204480c1c92f8c2297",
     "src/offsecgym/experiment/scripted.py": "fa03b453e21a85693a2dc39085c989398b540b2332e25d499673084abd0838cc",
     "src/offsecgym/experiment/workers.py": "0274a42e30e8fcf6d269a90bd43ef963a7c656bd81581e4e442d5fd09f9a618d",
-    "src/offsecgym/research/m65_conversion_ledger.py": "598b68a58b498905542829e5d54183334b733e350f4d5bb1d9fdaebeae3ace52",
+    "src/offsecgym/research/m65_conversion_ledger.py": "e486c7bbee41062c7a345a464424f49c4da10815f8f14d4832178b5d7763df26",
     "src/offsecgym/research/m65_reporter.py": "49a4ca556dc5d314c7083235edbdcc8bbf72523e8a64a2b691d224719c2b17c5",
-    "src/offsecgym/research/m65_witness_analysis.py": "67de920510158971058d336646a4f68c2a1c6400ebf4fe9cc72c66270d228724",
+    "src/offsecgym/research/m65_witness_analysis.py": "2fe19a4d6a8fc3e312fb05abff1cca1a43baa9594af34b7f72e2c45cf0aabeaa",
     "src/offsecgym/research/m65_witness_execute.py": "35cfc815353d77e1cae7737864ea98cbd92b468d332fb4e02cc5136afc2ca75a",
     "src/offsecgym/research/m65_witness_matrix.py": "c139168b6dae00a48663fc9f9a7dfa9095fc6d360ade9544c80d4de0bf7dc946",
     "src/offsecgym/research/m65_witness_packet.py": "8eec63996316ad36b63e566d745cbdb3bcd7b5233d1b1e673f9aec28cfd36b38",
