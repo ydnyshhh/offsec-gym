@@ -8,6 +8,7 @@ import json
 import random
 import subprocess
 import tempfile
+from collections.abc import Mapping
 from pathlib import Path
 
 import yaml
@@ -16,10 +17,11 @@ from offsecgym.experiment.reporter_recovery import combined_budget, recovery_exp
 from offsecgym.research.m65_reporter import REPORTER_PROMPT, reporter_tools
 from offsecgym.runtime.manifests import StateStore
 from offsecgym.runtime.saas import SAAS_V2_COMPILER_VERSION, SaasRangeCompiler
-from offsecgym.schemas.specs import ExperimentSpec, RangeSpec, ReporterBudget
+from offsecgym.schemas.specs import Budget, ExperimentSpec, RangeSpec, ReporterBudget
 
-PROTOCOL = "m651-witness-recovery-v1"
-PILOT_PROTOCOL = "m651-witness-recovery-pilot-v1"
+PROTOCOL = "m651-witness-recovery-v2"
+PILOT_PROTOCOL = "m651-witness-recovery-pilot-v2"
+SEED_SELECTION_PROTOCOL = "m651-witness-recovery-v1"
 SEED_MANIFEST = "experiments/manifests/m651-witness-seed-selection-v1.json"
 PROBE_CONFIG = "experiments/configs/kimi-k3-m651-witness-probe.yaml"
 REPORTER_CONFIG = "experiments/configs/kimi-k3-m651-witness-reporter.yaml"
@@ -56,6 +58,45 @@ def _canonical(value: object) -> bytes:
     return json.dumps(value, sort_keys=True, separators=(",", ":")).encode()
 
 
+def maximum_budgeted_token_cost(
+    budget: Budget,
+    *,
+    input_usd_per_million: float,
+    output_usd_per_million: float,
+) -> float:
+    """Upper bound from total tokens and the explicit per-call output ceiling."""
+    if (
+        budget.max_total_tokens is None
+        or budget.max_model_calls is None
+        or budget.max_output_tokens_per_call is None
+        or input_usd_per_million < 0
+        or output_usd_per_million < input_usd_per_million
+    ):
+        raise ValueError("cost bound requires explicit caps and ordered nonnegative prices")
+    output_cap = min(
+        budget.max_total_tokens,
+        budget.max_model_calls * budget.max_output_tokens_per_call,
+    )
+    return (
+        (budget.max_total_tokens - output_cap) * input_usd_per_million
+        + output_cap * output_usd_per_million
+    ) / 1_000_000
+
+
+def maximum_cell_token_cost(
+    probe: Budget, reporter: ReporterBudget, price: Mapping[str, float]
+) -> float:
+    return maximum_budgeted_token_cost(
+        probe,
+        input_usd_per_million=price["input_usd_per_million"],
+        output_usd_per_million=price["output_usd_per_million"],
+    ) + maximum_budgeted_token_cost(
+        reporter,
+        input_usd_per_million=price["input_usd_per_million"],
+        output_usd_per_million=price["output_usd_per_million"],
+    )
+
+
 def _committed_seed_manifest(root: Path) -> dict[str, object]:
     path = root / SEED_MANIFEST
     raw = path.read_bytes()
@@ -69,7 +110,7 @@ def _committed_seed_manifest(root: Path) -> dict[str, object]:
     pilot = selection.get("pilot_seed")
     excluded = selection.get("excluded_seeds")
     if (
-        selection.get("protocol") != PROTOCOL
+        selection.get("protocol") != SEED_SELECTION_PROTOCOL
         or not isinstance(seeds, list)
         or len(seeds) != 10
         or len(set(seeds)) != 10
@@ -119,7 +160,7 @@ def plan_witness_matrix(root: Path, *, source_commit: str) -> dict[str, object]:
         or base.model.provider != "openrouter"
         or base.model.name != "moonshotai/kimi-k3"
         or base.model.reasoning != "high"
-        or reporter.max_total_tokens != 30_000
+        or reporter.max_total_tokens != 80_000
         or reporter.max_model_calls != 4
         or reporter.max_output_tokens_per_call != 4096
         or reporter.max_retrieval_calls != 24
@@ -127,7 +168,7 @@ def plan_witness_matrix(root: Path, *, source_commit: str) -> dict[str, object]:
     ):
         raise ValueError("M6.5.1 configs differ from the monolithic recovery policy")
     combined = combined_budget(base.budget, reporter)
-    if combined.max_total_tokens != 150_000 or combined.max_model_calls != 24:
+    if combined.max_total_tokens != 200_000 or combined.max_model_calls != 24:
         raise ValueError("combined model reservation changed")
     pair_records = {}
     # The committed seed declaration is checked above before entering this compiler block.
@@ -173,9 +214,14 @@ def plan_witness_matrix(root: Path, *, source_commit: str) -> dict[str, object]:
                 "experiment_sha256": recovery_experiment_hash(spec, reporter),
             }
         )
-    worst_cost = len(cells) * combined.max_total_tokens * OUTPUT_USD_PER_MILLION / 1_000_000
-    if worst_cost != MAX_ESTIMATED_USD:
-        raise ValueError("maximum configured cost changed")
+    price = {
+        "input_usd_per_million": INPUT_USD_PER_MILLION,
+        "output_usd_per_million": OUTPUT_USD_PER_MILLION,
+    }
+    per_cell_cost_ceiling = maximum_cell_token_cost(base.budget, reporter, price)
+    worst_cost = round(len(cells) * per_cell_cost_ceiling, 6)
+    if worst_cost > MAX_ESTIMATED_USD:
+        raise ValueError("maximum configured cost exceeds the approved threshold")
     return {
         "protocol": PROTOCOL,
         "schema_version": "1",
@@ -208,10 +254,8 @@ def plan_witness_matrix(root: Path, *, source_commit: str) -> dict[str, object]:
             "revision": "moonshotai/kimi-k3-20260715",
             "upstream_provider": "Moonshot AI",
         },
-        "price_snapshot": {
-            "input_usd_per_million": INPUT_USD_PER_MILLION,
-            "output_usd_per_million": OUTPUT_USD_PER_MILLION,
-        },
+        "price_snapshot": price,
+        "per_cell_cost_ceiling_usd": round(per_cell_cost_ceiling, 6),
         "bootstrap_budget": base.bootstrap_budget.model_dump(mode="json"),
         "probe_budget": base.budget.model_dump(mode="json"),
         "reporter_budget": reporter.model_dump(mode="json"),
@@ -258,7 +302,9 @@ def plan_witness_pilot(root: Path, *, source_commit: str) -> dict[str, object]:
     order_seed = int.from_bytes(
         hashlib.sha256((PILOT_PROTOCOL + "|" + str(pilot_seed)).encode()).digest()[:8], "big"
     )
-    blocks = [False, True]
+    # The v1 pilot already exercised both siblings. This amendment uses one
+    # non-sample vulnerable cell to stress the larger reporter context.
+    blocks = [False]
     random.Random(order_seed).shuffle(blocks)
     cells = []
     for order, patched_flag in enumerate(blocks, start=1):
@@ -279,14 +325,20 @@ def plan_witness_pilot(root: Path, *, source_commit: str) -> dict[str, object]:
     return {
         **main,
         "protocol": PILOT_PROTOCOL,
-        "status": "non_sample_pilot_not_executed",
+        "status": "non_sample_feasibility_recheck_not_executed",
+        "amendment_of": {
+            "protocol": "m651-witness-recovery-pilot-v1",
+            "manifest_sha256": _digest(
+                (root / "experiments/manifests/m651-witness-recovery-pilot-v1.json").read_bytes()
+            ),
+        },
         "seed_set": [pilot_seed],
         "range_pairs": {str(pilot_seed): pair},
         "order_seed": order_seed,
         "cells": cells,
-        "planned_live_cells": 2,
-        "maximum_estimated_token_cost_usd": 4.5,
-        "cumulative_estimated_cost_stop_usd": 4.5,
+        "planned_live_cells": 1,
+        "maximum_estimated_token_cost_usd": main["per_cell_cost_ceiling_usd"],
+        "cumulative_estimated_cost_stop_usd": main["per_cell_cost_ceiling_usd"],
     }
 
 

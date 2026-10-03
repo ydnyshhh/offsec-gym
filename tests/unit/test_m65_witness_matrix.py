@@ -5,8 +5,12 @@ from pathlib import Path
 
 import pytest
 
-from offsecgym.research.m65_witness_matrix import plan_witness_matrix
+from offsecgym.research.m65_witness_matrix import (
+    maximum_cell_token_cost,
+    plan_witness_matrix,
+)
 from offsecgym.research.m651_seed_selection import select_seeds
+from offsecgym.schemas.specs import Budget, ReporterBudget
 
 
 def test_seed_selection_excludes_prior_and_local_configs_without_building(tmp_path: Path) -> None:
@@ -28,3 +32,20 @@ def test_seed_selection_excludes_prior_and_local_configs_without_building(tmp_pa
 def test_matrix_refuses_builds_without_committed_seed_declaration(tmp_path: Path) -> None:
     with pytest.raises(FileNotFoundError):
         plan_witness_matrix(tmp_path, source_commit="f" * 40)
+
+
+def test_output_cap_bounds_amended_cost_without_weakening_token_cap() -> None:
+    probe = Budget(max_total_tokens=120_000, max_model_calls=20, max_output_tokens_per_call=8192)
+    reporter = ReporterBudget(
+        max_total_tokens=80_000,
+        max_model_calls=4,
+        max_output_tokens_per_call=4096,
+        max_retrieval_calls=24,
+        max_finding_submissions=12,
+    )
+    ceiling = maximum_cell_token_cost(
+        probe, reporter, {"input_usd_per_million": 3.0, "output_usd_per_million": 15.0}
+    )
+    assert ceiling == pytest.approx(2.236608)
+    assert ceiling * 20 < 45
+    assert ceiling + 1.304514 < 4.5

@@ -26,10 +26,10 @@ from offsecgym.research.m64_execute import Journal, _sha256, _utc_now, _write_tr
 from offsecgym.research.m65_conversion_ledger import conversion_ledger
 from offsecgym.research.m65_witness_analysis import analyze_witness_matrix
 from offsecgym.research.m65_witness_matrix import (
-    OUTPUT_USD_PER_MILLION,
     PILOT_PROTOCOL,
     PROBE_CONFIG,
     REPORTER_CONFIG,
+    maximum_cell_token_cost,
     plan_witness_matrix,
     plan_witness_pilot,
     spec_for_seed,
@@ -202,14 +202,14 @@ async def execute(
                 continue
             if max_cells is not None and new_cells >= max_cells:
                 break
-            reserve = (
-                manifest["combined_model_budget"]["max_total_tokens"]
-                * OUTPUT_USD_PER_MILLION
-                / 1_000_000
+            spec, reporter_budget = spec_for_cell(root, manifest, cell)
+            reserve = maximum_cell_token_cost(
+                spec.budget, reporter_budget, manifest["price_snapshot"]
             )
+            if round(reserve, 6) != manifest["per_cell_cost_ceiling_usd"]:
+                raise ValueError("Study B reserved cost differs from pinned price bound")
             if spent + reserve > max_estimated_usd + 1e-9:
                 raise ValueError("insufficient approved estimated USD for next Study B cell")
-            spec, reporter_budget = spec_for_cell(root, manifest, cell)
             runner = ReporterRecoveryRunner(runtime, events, provider, reporter_budget)
             journal.append(
                 {
