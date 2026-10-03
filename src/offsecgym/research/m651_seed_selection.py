@@ -49,9 +49,25 @@ def _walk_seeds(value: object) -> set[int]:
 
 def collect_exclusions(root: Path) -> set[int]:
     excluded = set(EXPLICIT_EXCLUSIONS)
-    for folder in (root / "experiments" / "manifests", root / "experiments" / "configs"):
-        for path in sorted(folder.glob("*")):
-            if path.suffix not in {".json", ".yaml", ".yml"}:
+    for folder in (
+        root / "experiments" / "manifests",
+        root / "experiments" / "configs",
+        root / "docs" / "diagnostics",
+        root / ".offsecgym" / "diagnostics",
+    ):
+        if not folder.exists():
+            continue
+        for path in sorted(folder.rglob("*")):
+            if (
+                not path.is_file()
+                or path.suffix not in {".json", ".jsonl", ".yaml", ".yml"}
+                or path.stat().st_size > 2_000_000
+            ):
+                continue
+            if path.suffix == ".jsonl":
+                for line in path.read_text().splitlines():
+                    if line.strip():
+                        excluded.update(_walk_seeds(json.loads(line)))
                 continue
             data = (
                 json.loads(path.read_text())
@@ -91,6 +107,10 @@ def select_seeds(root: Path, *, source_commit: str) -> dict[str, object]:
         ),
         "seed_range": [SEED_MIN, SEED_MAX],
         "excluded_seeds": sorted(excluded),
+        "exclusion_scan": (
+            "explicit prior branch plus structured JSON/YAML/JSONL manifests, "
+            "configs and diagnostics up to 2 MB"
+        ),
         "sample_seeds": selected,
         "sample_counters": counters,
         "pilot_seed": pilot,
