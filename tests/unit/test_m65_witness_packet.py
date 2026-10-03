@@ -19,6 +19,7 @@ from offsecgym.schemas.domain import (
     ValidationResult,
 )
 from offsecgym.schemas.events import (
+    ActionBlocked,
     ActionCompleted,
     ActionRequested,
     FindingValidated,
@@ -241,6 +242,53 @@ def test_bundle_hash_changes_with_ordered_evidence(tmp_path: Path) -> None:
     second = build_reporter_bundle(reordered, tmp_path, expected_run_id=run_id)
     assert first.packet.bundle_sha256 != second.packet.bundle_sha256
     assert first.packet.actions[0].action_id != second.packet.actions[0].action_id
+
+
+def test_blocked_request_is_visible_but_cannot_be_cited(tmp_path: Path) -> None:
+    run_id, trace, _, _, _, _ = _trace(tmp_path)
+    instance_id = trace[1].range_instance_id
+    action_id, request_id = uuid4(), uuid4()
+    path = "/api/invoices/" + str(uuid4()) + "/refund"
+    request = RequestArtifact(
+        request_artifact_id=request_id,
+        run_id=run_id,
+        action_id=action_id,
+        range_instance_id=instance_id,
+        range_generation=0,
+        destination="saas",
+        method="POST",
+        path=path,
+    )
+    request_path = tmp_path / "instances" / instance_id.hex / "requests" / f"{request_id.hex}.json"
+    request_path.write_text(request.model_dump_json())
+    requested = ActionRequested(
+        run_id=run_id,
+        actor="gateway",
+        sequence_number=7,
+        action_id=action_id,
+        action_type="http_request",
+        destination="saas",
+        method="POST",
+        path_sha256=hashlib.sha256(path.encode()).hexdigest(),
+        range_instance_id=instance_id,
+        range_generation=0,
+        request_artifact_id=request_id,
+    )
+    blocked = ActionBlocked(
+        run_id=run_id,
+        actor="gateway",
+        sequence_number=8,
+        action_id=action_id,
+        reason_code="budget_exhausted",
+    )
+    bundle = build_reporter_bundle([*trace, requested, blocked], tmp_path, expected_run_id=run_id)
+    assert len(bundle.packet.unobserved_attempts) == 1
+    assert bundle.packet.unobserved_attempts[0].terminal_status == "blocked"
+    assert bundle.packet.unobserved_attempts[0].path == path
+    with pytest.raises(ValueError, match="outside"):
+        bundle.get_action(action_id)
+    with pytest.raises(ValueError, match="one terminal"):
+        build_reporter_bundle([*trace, requested], tmp_path, expected_run_id=run_id)
 
 
 @pytest.mark.asyncio

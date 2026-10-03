@@ -135,21 +135,40 @@ def _refund_citation_error(
 
 
 def _refund_stages(
-    prop: GroundTruthProperty, fixture: dict[str, Any], actions: list[ProofAction]
+    prop: GroundTruthProperty,
+    fixture: dict[str, Any],
+    actions: list[ProofAction],
+    requests: list[tuple[str, str, UUID | None]] | None = None,
 ) -> dict[str, Any]:
     invoices = fixture["invoices"]
     ids = {str(item["id"]) for item in invoices}
+    requests = (
+        requests
+        if requests is not None
+        else [(a.request.method, a.request.path, a.request.identity_id) for a in actions]
+    )
     known = any(
         (a.body is not None and a.body.get("id") in ids)
         or any(asset in a.request.path for asset in ids)
         for a in actions
-    )
-    attempted: list[ProofAction] = []
+    ) or any(any(asset in path for asset in ids) for _, path, _ in requests)
+    attempted = 0
     successful: list[ProofAction] = []
     before_exists = after_exists = False
     for invoice in invoices:
         asset_id = UUID(invoice["id"])
         method, path = _action_route(prop, asset_id)
+        for request_method, request_path, identity_id in requests:
+            if request_method != method or request_path != path:
+                continue
+            account = _account(fixture, identity_id)
+            if (
+                account is None
+                or account.get("role") != prop.subject.role
+                or not _relation_met(fixture, prop, account, "own_workspace", asset_id)
+            ):
+                continue
+            attempted += 1
         for action in actions:
             if action.request.method != method or action.request.path != path:
                 continue
@@ -160,7 +179,6 @@ def _refund_stages(
                 or not _relation_met(fixture, prop, account, "own_workspace", asset_id)
             ):
                 continue
-            attempted.append(action)
             if (
                 action.body is not None
                 and action.body.get("id") == str(asset_id)
@@ -190,7 +208,7 @@ def _refund_stages(
     return {
         "target_invoice_known": known,
         "relevant_refund_attempted": bool(attempted),
-        "relevant_refund_attempt_count": len(attempted),
+        "relevant_refund_attempt_count": attempted,
         "successful_unauthorized_transition": bool(successful),
         "successful_unauthorized_transition_count": len(successful),
         "same_identity_paid_before": before_exists,
@@ -336,6 +354,9 @@ def conversion_ledger(
         for a in bundle.packet.actions
     }
     actions = list(source_actions.values())
+    source_requests = [(a.method, a.path, a.identity_id) for a in bundle.packet.actions] + [
+        (a.method, a.path, a.identity_id) for a in bundle.packet.unobserved_attempts
+    ]
     properties = {p.slug: p for p in oracle.properties}
     if set(properties) != set(ROOTS):
         raise ValueError("prospective root ontology differs")
@@ -348,6 +369,7 @@ def conversion_ledger(
         assets = {UUID(x["id"]) for x in fixture[COLLECTIONS[prop.object.resource_type]]}
         method_paths = {_action_route(prop, asset) for asset in assets}
         relevant = [a for a in actions if (a.request.method, a.request.path) in method_paths]
+        attempted_relevant = [request for request in source_requests if request[:2] in method_paths]
         proof_assets = _trace_proof_assets(prop, fixture, actions)
         original_matches = [e for e in original if _matching(e, prop, fixture)]
         reporter_matches = [e for e in reporter if _matching(e, prop, fixture)]
@@ -360,6 +382,7 @@ def conversion_ledger(
         row = {
             "root": slug,
             "applicable": True,
+            "attempted_relevant_action": bool(attempted_relevant),
             "executed_relevant_action": bool(relevant),
             "successful_relevant_action": any(a.evidence.http_status == 200 for a in relevant),
             "complete_trace_proof": bool(proof_assets),
@@ -384,7 +407,7 @@ def conversion_ledger(
             ),
         }
         if slug == "MEMBER-REFUND":
-            row["refund"] = _refund_stages(prop, fixture, actions)
+            row["refund"] = _refund_stages(prop, fixture, actions, source_requests)
             row["refund"]["integrated_submission"] = bool(original_matches)
             row["refund"]["integrated_evidence_valid_submission"] = bool(original_cited)
             row["refund"]["reporter_submission"] = bool(reporter_matches)
@@ -446,8 +469,11 @@ def conversion_ledger(
         return changed
 
     agent_fingerprints = [
-        a.request_fingerprint for a in bundle.packet.actions if a.source_phase != "bootstrap"
+        a.request_fingerprint
+        for a in (*bundle.packet.actions, *bundle.packet.unobserved_attempts)
+        if a.source_phase != "bootstrap"
     ]
+    completed_agent_actions = sum(a.source_phase != "bootstrap" for a in bundle.packet.actions)
     return {
         "run_id": str(start.run_id),
         "score_valid": True,
@@ -474,7 +500,8 @@ def conversion_ledger(
         + len(reporter_set & original_set),
         "integrated_same_root_distinct_witness_submissions": changed_witness_count(original),
         "reporter_same_root_distinct_witness_submissions": changed_witness_count(reporter),
-        "probe_agent_http_actions": len(agent_fingerprints),
+        "probe_agent_http_actions": completed_agent_actions,
+        "probe_agent_http_attempts": len(agent_fingerprints),
         "probe_exact_repeated_http_actions": len(agent_fingerprints) - len(set(agent_fingerprints)),
         "patched_reporter_false_classes": patched_false_classes,
         "probe_model_calls": len(probe_calls),

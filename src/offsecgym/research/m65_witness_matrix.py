@@ -198,7 +198,7 @@ def plan_witness_matrix(root: Path, *, source_commit: str) -> dict[str, object]:
         "analysis_sha256": _digest(
             (root / "src/offsecgym/research/m65_witness_analysis.py").read_bytes()
         ),
-        "evidence_bundle_schema_version": "2",
+        "evidence_bundle_schema_version": "3",
         "reporter_prompt_sha256": _digest(REPORTER_PROMPT.encode()),
         "reporter_tool_schema_sha256": _digest(_canonical(reporter_tools())),
         "probe_policy": "bootstrapped_monolithic_structured_m65_control",

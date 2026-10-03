@@ -135,6 +135,18 @@ def initial_evidence_index(bundle: ReporterEvidenceBundle) -> str:
                 }
                 for x in packet.actions
             ],
+            "unobserved_attempts": [
+                {
+                    "sequence": x.request_sequence,
+                    "action_id": str(x.action_id),
+                    "method": x.method,
+                    "path": x.path,
+                    "identity_id": str(x.identity_id) if x.identity_id else None,
+                    "terminal_status": x.terminal_status,
+                    "reason_code": x.reason_code,
+                }
+                for x in packet.unobserved_attempts
+            ],
             "existing_candidates": [x.model_dump(mode="json") for x in packet.existing_candidates],
         },
         sort_keys=True,

@@ -86,6 +86,17 @@ def test_complete_refund_witness_and_detailed_stages(tmp_path: Path) -> None:
     assert stages["complete_ordered_witness"]
 
 
+def test_refund_attempt_without_response_does_not_count_as_proof(tmp_path: Path) -> None:
+    prop, fixture, member, invoice = _case(tmp_path)
+    path = f"/api/invoices/{invoice}/refund"
+    stages = _refund_stages(prop, fixture, [], [("POST", path, member)])
+    assert stages["target_invoice_known"]
+    assert stages["relevant_refund_attempted"]
+    assert stages["relevant_refund_attempt_count"] == 1
+    assert not stages["successful_unauthorized_transition"]
+    assert not stages["complete_ordered_witness"]
+
+
 @pytest.mark.parametrize(
     "defect",
     [

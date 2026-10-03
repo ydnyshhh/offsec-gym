@@ -16,7 +16,9 @@ from pydantic import Field, model_validator
 from offsecgym.schemas.common import StrictModel
 from offsecgym.schemas.domain import CandidateFinding, FindingProposal
 from offsecgym.schemas.events import (
+    ActionBlocked,
     ActionCompleted,
+    ActionFailed,
     ActionRequested,
     FindingSubmitted,
     FindingValidated,
@@ -66,6 +68,28 @@ class WitnessAction(StrictModel):
         return self
 
 
+class WitnessAttempt(StrictModel):
+    """A requested action that ended without citable response evidence."""
+
+    action_id: UUID
+    request_sequence: int = Field(gt=0)
+    terminal_sequence: int = Field(gt=0)
+    method: str = Field(min_length=1, max_length=8)
+    path: str = Field(min_length=1, max_length=2048)
+    identity_id: UUID | None = None
+    source_phase: str | None = None
+    request_json_body: dict[str, Any] | None = None
+    request_fingerprint: str = Field(pattern=r"^[0-9a-f]{64}$")
+    terminal_status: Literal["blocked", "failed", "completed_without_evidence"]
+    reason_code: str | None = None
+
+    @model_validator(mode="after")
+    def ordered(self) -> WitnessAttempt:
+        if self.request_sequence >= self.terminal_sequence:
+            raise ValueError("witness terminal must follow its request")
+        return self
+
+
 class ExistingCandidate(StrictModel):
     finding_id: UUID
     family: str
@@ -84,7 +108,7 @@ class VisibleIdentity(StrictModel):
 
 
 class ReporterPacket(StrictModel):
-    schema_version: Literal["2"] = "2"
+    schema_version: Literal["3"] = "3"
     run_id: UUID
     source_build_id: UUID
     source_experiment_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
@@ -92,19 +116,24 @@ class ReporterPacket(StrictModel):
     range_instance_id: UUID
     range_generation: int = Field(ge=0)
     actions: tuple[WitnessAction, ...] = Field(max_length=MAX_ACTIONS)
+    unobserved_attempts: tuple[WitnessAttempt, ...] = Field(max_length=MAX_ACTIONS)
     identities: tuple[VisibleIdentity, ...] = ()
     existing_candidates: tuple[ExistingCandidate, ...] = Field(max_length=MAX_CANDIDATES)
 
     @model_validator(mode="after")
     def bounded_and_unique(self) -> ReporterPacket:
-        action_ids = [action.action_id for action in self.actions]
+        action_ids = [action.action_id for action in self.actions] + [
+            attempt.action_id for attempt in self.unobserved_attempts
+        ]
         evidence_ids = [action.evidence_id for action in self.actions]
         sequences = [action.completion_sequence for action in self.actions]
+        attempt_sequences = [attempt.request_sequence for attempt in self.unobserved_attempts]
         candidate_ids = [item.finding_id for item in self.existing_candidates]
         if (
             len(action_ids) != len(set(action_ids))
             or len(evidence_ids) != len(set(evidence_ids))
             or sequences != sorted(sequences)
+            or attempt_sequences != sorted(attempt_sequences)
             or len(candidate_ids) != len(set(candidate_ids))
         ):
             raise ValueError("reporter packet has duplicate or unordered evidence")
@@ -288,53 +317,98 @@ def build_reporter_bundle(
     completed_ids = [item.action_id for item in completions]
     if len(completed_ids) != len(set(completed_ids)):
         raise ValueError("reporter trace repeats an action completion")
+    terminals = [
+        item for item in trace if isinstance(item, (ActionCompleted, ActionBlocked, ActionFailed))
+    ]
+    terminal_by_id = {item.action_id: item for item in terminals if item.action_id in requested}
+    if len(terminal_by_id) != len(requested) or sum(
+        item.action_id in requested for item in terminals
+    ) != len(requested):
+        raise ValueError("reporter source request lacks one terminal event")
     indexed: list[WitnessAction] = []
+    unobserved: list[WitnessAttempt] = []
     visible_identities: dict[UUID, VisibleIdentity] = {}
     by_action: dict[UUID, TrustedAction] = {}
     instance_dir = state_dir / "instances" / instance_id.hex
-    for done in completions:
-        if done.evidence_id is None:
-            continue
-        event = requested.get(done.action_id)
+    verified_requests: dict[UUID, RequestArtifact] = {}
+    for event in requests:
+        terminal = terminal_by_id[event.action_id]
         if (
-            event is None
-            or event.schema_version != "2"
+            event.schema_version != "2"
             or event.range_instance_id != instance_id
             or event.range_generation != generation
             or event.request_artifact_id is None
             or event.method is None
             or event.path_sha256 is None
-            or event.sequence_number >= done.sequence_number
-            or done.http_status is None
-            or done.response_sha256 is None
+            or event.sequence_number >= terminal.sequence_number
+            or event.worker_id != terminal.worker_id
+            or event.task_id != terminal.task_id
         ):
-            raise ValueError("completed action lacks same-generation request provenance")
+            raise ValueError("requested action lacks same-generation terminal provenance")
         request_path = instance_dir / "requests" / f"{event.request_artifact_id.hex}.json"
-        evidence_path = instance_dir / "evidence" / f"{done.evidence_id.hex}.json"
         request = RequestArtifact.model_validate_json(request_path.read_bytes())
-        evidence = Evidence.model_validate_json(evidence_path.read_bytes())
         if (
             request.run_id != expected_run_id
-            or evidence.run_id != expected_run_id
             or request.range_instance_id != instance_id
-            or evidence.range_instance_id != instance_id
             or request.range_generation != generation
-            or evidence.range_generation != generation
-            or request.action_id != done.action_id
-            or evidence.action_id != done.action_id
+            or request.action_id != event.action_id
             or request.request_artifact_id != event.request_artifact_id
-            or evidence.request_artifact_id != request.request_artifact_id
-            or evidence.evidence_id != done.evidence_id
             or request.method != event.method
             or request.destination != event.destination
             or request.identity_id != event.identity_id
             or request.worker_id != event.worker_id
             or request.task_id != event.task_id
             or request.source_phase != event.source_phase
-            or evidence.worker_id != done.worker_id
-            or evidence.task_id != done.task_id
             or hashlib.sha256(request.path.encode()).hexdigest() != event.path_sha256
             or _body_sha(request.json_body) != event.body_sha256
+        ):
+            raise ValueError("reporter request event and trusted artifact disagree")
+        verified_requests[event.action_id] = request
+        if isinstance(terminal, ActionCompleted) and terminal.evidence_id is not None:
+            continue
+        unobserved.append(
+            WitnessAttempt(
+                action_id=event.action_id,
+                request_sequence=event.sequence_number,
+                terminal_sequence=terminal.sequence_number,
+                method=request.method,
+                path=request.path,
+                identity_id=request.identity_id,
+                source_phase=request.source_phase,
+                request_json_body=request.json_body,
+                request_fingerprint=_request_fingerprint(request),
+                terminal_status=(
+                    "blocked"
+                    if isinstance(terminal, ActionBlocked)
+                    else "failed"
+                    if isinstance(terminal, ActionFailed)
+                    else "completed_without_evidence"
+                ),
+                reason_code=(
+                    terminal.reason_code
+                    if isinstance(terminal, (ActionBlocked, ActionFailed))
+                    else None
+                ),
+            )
+        )
+    for done in completions:
+        if done.evidence_id is None:
+            continue
+        event = requested.get(done.action_id)
+        if event is None or done.http_status is None or done.response_sha256 is None:
+            raise ValueError("completed action lacks same-generation request provenance")
+        evidence_path = instance_dir / "evidence" / f"{done.evidence_id.hex}.json"
+        request = verified_requests[done.action_id]
+        evidence = Evidence.model_validate_json(evidence_path.read_bytes())
+        if (
+            evidence.run_id != expected_run_id
+            or evidence.range_instance_id != instance_id
+            or evidence.range_generation != generation
+            or evidence.action_id != done.action_id
+            or evidence.request_artifact_id != request.request_artifact_id
+            or evidence.evidence_id != done.evidence_id
+            or evidence.worker_id != done.worker_id
+            or evidence.task_id != done.task_id
             or evidence.http_status != done.http_status
             or evidence.response_sha256 != done.response_sha256
         ):
@@ -376,6 +450,7 @@ def build_reporter_bundle(
         )
         by_action[done.action_id] = TrustedAction(request, evidence)
     indexed.sort(key=lambda item: item.completion_sequence)
+    unobserved.sort(key=lambda item: item.request_sequence)
     submissions = [item for item in trace if isinstance(item, FindingSubmitted)]
     candidates: list[ExistingCandidate] = []
     for submitted in submissions:
@@ -400,6 +475,7 @@ def build_reporter_bundle(
         range_instance_id=instance_id,
         range_generation=generation,
         actions=tuple(indexed),
+        unobserved_attempts=tuple(unobserved),
         identities=tuple(visible_identities[key] for key in sorted(visible_identities)),
         existing_candidates=tuple(candidates),
     )

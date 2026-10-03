@@ -111,6 +111,7 @@ def analyze_witness_matrix(
             "integrated_same_root_distinct_witness_submissions",
             "reporter_same_root_distinct_witness_submissions",
             "probe_agent_http_actions",
+            "probe_agent_http_attempts",
             "probe_exact_repeated_http_actions",
             "probe_model_calls",
             "probe_input_tokens",
@@ -136,6 +137,7 @@ def analyze_witness_matrix(
             c = by_root[root["root"]]
             c["vulnerable_opportunities"] += 1
             for stage in (
+                "attempted_relevant_action",
                 "executed_relevant_action",
                 "successful_relevant_action",
                 "complete_trace_proof",
