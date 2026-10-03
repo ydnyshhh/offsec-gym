@@ -49,9 +49,10 @@ The probe keeps the original opportunity-aware worker policy and its 120,000
 model-token/20-call task budget. The fresh reporter has 80,000 tokens, four
 calls, a 4,096-token per-call output cap, and 300 wall seconds. The controller
 declares a combined 200,000-token/24-call budget for atomic reservations;
-the worker task budget remains 120,000. This split needs an end-to-end
-PostgreSQL fake-worker check before any paid call to show that the larger
-controller declaration does not expand probe admission or trajectory budget.
+the worker task budget remains 120,000. A PostgreSQL fake-worker check
+confirmed that admission still exposes only 120,000 probe tokens and 20 calls,
+rejects two 65,000-token probe tasks despite the 200,000-token declaration,
+and accepts and settles a separate reporter reservation.
 
 The selected endpoint is pinned as `moonshotai/kimi-k3-20260715` from
 `Moonshot AI`. At the observed $3/M input and $15/M output rates, treating
@@ -72,12 +73,14 @@ Offline checks completed so far:
   targeted tests.
 - The prospective ledger checks packet hashes and the reporter boundary,
   counts configured roots once, and marks patched roots inapplicable.
+- Fifteen targeted unit tests and one PostgreSQL integration test passed
+  locally. The integration test uses a separate database and no model calls.
 - All 179 score-valid frozen M6.4 traces were accepted by the packet builder
   in an offline *format-feasibility* check; this says nothing about future
   reporter success.
 
-Before a pilot, require exact-head CI, a PostgreSQL fake-worker budget check,
-and a review of the committed manifest and cost ceiling. A two-cell
+Before a pilot, require exact-head CI and a review of the committed manifest
+and cost ceiling. A two-cell
 non-sample pilot could use paired seed 2101 with the same policy and at most
 $6 estimated token cost, but that pilot is not authorized. It must stay
 outside the 20-cell prospective sample and cannot be silently folded into
