@@ -174,12 +174,26 @@ class ScriptedExperimentRunner:
     def _controller_budget(self, spec: ExperimentSpec) -> Budget:
         return spec.budget
 
+    def _experiment_hash(self, spec: ExperimentSpec) -> str:
+        return experiment_hash(spec)
+
     async def _before_agent(
         self,
         spec: ExperimentSpec,
         context: AgentContext,
         tools: BoundGatewayTools,
     ) -> None:
+        return None
+
+    async def _after_agent(
+        self,
+        spec: ExperimentSpec,
+        context: ExperimentContext,
+        findings_store: BoundFindingSink,
+        original_findings: tuple[CandidateFinding, ...],
+        run_status: str,
+    ) -> None:
+        """Optional bounded stage before validation; ordinary runners do nothing."""
         return None
 
     async def run(self, spec: ExperimentSpec) -> ScriptedExperimentOutcome:
@@ -199,7 +213,7 @@ class ScriptedExperimentRunner:
             RunStarted(
                 run_id=run_id,
                 actor="controller",
-                experiment_hash=experiment_hash(spec),
+                experiment_hash=self._experiment_hash(spec),
             )
         )
         try:
@@ -286,6 +300,10 @@ class ScriptedExperimentRunner:
                     status="budget_exhausted" if run_status == "budget_exhausted" else "failed",
                     candidate_finding_ids=tuple(item.finding_id for item in findings),
                 )
+            if run_status in {"completed", "budget_exhausted", "agent_failed"}:
+                phase = "reporter"
+                await self._after_agent(spec, experiment, findings_store, findings, run_status)
+                findings = await findings_store.read_run(run_id)
             phase = "validation"
             context = ValidationContext(
                 run_id=run_id,
