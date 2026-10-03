@@ -7,6 +7,7 @@ from pathlib import Path
 
 import pytest
 
+from offsecgym.research import m65_monolithic_execute
 from offsecgym.research.m65_monolithic_execute import execute, spec_for_cell, verify_manifest
 
 
@@ -35,8 +36,17 @@ def test_m65_collector_reconstructs_pinned_control_cells(tmp_path: Path) -> None
 
 
 @pytest.mark.asyncio
-async def test_m65_collector_checks_cost_and_cell_limit_before_provider(tmp_path: Path) -> None:
+async def test_m65_collector_checks_cost_and_cell_limit_before_provider(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     root = Path(__file__).parents[2]
+    # The historical source-history gate is exercised separately; test these
+    # early argument checks even when this checkout contains later research.
+    monkeypatch.setattr(
+        m65_monolithic_execute,
+        "verify_manifest",
+        lambda root, path: verify_manifest(root, path, require_source_history=False),
+    )
     args = (
         root,
         _manifest_path(),
