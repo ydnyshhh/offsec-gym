@@ -214,6 +214,9 @@ def conversion_ledger(
         "original_validated_roots": len(original_roots),
         "reporter_validated_roots": len(set(reporter_roots)),
         "incremental_reporter_roots": len(incremental_roots),
+        "original_false_findings": sum(
+            by_finding[item.finding.finding_id].status == "rejected" for item in original
+        ),
         "reporter_false_findings": sum(
             by_finding[item.finding.finding_id].status == "rejected" for item in reporter
         ),

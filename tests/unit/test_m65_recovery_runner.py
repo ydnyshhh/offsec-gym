@@ -47,6 +47,7 @@ def test_combined_budget_preserves_nonmodel_probe_caps() -> None:
     combined = combined_budget(probe, _reporter_budget())
     assert combined.max_total_tokens == 150_000
     assert combined.max_model_calls == 22
+    assert combined.max_wall_seconds == _reporter_budget().max_wall_seconds
     assert combined.max_actions == probe.max_actions
     assert combined.max_http_requests == probe.max_http_requests
     with pytest.raises(ValueError, match="both be set"):
