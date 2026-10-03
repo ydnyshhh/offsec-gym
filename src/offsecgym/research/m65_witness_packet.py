@@ -8,7 +8,7 @@ import json
 import re
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 from uuid import UUID
 
 from pydantic import Field, model_validator
@@ -51,6 +51,8 @@ class WitnessAction(StrictModel):
     response_object_id: UUID | None = None
     http_status: int = Field(ge=100, le=599)
     response_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    request_fingerprint: str = Field(pattern=r"^[0-9a-f]{64}$")
+    request_json_body: dict[str, Any] | None = None
     response_excerpt: str = Field(max_length=EXCERPT_CHARS)
     truncated: bool
 
@@ -70,12 +72,24 @@ class ExistingCandidate(StrictModel):
     evidence_action_ids: tuple[UUID, ...]
 
 
+class VisibleIdentity(StrictModel):
+    identity_id: UUID
+    role: str
+    workspace_id: UUID | None = None
+    username: str | None = None
+    source_action_id: UUID
+
+
 class ReporterPacket(StrictModel):
-    schema_version: str = "1"
+    schema_version: Literal["2"] = "2"
     run_id: UUID
+    source_build_id: UUID
+    source_experiment_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    source_trace_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
     range_instance_id: UUID
     range_generation: int = Field(ge=0)
     actions: tuple[WitnessAction, ...] = Field(max_length=MAX_ACTIONS)
+    identities: tuple[VisibleIdentity, ...] = ()
     existing_candidates: tuple[ExistingCandidate, ...] = Field(max_length=MAX_CANDIDATES)
 
     @model_validator(mode="after")
@@ -95,6 +109,10 @@ class ReporterPacket(StrictModel):
             raise ValueError("reporter packet exceeds its declared context bound")
         return self
 
+    @property
+    def bundle_sha256(self) -> str:
+        return hashlib.sha256(self.model_dump_json().encode()).hexdigest()
+
 
 @dataclass(frozen=True)
 class TrustedAction:
@@ -106,6 +124,45 @@ class TrustedAction:
 class ReporterEvidenceBundle:
     packet: ReporterPacket
     by_action: dict[UUID, TrustedAction]
+
+    def get_evidence(self, evidence_id: UUID) -> dict[str, Any]:
+        action = next(
+            (entry for entry in self.packet.actions if entry.evidence_id == evidence_id), None
+        )
+        if action is None:
+            raise ValueError("evidence is outside the reporter evidence packet")
+        return self.get_action(action.action_id)
+
+    def get_entity(self, entity_id: UUID) -> dict[str, Any]:
+        identities = [
+            x.model_dump(mode="json") for x in self.packet.identities if x.identity_id == entity_id
+        ]
+        actions = [
+            x.model_dump(mode="json")
+            for x in self.packet.actions
+            if x.route_target_id == entity_id or x.response_object_id == entity_id
+        ]
+        if not identities and not actions:
+            raise ValueError("entity is outside the reporter evidence packet")
+        return {"entity_id": str(entity_id), "identities": identities, "actions": actions[:32]}
+
+    def search_evidence(self, query: str) -> dict[str, Any]:
+        if not query or len(query) > 128:
+            raise ValueError("evidence query must contain 1 to 128 characters")
+        needle = query.casefold()
+        hits = [
+            {
+                "action_id": str(x.action_id),
+                "evidence_id": str(x.evidence_id),
+                "sequence": x.completion_sequence,
+                "method": x.method,
+                "path": x.path,
+                "http_status": x.http_status,
+            }
+            for x in self.packet.actions
+            if needle in x.path.casefold() or needle in x.response_excerpt.casefold()
+        ]
+        return {"query": query, "matches": hits[:24], "total_matches": len(hits)}
 
     def get_action(self, action_id: UUID) -> dict[str, Any]:
         """Read a completed artifact; no live range or oracle access exists here."""
@@ -145,6 +202,15 @@ class ReadOnlyReporterTools:
     def get_action_evidence(self, action_id: UUID) -> dict[str, Any]:
         return self.bundle.get_action(action_id)
 
+    def get_evidence(self, evidence_id: UUID) -> dict[str, Any]:
+        return self.bundle.get_evidence(evidence_id)
+
+    def get_entity(self, entity_id: UUID) -> dict[str, Any]:
+        return self.bundle.get_entity(entity_id)
+
+    def search_evidence(self, query: str) -> dict[str, Any]:
+        return self.bundle.search_evidence(query)
+
     async def submit_finding(self, proposal: FindingProposal) -> CandidateFinding:
         self.bundle.check_proposal(proposal)
         return await self.findings.submit(proposal)
@@ -154,6 +220,15 @@ def _body_sha(value: dict[str, Any] | None) -> str | None:
     if value is None:
         return None
     raw = json.dumps(value, sort_keys=True, separators=(",", ":")).encode()
+    return hashlib.sha256(raw).hexdigest()
+
+
+def _request_fingerprint(request: RequestArtifact) -> str:
+    raw = json.dumps(
+        [request.method, request.path, str(request.identity_id), request.json_body],
+        sort_keys=True,
+        separators=(",", ":"),
+    ).encode()
     return hashlib.sha256(raw).hexdigest()
 
 
@@ -189,6 +264,11 @@ def build_reporter_bundle(
         raise ValueError("reporter source requires one versioned run and range")
     if any(item.run_id != expected_run_id for item in trace):
         raise ValueError("reporter trace mixes run IDs")
+    trace_raw = json.dumps(
+        [item.model_dump(mode="json") for item in trace],
+        sort_keys=True,
+        separators=(",", ":"),
+    ).encode()
     sequence = [item.sequence_number for item in trace]
     if sequence != sorted(sequence) or len(sequence) != len(set(sequence)) or min(sequence) <= 0:
         raise ValueError("reporter trace sequence is not authoritative and ordered")
@@ -203,6 +283,7 @@ def build_reporter_bundle(
     if len(completed_ids) != len(set(completed_ids)):
         raise ValueError("reporter trace repeats an action completion")
     indexed: list[WitnessAction] = []
+    visible_identities: dict[UUID, VisibleIdentity] = {}
     by_action: dict[UUID, TrustedAction] = {}
     instance_dir = state_dir / "instances" / instance_id.hex
     for done in completions:
@@ -253,6 +334,19 @@ def build_reporter_bundle(
         ):
             raise ValueError("reporter action event and trusted artifacts disagree")
         raw = base64.b64decode(evidence.body_b64, validate=True)
+        if request.path == "/api/me" and request.identity_id and evidence.http_status == 200:
+            try:
+                me = json.loads(raw)
+                if isinstance(me, dict) and me.get("id") == str(request.identity_id):
+                    visible_identities[request.identity_id] = VisibleIdentity(
+                        identity_id=request.identity_id,
+                        role=me["role"],
+                        workspace_id=UUID(me["workspace_id"]) if me.get("workspace_id") else None,
+                        username=me.get("username"),
+                        source_action_id=done.action_id,
+                    )
+            except (ValueError, KeyError, TypeError):
+                raise ValueError("trusted identity response is malformed") from None
         indexed.append(
             WitnessAction(
                 action_id=done.action_id,
@@ -268,6 +362,8 @@ def build_reporter_bundle(
                 response_object_id=_response_object_id(raw),
                 http_status=evidence.http_status,
                 response_sha256=evidence.response_sha256,
+                request_fingerprint=_request_fingerprint(request),
+                request_json_body=request.json_body,
                 response_excerpt=raw.decode("utf-8", errors="replace")[:EXCERPT_CHARS],
                 truncated=evidence.truncated,
             )
@@ -292,9 +388,13 @@ def build_reporter_bundle(
         )
     packet = ReporterPacket(
         run_id=expected_run_id,
+        source_build_id=ranges[0].build_id,
+        source_experiment_sha256=started[0].experiment_hash,
+        source_trace_sha256=hashlib.sha256(trace_raw).hexdigest(),
         range_instance_id=instance_id,
         range_generation=generation,
         actions=tuple(indexed),
+        identities=tuple(visible_identities[key] for key in sorted(visible_identities)),
         existing_candidates=tuple(candidates),
     )
     return ReporterEvidenceBundle(packet, by_action)

@@ -1,34 +1,35 @@
-"""Prospective read-only reporting after a frozen worker probe and before validation."""
+"""Prospective read-only reporting after a frozen monolithic probe."""
 
 from __future__ import annotations
 
 import asyncio
 import hashlib
 import json
+from pathlib import Path
 from uuid import uuid4
 
+from offsecgym.experiment.bootstrapped_monolithic import BootstrappedMonolithicExperimentRunner
 from offsecgym.experiment.scripted import BoundFindingSink
-from offsecgym.experiment.workers import WorkerExperimentRunner
 from offsecgym.providers.base import ProviderFailure, ProviderRequestError
 from offsecgym.research.m65_reporter import ReadOnlyReporter
 from offsecgym.research.m65_witness_packet import ReadOnlyReporterTools, build_reporter_bundle
 from offsecgym.schemas.domain import CandidateFinding, ExperimentContext
 from offsecgym.schemas.events import ReporterFinished, ReporterStarted
-from offsecgym.schemas.specs import Budget, ExperimentSpec
+from offsecgym.schemas.specs import Budget, ExperimentSpec, ReporterBudget
 from offsecgym.solver.scripted import ExperimentInfrastructureError
 
 
-def recovery_experiment_hash(spec: ExperimentSpec, reporter_budget: Budget) -> str:
+def recovery_experiment_hash(spec: ExperimentSpec, reporter_budget: ReporterBudget) -> str:
     record = {
         "probe_spec": spec.model_dump(mode="json"),
         "reporter_budget": reporter_budget.model_dump(mode="json"),
-        "reporter_contract_version": "m65-read-only-v1",
+        "reporter_contract_version": "m651-read-only-v1",
     }
     raw = json.dumps(record, sort_keys=True, separators=(",", ":")).encode()
     return hashlib.sha256(raw).hexdigest()
 
 
-def combined_budget(probe: Budget, reporter: Budget) -> Budget:
+def combined_budget(probe: Budget, reporter: ReporterBudget) -> Budget:
     """Reserve an explicit extra model allowance while keeping probe task caps intact."""
     if (
         probe.max_total_tokens is None
@@ -64,17 +65,17 @@ def combined_budget(probe: Budget, reporter: Budget) -> Budget:
     )
 
 
-class ReporterRecoveryRunner(WorkerExperimentRunner):
-    """Keep the probe task budget and policy; add one isolated reporting stage."""
+class ReporterRecoveryRunner(BootstrappedMonolithicExperimentRunner):
+    """Keep the M6.5 monolithic probe policy; add isolated reporting."""
 
-    def __init__(self, runtime, events, provider, reporter_budget: Budget) -> None:
+    def __init__(self, runtime, events, provider, reporter_budget: ReporterBudget) -> None:
         super().__init__(runtime, events, provider)
         self.reporter_budget = reporter_budget
 
     def _supported(self, spec: ExperimentSpec) -> bool:
         return (
             super()._supported(spec)
-            and spec.orchestrator == "admitted_sequential_workers"
+            and spec.orchestrator == "bootstrapped_monolithic"
             and spec.model is not None
         )
 
@@ -98,7 +99,13 @@ class ReporterRecoveryRunner(WorkerExperimentRunner):
         bundle = build_reporter_bundle(
             trace, self.runtime.state.root, expected_run_id=context.run_id
         )
-        packet_sha = hashlib.sha256(bundle.packet.model_dump_json().encode()).hexdigest()
+        packet_sha = bundle.packet.bundle_sha256
+        bundle_path = (
+            Path(self.runtime.state.root) / "reporter_bundles" / f"{context.run_id.hex}.json"
+        )
+        bundle_path.parent.mkdir(parents=True, exist_ok=True)
+        with bundle_path.open("x") as handle:
+            handle.write(bundle.packet.model_dump_json())
         reporter_id, task_id = uuid4(), uuid4()
         await self.events.append(
             ReporterStarted(
@@ -107,6 +114,8 @@ class ReporterRecoveryRunner(WorkerExperimentRunner):
                 reporter_id=reporter_id,
                 task_id=task_id,
                 packet_sha256=packet_sha,
+                source_trace_sha256=bundle.packet.source_trace_sha256,
+                source_build_id=bundle.packet.source_build_id,
                 budget=self.reporter_budget,
                 original_finding_ids=tuple(item.finding_id for item in original_findings),
             )
@@ -126,6 +135,8 @@ class ReporterRecoveryRunner(WorkerExperimentRunner):
                     ReadOnlyReporterTools(bundle, findings_store),
                     reporter_budget=self.reporter_budget,
                     global_budget=context.budget,
+                    reporter_id=reporter_id,
+                    task_id=task_id,
                 ),
                 timeout=self.reporter_budget.max_wall_seconds,
             )

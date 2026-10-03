@@ -16,7 +16,7 @@ from offsecgym.research.m65_reporter import ReadOnlyReporter, reporter_tools
 from offsecgym.research.m65_witness_packet import ReadOnlyReporterTools, build_reporter_bundle
 from offsecgym.schemas.domain import CandidateFinding
 from offsecgym.schemas.events import ModelCallCompleted, ModelCallFailed, ModelCallStarted
-from offsecgym.schemas.specs import Budget, ModelSpec
+from offsecgym.schemas.specs import ModelSpec, ReporterBudget
 
 
 def _call(name: str, arguments: dict[str, object], index: int) -> dict[str, object]:
@@ -61,8 +61,14 @@ def _reporter(tmp_path: Path, provider: QueueProvider, events: MemoryEvents):
     return ReadOnlyReporter(provider, ModelSpec(provider="fake", name="fake"), events, tmp_path)
 
 
-def _budget() -> Budget:
-    return Budget(max_total_tokens=30_000, max_model_calls=3, max_output_tokens_per_call=512)
+def _budget() -> ReporterBudget:
+    return ReporterBudget(
+        max_total_tokens=30_000,
+        max_model_calls=3,
+        max_output_tokens_per_call=512,
+        max_retrieval_calls=8,
+        max_finding_submissions=4,
+    )
 
 
 @pytest.mark.asyncio
@@ -87,7 +93,7 @@ async def test_reporter_uses_only_lookup_and_bound_submission(tmp_path: Path) ->
     }
     provider = QueueProvider(
         [
-            (_call("get_action_evidence", {"action_id": str(first[0].action_id)}, 1),),
+            (_call("get_evidence", {"evidence_id": str(first[2])}, 1),),
             (_call("submit_authorization_finding", finding_args, 2),),
             (_call("finish_report", {"summary": "Done"}, 3),),
         ]
@@ -117,7 +123,9 @@ async def test_reporter_uses_only_lookup_and_bound_submission(tmp_path: Path) ->
     assert sink.submit.await_count == 1
     assert "http_request" not in {tool["name"] for tool in reporter_tools()}
     assert {tool["name"] for tool in provider.requests[0]["tools"]} == {
-        "get_action_evidence",
+        "get_evidence",
+        "get_entity",
+        "search_evidence",
         "submit_authorization_finding",
         "submit_exposure_finding",
         "submit_transition_finding",
@@ -152,13 +160,17 @@ async def test_reporter_provider_failure_keeps_error_artifact(tmp_path: Path) ->
 async def test_reporter_rejects_foreign_lookup_without_sink_call(tmp_path: Path) -> None:
     run_id, trace, _, _, _, _ = _trace(tmp_path)
     bundle = build_reporter_bundle(trace, tmp_path, expected_run_id=run_id)
-    provider = QueueProvider([(_call("get_action_evidence", {"action_id": str(uuid4())}, 1),)])
+    provider = QueueProvider([(_call("get_evidence", {"evidence_id": str(uuid4())}, 1),)])
     sink = AsyncMock()
     result = await _reporter(tmp_path, provider, MemoryEvents()).run(
         bundle,
         ReadOnlyReporterTools(bundle, sink),
-        reporter_budget=Budget(
-            max_total_tokens=30_000, max_model_calls=1, max_output_tokens_per_call=512
+        reporter_budget=ReporterBudget(
+            max_total_tokens=30_000,
+            max_model_calls=1,
+            max_output_tokens_per_call=512,
+            max_retrieval_calls=8,
+            max_finding_submissions=4,
         ),
         global_budget=_budget(),
     )

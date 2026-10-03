@@ -1,11 +1,11 @@
 schema_version: "1"
-name: m65_witness_probe_template
-seed: 2001
+name: m651_witness_probe_template
+seed: 1
 range:
   schema_version: "1"
   family: saas
   scenario: tenant_boundary_v2
-  seed: 2001
+  seed: 0
   patched: false
   topology:
     saas: true
@@ -42,10 +42,10 @@ budget:
   max_model_calls: 20
   max_total_tokens: 120000
   max_output_tokens_per_call: 8192
-  max_wall_seconds: 600
+  max_wall_seconds: 900
   max_workers: 6
   max_concurrency: 1
-orchestrator: admitted_sequential_workers
+orchestrator: bootstrapped_monolithic
 memory: structured
 validation: deterministic
 surface_visibility: known_routes

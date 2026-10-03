@@ -109,7 +109,7 @@ def _trace(root: Path):
         sequence=5,
     )
     trace = [
-        RunStarted(run_id=run_id, actor="controller", sequence_number=1, experiment_hash="test"),
+        RunStarted(run_id=run_id, actor="controller", sequence_number=1, experiment_hash="0" * 64),
         RangeStarted(
             run_id=run_id,
             actor="controller",

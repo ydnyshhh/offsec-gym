@@ -21,19 +21,21 @@ from offsecgym.schemas.events import (
     ReporterStarted,
     parse_event,
 )
-from offsecgym.schemas.specs import Budget, ModelSpec
+from offsecgym.schemas.specs import BootstrapBudget, Budget, ModelSpec, ReporterBudget
 
 
 def _probe_spec():
     return scripted_spec().model_copy(update={"model": ModelSpec(provider="fake", name="fake")})
 
 
-def _reporter_budget() -> Budget:
-    return Budget(
+def _reporter_budget() -> ReporterBudget:
+    return ReporterBudget(
         max_total_tokens=30_000,
         max_model_calls=2,
         max_output_tokens_per_call=512,
         max_wall_seconds=30,
+        max_retrieval_calls=8,
+        max_finding_submissions=4,
     )
 
 
@@ -124,15 +126,20 @@ async def test_full_recovery_lifecycle_scores_after_reporter(tmp_path: Path, mon
             return AgentResult(task_id=task.task_id, status="completed")
 
     class NoOpRecoveryRunner(ReporterRecoveryRunner):
+        async def _before_agent(self, spec, context, tools):
+            return None
+
         def _agent(self, findings_store, spec):
             return NoOpProbe()
 
     spec = _probe_spec().model_copy(
         update={
-            "orchestrator": "admitted_sequential_workers",
+            "orchestrator": "bootstrapped_monolithic",
             "memory": "structured",
             "surface_visibility": "known_routes",
-            "bootstrap_budget": None,
+            "bootstrap_budget": BootstrapBudget(
+                max_actions=32, max_http_requests=32, max_wall_seconds=120
+            ),
             "budget": Budget(
                 max_total_tokens=120_000,
                 max_model_calls=20,

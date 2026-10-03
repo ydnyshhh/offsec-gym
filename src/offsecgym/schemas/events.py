@@ -11,7 +11,7 @@ from pydantic import Field, TypeAdapter, field_validator, model_validator
 from offsecgym.schemas.common import StrictModel, new_id
 from offsecgym.schemas.domain import CandidateFinding, CoverageClaim, ValidationResult, WorldFact
 from offsecgym.schemas.scheduler import TaskBudgetRequest, TaskState
-from offsecgym.schemas.specs import BootstrapBudget, Budget
+from offsecgym.schemas.specs import BootstrapBudget, Budget, ReporterBudget
 from offsecgym.schemas.workers import WorkerTaskPacket
 
 
@@ -745,7 +745,9 @@ class ReporterStarted(TraceEvent):
     reporter_id: UUID
     task_id: UUID
     packet_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
-    budget: Budget
+    source_trace_sha256: str | None = Field(default=None, pattern=r"^[0-9a-f]{64}$")
+    source_build_id: UUID | None = None
+    budget: ReporterBudget
     original_finding_ids: tuple[UUID, ...] = ()
 
     @model_validator(mode="after")
@@ -769,6 +771,26 @@ class ReporterFinished(TraceEvent):
         if len(set(self.submitted_finding_ids)) != len(self.submitted_finding_ids):
             raise ValueError("reporter submitted finding IDs must be distinct")
         return self
+
+
+class ReporterEvidenceRetrieved(TraceEvent):
+    type: Literal["reporter_evidence_retrieved"] = "reporter_evidence_retrieved"
+    reporter_id: UUID
+    task_id: UUID
+    model_call_id: UUID
+    tool_call_id: str = Field(min_length=1)
+    lookup_kind: Literal["evidence", "entity", "search"]
+    lookup_key_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    result_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+
+
+class ReporterFindingSubmitted(TraceEvent):
+    type: Literal["reporter_finding_submitted"] = "reporter_finding_submitted"
+    reporter_id: UUID
+    task_id: UUID
+    finding_id: UUID
+    source_probe_run_id: UUID
+    source_evidence_ids: tuple[UUID, ...] = Field(min_length=1)
 
 
 AnyTraceEvent = Annotated[
@@ -825,6 +847,8 @@ AnyTraceEvent = Annotated[
     | FindingSubmitted
     | FindingValidated
     | ReporterStarted
+    | ReporterEvidenceRetrieved
+    | ReporterFindingSubmitted
     | ReporterFinished
     | RunCompleted,
     Field(discriminator="type"),
