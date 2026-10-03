@@ -8,12 +8,12 @@ from types import SimpleNamespace
 import pytest
 from test_m65_reporter import QueueProvider, _call
 from test_m65_witness_packet import _trace
-from test_milestone_3_runner import MemoryEvents, scripted_spec
+from test_milestone_3_runner import MemoryEvents, no_docker_runtime, scripted_spec
 
 from offsecgym.experiment.reporter_recovery import ReporterRecoveryRunner, combined_budget
 from offsecgym.experiment.scripted import BoundFindingSink
 from offsecgym.providers.base import ProviderFailure
-from offsecgym.schemas.domain import ExperimentContext
+from offsecgym.schemas.domain import AgentResult, ExperimentContext
 from offsecgym.schemas.events import (
     ActionRequested,
     ModelCallCompleted,
@@ -114,3 +114,44 @@ async def test_provider_failure_is_reporter_status_not_probe_failure(tmp_path: P
     finished = next(item for item in events.items if isinstance(item, ReporterFinished))
     assert finished.status == "provider_failed"
     assert finished.reason_code == "provider_rate_limited"
+
+
+@pytest.mark.asyncio
+async def test_full_recovery_lifecycle_scores_after_reporter(tmp_path: Path, monkeypatch) -> None:
+    class NoOpProbe:
+        async def run(self, task, context, tools):
+            return AgentResult(task_id=task.task_id, status="completed")
+
+    class NoOpRecoveryRunner(ReporterRecoveryRunner):
+        def _agent(self, findings_store, spec):
+            return NoOpProbe()
+
+    spec = _probe_spec().model_copy(
+        update={
+            "orchestrator": "admitted_sequential_workers",
+            "memory": "structured",
+            "surface_visibility": "known_routes",
+            "bootstrap_budget": None,
+            "budget": Budget(
+                max_total_tokens=120_000,
+                max_model_calls=20,
+                max_actions=60,
+                max_http_requests=60,
+                max_workers=6,
+                max_concurrency=1,
+            ),
+        }
+    )
+    events = MemoryEvents()
+    runner = NoOpRecoveryRunner(
+        no_docker_runtime(tmp_path, monkeypatch),
+        events,
+        QueueProvider([(_call("finish_report", {"summary": "No findings"}, 1),)]),
+        _reporter_budget(),
+    )
+    outcome = await runner.run(spec)
+    assert outcome.evaluation.score_valid
+    assert outcome.evaluation.false_negatives == 5
+    assert outcome.findings == ()
+    assert len([item for item in events.items if isinstance(item, ReporterStarted)]) == 1
+    assert len([item for item in events.items if isinstance(item, ReporterFinished)]) == 1

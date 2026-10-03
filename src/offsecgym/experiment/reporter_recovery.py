@@ -36,6 +36,11 @@ def combined_budget(probe: Budget, reporter: Budget) -> Budget:
             **probe.model_dump(),
             "max_total_tokens": probe.max_total_tokens + reporter.max_total_tokens,
             "max_model_calls": probe.max_model_calls + reporter.max_model_calls,
+            "max_wall_seconds": (
+                probe.max_wall_seconds + reporter.max_wall_seconds
+                if probe.max_wall_seconds is not None
+                else reporter.max_wall_seconds
+            ),
             "max_output_tokens_per_call": max(
                 probe.max_output_tokens_per_call or 16,
                 reporter.max_output_tokens_per_call,
