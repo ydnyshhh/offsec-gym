@@ -1,0 +1,83 @@
+{
+  "cells": [
+    {
+      "build_id": "d4193119-ec18-5b54-b472-3bbd084f4188",
+      "cell_id": "8118cb60c6d4a2e3",
+      "experiment_sha256": "e177e94949406c0a2d08258709bb33bfce0767ad33bfd62ad1b0d35615d27885",
+      "order": 1,
+      "pair_id": "a9914f9b-db8f-5057-96bf-e4158e6a2eac",
+      "range_seed": 2101,
+      "variant": "vulnerable"
+    },
+    {
+      "build_id": "d24ef6b1-7e98-5335-abcf-c7dbf8ab98af",
+      "cell_id": "bc9bb46c02953481",
+      "experiment_sha256": "372059fb4be66faaa675a5978f0f4d09d4a36e337a51798632a276a2a02f544e",
+      "order": 2,
+      "pair_id": "a9914f9b-db8f-5057-96bf-e4158e6a2eac",
+      "range_seed": 2101,
+      "variant": "patched"
+    }
+  ],
+  "combined_model_budget": {
+    "max_actions": 60,
+    "max_concurrency": 1,
+    "max_cost_usd": null,
+    "max_http_requests": 60,
+    "max_model_calls": 24,
+    "max_output_tokens_per_call": 8192,
+    "max_total_tokens": 200000,
+    "max_wall_seconds": 900,
+    "max_workers": 6
+  },
+  "expected_selected_endpoint": {
+    "revision": "moonshotai/kimi-k3-20260715",
+    "upstream_provider": "Moonshot AI"
+  },
+  "fixture_sha256": "25faa800ea03275cb6290f5b7f53f449cbfd9dc5020bd370cd2c2c7f8e9bbe96",
+  "maximum_estimated_token_cost_usd": 6.0,
+  "model_request": {
+    "input_reservation_bytes_per_token": 2.0,
+    "input_reservation_margin_tokens": 1024,
+    "input_usd_per_million_tokens": null,
+    "name": "moonshotai/kimi-k3",
+    "output_usd_per_million_tokens": null,
+    "provider": "openrouter",
+    "reasoning": "high",
+    "upstream_provider": "moonshotai"
+  },
+  "pair_id": "a9914f9b-db8f-5057-96bf-e4158e6a2eac",
+  "pilot_runner_sha256": "156ed902b1499609e43d3873d437ee06f55fcf3f434046e21f8b5dd8093bb9d6",
+  "price_snapshot": {
+    "input_usd_per_million": 3.0,
+    "output_usd_per_million": 15.0
+  },
+  "probe_budget": {
+    "max_actions": 60,
+    "max_concurrency": 1,
+    "max_cost_usd": null,
+    "max_http_requests": 60,
+    "max_model_calls": 20,
+    "max_output_tokens_per_call": 8192,
+    "max_total_tokens": 120000,
+    "max_wall_seconds": 600,
+    "max_workers": 6
+  },
+  "protocol": "m65-witness-read-only-pilot-1",
+  "reporter_budget": {
+    "max_actions": null,
+    "max_concurrency": null,
+    "max_cost_usd": null,
+    "max_http_requests": null,
+    "max_model_calls": 4,
+    "max_output_tokens_per_call": 4096,
+    "max_total_tokens": 80000,
+    "max_wall_seconds": 300,
+    "max_workers": null
+  },
+  "requires_separate_paid_approval": true,
+  "sample_manifest_sha256": "c7f9da7d873430b59a322769643fc08f62eb73ea3849942c715253b2554ac45a",
+  "seed": 2101,
+  "source_commit": "7108976",
+  "status": "preflight_not_authorized"
+}
