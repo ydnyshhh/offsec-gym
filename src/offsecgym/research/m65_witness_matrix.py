@@ -29,6 +29,9 @@ PINNED_SOURCE = (
     "src/offsecgym/research/m65_reporter.py",
     "src/offsecgym/research/m65_witness_packet.py",
     "src/offsecgym/research/m65_conversion_ledger.py",
+    "src/offsecgym/research/m65_witness_matrix.py",
+    "src/offsecgym/research/m65_witness_execute.py",
+    "src/offsecgym/research/m65_witness_analysis.py",
 )
 
 

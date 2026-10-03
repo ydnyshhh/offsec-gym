@@ -13,6 +13,7 @@ def test_new_seed_matrix_has_paired_builds_and_explicit_worst_cost() -> None:
     assert 1101 not in SEEDS
     assert manifest["planned_live_cells"] == 20
     assert manifest["maximum_estimated_token_cost_usd"] == 60.0
+    assert manifest["combined_model_budget"]["max_wall_seconds"] == 900
     assert manifest["requires_separate_paid_approval"]
     assert len({cell["cell_id"] for cell in manifest["cells"]}) == 20
     assert [cell["order"] for cell in manifest["cells"]] == list(range(1, 21))
