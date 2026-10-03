@@ -1,5 +1,12 @@
 # M6.5 research design: from action evidence to validated findings
 
+**Collection status, 2026-10-03:** Study A's 100-cell common-bootstrap
+monolithic control is complete; see its
+[audited results](diagnostics/m65-common-bootstrap-control-results.md).
+The protocol below records the design declared before that collection.
+Study B remains a separate prospective witness-to-finding protocol on new
+paired seeds.
+
 This is a design for **new protocols**, not a revision of the completed
 `m64-v2-worker-primary-1` study. M6.4 is frozen at `50c3374`: 180 feasible
 cells were collected, 179 were score valid, and the single provider failure
@@ -46,11 +53,12 @@ uses zero model tokens. A bootstrap mismatch or endpoint drift invalidates a
 cell. Pin the new runner code, config, fixture hashes, paired build IDs,
 cell order, analysis, and cost ceiling before any live call.
 
-The runner, deterministic 100-cell manifest, collector, and predeclared
-historical analysis are now implemented. The [preflight record](diagnostics/m65-monolithic-preflight.md)
-lists the exact source pins, fake-provider checks, cost range, and remaining
-live pilot/collection gates. The [two-cell non-sample live pilot](diagnostics/m65-monolithic-pilot.md)
-has completed; no control-matrix cell has been run.
+At protocol freeze, the runner, deterministic 100-cell manifest, collector,
+and predeclared historical analysis had been implemented. The
+[preflight record](diagnostics/m65-monolithic-preflight.md) lists their source
+pins, fake-provider checks, cost range, and original live gates. The
+[two-cell non-sample pilot](diagnostics/m65-monolithic-pilot.md) preceded the
+now-completed control matrix.
 
 Analyze vulnerable recall and patched false findings for each of 40k, 60k,
 80k, 120k, and 160k. At low budgets, compare monolithic only with the
@@ -136,6 +144,7 @@ is only a provenance measure, not proof of useful cross-worker reasoning.
    dependency structure. Treat it as an external-validity test, not another
    tuning set for `tenant_boundary_v2`.
 
-The two-cell seed-1101 pilot was separately approved and completed. The
-100-cell historical control and prospective reporter study still require
-their own reviewable frozen manifests and cost decisions before live calls.
+The two-cell seed-1101 pilot and the 100-cell historical control were
+separately approved and completed. The prospective reporter study is a
+different protocol; its pilot and full sample need separate cost decisions
+before live calls.

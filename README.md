@@ -108,8 +108,12 @@ did not establish a root-recall winner. Parallel workers finished faster in
 the observed sample. Opportunity-aware admission made lower-budget runs
 feasible. The trace analysis found many proof-capable actions that never became
 submitted findings. These observations motivate the
-[M6.5 research design](docs/milestone-6.5.md): a common-bootstrap monolithic
-control and a separate prospective witness-to-finding study.
+[M6.5 research design](docs/milestone-6.5.md). Its
+[common-bootstrap monolithic control](docs/diagnostics/m65-common-bootstrap-control-results.md)
+has now completed 100 score-valid cells. It found more distinct roots than
+the historical worker arms at common feasible budgets, while still making
+duplicate submissions and patched false findings. The next study tests
+witness-to-finding conversion on new paired seeds.
 
 Read the [research plan](docs/research-plan.md) for the next questions,
 [implementation status](docs/implementation-status.md) for the milestone

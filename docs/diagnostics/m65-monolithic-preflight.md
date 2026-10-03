@@ -1,5 +1,10 @@
 # M6.5 common-bootstrap monolithic control: preflight
 
+**Post-collection note:** The approved 100-cell control finished on
+2026-10-03. See the [audited results](m65-common-bootstrap-control-results.md).
+The statements below preserve the gates and status as recorded before
+collection.
+
 ## Protocol boundary
 
 The [separate control manifest](../../experiments/manifests/m65-common-bootstrap-monolithic-v1.json)

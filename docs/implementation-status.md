@@ -125,6 +125,11 @@
   failure. The [results report](diagnostics/m64-confirmatory-results.md)
   preserves paired uncertainty, patched false findings, objective stages,
   and limits on interpretation.
+- M6.5 common-bootstrap monolithic control completed all 100 pinned cells on
+  the same ten seeds and five model-token budgets. All cells scored validly;
+  the [results](diagnostics/m65-common-bootstrap-control-results.md) preserve
+  the matched historical comparison, $34.875198 estimated token cost, patched
+  false findings, and the post-run coverage-closure amendment.
 
 ## Partially implemented
 
@@ -159,14 +164,14 @@ locates frequent action-proof-to-finding losses, especially for document,
 invoice, and ticket roots, while the refund root also fails earlier stages.
 Do not rerun or retune M6.4 to improve these observations.
 
-The next [M6.5 research design](milestone-6.5.md) separates a common-bootstrap
+The [M6.5 research design](milestone-6.5.md) separated a common-bootstrap
 monolithic control from a prospective witness-to-finding study on new seeds.
-The [common-bootstrap control preflight](diagnostics/m65-monolithic-preflight.md)
-now has a tested runner, 100-cell pinned manifest, fail-closed collector, and
-predeclared historical analysis. It has not made paid model calls. The
-witness-to-finding study remains a separate prospective protocol on new
-seeds. Each live protocol still requires a cost review and collection
-decision.
+The [control](diagnostics/m65-common-bootstrap-control-results.md) is complete
+and frozen. Its historical matched comparison shows higher monolithic root
+recall at common feasible budgets, with temporal and system differences that
+prevent a causal architecture claim. The next live question is the separate
+witness-to-finding protocol on new paired seeds. Its pilot and full sample
+require their own cost decisions; no control cell is part of that sample.
 
 ## Known architectural debt
 
