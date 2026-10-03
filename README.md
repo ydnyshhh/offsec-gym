@@ -1,107 +1,86 @@
 # OffSecGym
 
-OffSecGym is a research platform for studying autonomous security agents in isolated,
-synthetic cyber ranges. The range and evaluation infrastructure are the core product;
-models and orchestration strategies are interchangeable subjects of study.
+**A testbed for measuring how autonomous security agents find and report vulnerabilities.**
 
-Licensed under Apache-2.0; see [LICENSE](LICENSE).
+OffSecGym starts an isolated, synthetic web application. An agent explores it
+through a controlled request gateway. An independent validator checks the
+agent's findings against hidden ground truth. The platform records actions,
+model calls, evidence, and resource use so researchers can compare agent
+designs on the same task.
 
-Milestones 2 and 2.5 add a seeded multi-tenant SaaS range with five security properties,
-isolated instance credentials, typed hidden ground truth and attack graphs, generation-bound
-evidence, and live oracle tests. Milestone 3 adds a scripted agent, independent deterministic
-validation with isolated replay, and root-cause-based evaluation. Milestone 4 adds a
-monolithic model baseline through the same gateway, finding, and scoring contracts.
-Milestone 5 adds event-backed structured worldview memory and bounded context retrieval.
-Milestone 5.2 adds controller-verified response facts, exact entity IDs, and canonical
-finding categories; see [Milestone 5.2](docs/milestone-5.2.md).
-Milestone 5.3 adds bounded document/ticket details, a recent entity/evidence working
-set, and exact `get_entity` lookup; see [Milestone 5.3](docs/milestone-5.3.md).
-Milestone 5.4 adds pinned checked identities, a bounded checked-action index, and
-bounded worldview-tool carryover; see [Milestone 5.4](docs/milestone-5.4.md).
-The corrected M5.4 code at `0f27533` is the frozen comparison baseline, with
-its two failed research gates preserved in the [diagnostic](docs/diagnostics/kimi-k3-openrouter-m54.md).
-Milestone 6.0 adds atomic PostgreSQL controller reservations and worker
-lifecycle contracts; see [Milestone 6.0](docs/milestone-6.0.md).
-Milestone 6.1 adds a deterministic sequential coordinator with bounded worker
-packets, attributed findings, and typed debriefs; see
-[Milestone 6.1](docs/milestone-6.1.md). The matched three-control/three-worker
-[Kimi diagnostic](docs/diagnostics/kimi-k3-openrouter-m61.md) records valid
-traces, earlier first findings, and lower worker root-cause recall.
-[M6.1.1](docs/milestone-6.1.1.md) addresses worker budget starvation and
-duplicated context with predeclared three-run smoke gates.
-The [M6.1.1 smoke](docs/diagnostics/kimi-k3-openrouter-m611.md) cleared
-budget and context gates but missed objective-action and refund-exploration gates.
-[M6.1.2](docs/milestone-6.1.2.md) corrects workspace-aware identity selection
-and the known ticket-list route under a separately predeclared verification.
-The [M6.1.2 diagnostic](docs/diagnostics/kimi-k3-openrouter-m612.md) confirmed
-those handoff fixes but retained failed objective-action and refund gates.
-[M6.1.3](docs/milestone-6.1.3.md) adds a typed worker objective contract and
-action-required turn. Its [three-run diagnostic](docs/diagnostics/kimi-k3-openrouter-m613.md)
-met the refund POST and bounded-context gates but exposed three contract
-failures when preparatory discovery or verification conflicted with the
-detail-only route rule. The sequential baseline is frozen with these failures.
-[M6.2.0](docs/milestone-6.2.0.md) adds cross-process range locking,
-source-action fact ordering, and crashed-worker reconciliation. The
-[M6.2.1 diagnostic](docs/diagnostics/kimi-k3-openrouter-m621.md) compares
-matched sequential and parallel worker scheduling. It observed clean
-concurrency accounting and shorter elapsed time in one parallel run, with
-0/5 validated roots in both arms because fixed initial packets lacked targets.
-The [M6.2.2 matched bootstrap diagnostic](docs/diagnostics/kimi-k3-openrouter-m622.md)
-gave both arms the same audited prerequisite state and identical bounded
-packets. Each arm attempted three of five domain objectives and had two
-strict-contract violations; the result is frozen with those failed gates.
-The [M6.2.3 hard-escrow diagnostic](docs/diagnostics/kimi-k3-openrouter-m623.md)
-gave every worker one model turn under an atomic account, but the fixed
-20,000-token slices could not admit second turns. Both arms missed the
-domain-work gate and submitted no findings; the result is frozen.
-[M6.3.0](docs/milestone-6.3.md) added elastic grants, which enabled
-multi-turn workers but let earlier tasks exhaust later opportunities.
-[M6.3.1](docs/milestone-6.3.1.md) added state-based dependencies and
-opportunity-aware admission with protected minimum budgets. Its single
-[diagnostic](docs/diagnostics/kimi-k3-openrouter-m631.md) passed scheduler
-accounting gates while retaining worker execution failures. The next phase
-was the [M6.4 orchestration policy evaluation](docs/milestone-6.4.md), with
-frozen weights and held-out, paired ranges. Its
-[confirmatory results](docs/diagnostics/m64-confirmatory-results.md) are now
-available.
+The central question is: **with the same model, target, visibility, and compute
+budget, how does the agent's memory or orchestration change what it finds?**
 
-## Development
+## What an experiment looks like
 
-Use Python 3.12 or newer (below 3.15). With `uv`:
+The main range is a fictional multi-tenant SaaS application. Its vulnerable
+version contains five testable flaws: cross-tenant document, invoice, and
+support-ticket reads; public invoice metadata exposure; and a refund action
+allowed to a workspace member. A patched sibling uses the same public fixture
+with those flaws removed.
+
+For example, an agent might request an invoice while acting as a user from
+another workspace. OffSecGym records the exact request and response. If the
+agent submits a finding, the validator checks its cited evidence, the
+user–invoice relationship, and the hidden policy. The patched sibling tests
+whether the agent makes unsupported claims when the flaw is absent.
+
+```mermaid
+flowchart LR
+    C[Experiment config] --> R[Synthetic range]
+    C --> A[Agent]
+    A --> G[Audited HTTP gateway] --> R
+    G --> E[Action evidence] --> V[Independent validator]
+    A --> F[Candidate findings] --> V
+    O[Hidden oracle] --> V --> S[Score]
+    G --> L[(Event log)]
+    A --> L
+    V --> L
+```
+
+The agent cannot read the hidden oracle. It can reach only explicitly
+provisioned synthetic targets through the gateway. Range instances use
+isolated Docker networks, and the gateway enforces route and resource limits.
+See the [safety boundary](docs/safety.md).
+
+## What you can compare
+
+| Agent setup | What it tests |
+| --- | --- |
+| Scripted solver | Checks that the range, gateway, validator, and scoring path work end to end. |
+| Monolithic agent with transcript memory | Gives one model the conversation history as it explores. |
+| Monolithic agent with structured memory | Stores facts and checked actions in an event-backed worldview and retrieves relevant state. |
+| Coordinator with ephemeral workers | Splits the task into bounded objectives and measures sequential, parallel, and budget-aware scheduling. |
+
+PostgreSQL preserves typed events, model usage, findings, validation results,
+and terminal status. Restricted request/response artifacts live in the local
+state directory; events reference their hashes. Scoring counts **distinct
+validated root causes**, rejected findings, missed roots, and duplicate
+submissions separately. Vulnerable and patched builds share a seed and public
+fixture, so patched runs also expose false findings. See
+[architecture](docs/architecture.md) and [evaluation rules](docs/evaluation.md).
+
+## Try it locally
+
+You need Python 3.12–3.14, uv, and Docker for range commands. These commands
+install dependencies and validate a spec without starting containers:
 
 ```sh
 uv sync --extra dev
-uv run offsecgym --help
-uv run pytest -q
-uv run ruff check .
+uv run offsecgym spec validate examples/saas-range.yaml
 ```
 
-Validate and run a synthetic range with Docker running:
-
-```sh
-uv run offsecgym spec validate examples/hello-range.yaml
-uv run offsecgym range build examples/hello-range.yaml
-uv run offsecgym range inspect-build BUILD_ID
-uv run offsecgym range create BUILD_ID
-uv run offsecgym range start examples/hello-range.yaml
-uv run offsecgym range status INSTANCE_ID
-uv run offsecgym range metadata INSTANCE_ID
-uv run offsecgym range stop INSTANCE_ID
-uv run offsecgym range start INSTANCE_ID
-uv run offsecgym range reset INSTANCE_ID
-uv run offsecgym range destroy INSTANCE_ID
-```
-
-The SaaS vulnerable and patched siblings use the same seed and public fixtures:
+Start the synthetic SaaS range. Use the instance ID printed by `range start`
+to inspect and later destroy the instance:
 
 ```sh
 uv run offsecgym range start examples/saas-range.yaml --seed 42
-uv run offsecgym range start examples/saas-range-patched.yaml
 uv run offsecgym range metadata INSTANCE_ID
+uv run offsecgym range destroy INSTANCE_ID
 ```
 
-To run and score the scripted vulnerable/patched pair, set a dedicated PostgreSQL control
-database URL, apply migrations, and run the experiment:
+To run the scripted vulnerable/patched experiment, use a dedicated PostgreSQL
+database and apply migrations first:
 
 ```sh
 export OFFSECGYM_DATABASE_URL='postgresql+asyncpg://USER:PASSWORD@HOST/DB'
@@ -109,69 +88,33 @@ uv run alembic upgrade head
 uv run offsecgym experiment run experiments/configs/scripted-saas.yaml --paired
 ```
 
-The command prints each run ID and evaluation. Vulnerable runs should validate five distinct
-root causes; patched runs should submit no vulnerability findings. The agent receives only
-its projected context and gateway responses. See [Milestone 3](docs/milestone-3.md).
+The command prints run IDs and evaluations. Inspect one recorded event stream
+with `uv run offsecgym experiment trace RUN_ID`. The scripted vulnerable run
+checks the harness end to end; it is not a model-performance result. Model
+runs require a provider key and an experiment config. Review its budget and
+token-price assumptions before making paid model calls. See the
+[monolithic setup](docs/milestone-4.md) and [worker architecture](docs/milestone-6.1.md).
 
-For the monolithic baseline, edit the model name in
-[the diagnostic config](experiments/configs/monolithic-saas.yaml), set `OPENAI_API_KEY`, and
-run `offsecgym experiment run experiments/configs/monolithic-saas.yaml --repetitions 10`.
-The same PostgreSQL setup is required. See [Milestone 4](docs/milestone-4.md) for budget
-and failure semantics.
+Generated state and restricted evidence live in `.offsecgym/` by default. Set
+`OFFSECGYM_STATE_DIR` to use another directory. Use a separate disposable
+database for integration tests; see [development](docs/development.md).
 
-To run the structured-memory diagnostic with the same range and model settings, use
-`experiments/configs/monolithic-saas-structured.yaml`. Set its model name and the same
-API/database environment variables first. `offsecgym experiment worldview RUN_ID`
-prints reconstructed facts and coverage; use `--predicate` or `--kind` to filter facts.
-The configs compare agent systems with different tools and prompts; their score
-difference is not a memory-only ablation. See [Milestone 5](docs/milestone-5.md).
+## Research record
 
-The Kimi K3 OpenRouter diagnostic configs pin the same model, high reasoning, range,
-seed, surface visibility, and budget in both arms. With the control database migrated
-as above, set the API key and run three vulnerable repetitions per arm:
+The completed [M6.4 worker-policy study](docs/diagnostics/m64-confirmatory-results.md)
+collected 180 feasible runs across paired ranges and token budgets; 179 were
+score valid. At budgets where all three worker policies could run, the sample
+did not establish a root-recall winner. Parallel workers finished faster in
+the observed sample. Opportunity-aware admission made lower-budget runs
+feasible. The trace analysis found many proof-capable actions that never became
+submitted findings. These observations motivate the
+[M6.5 research design](docs/milestone-6.5.md): a common-bootstrap monolithic
+control and a separate prospective witness-to-finding study.
 
-```zsh
-read -rs 'OPENROUTER_API_KEY?OpenRouter API key: '; echo
-export OPENROUTER_API_KEY
-uv run offsecgym experiment run experiments/configs/kimi-k3-transcript-diagnostic.yaml --repetitions 3
-uv run offsecgym experiment run experiments/configs/kimi-k3-structured-diagnostic.yaml --repetitions 3
-```
+Read the [research plan](docs/research-plan.md) for the next questions,
+[implementation status](docs/implementation-status.md) for the milestone
+history, and [experiment spec](docs/experiment-spec.md) for configuration
+fields. Frozen studies retain their failed gates and unscored provider failures
+in the record; their results are not silently rerun or tuned.
 
-Each run prints an ID. Use `offsecgym experiment trace RUN_ID` to inspect its events
-and `offsecgym experiment worldview RUN_ID` to inspect structured memory. These
-small samples are for trace inspection, not a statistical score comparison.
-See the [Kimi K3 six-run diagnostic](docs/diagnostics/kimi-k3-openrouter-m5.md)
-for observed memory behavior and run IDs.
-
-For the M5.2 follow-up, use `kimi-k3-transcript-m52.yaml` and
-`kimi-k3-structured-m52.yaml` in `experiments/configs/`. Both pin the OpenRouter
-upstream to `moonshotai` with fallbacks disabled. The historical M5-v1 findings
-can be replayed with `offsecgym experiment revalidate RUN_ID --legacy-m5v1`.
-The [M5.2 diagnostic](docs/diagnostics/kimi-k3-openrouter-m52.md) records the
-matched pinned-provider traces and the predeclared progression gates.
-The [M5.3 diagnostic](docs/diagnostics/kimi-k3-openrouter-m53.md) records three
-structured runs and the gate misses. No 10+10 expansion was run.
-The [M5.4 initial](docs/diagnostics/kimi-k3-openrouter-m54-initial.md) and
-[corrected](docs/diagnostics/kimi-k3-openrouter-m54.md) three-run diagnostics
-separate identity, action-history, retrieval, and policy behavior. The
-corrected batch still missed two predeclared gates. Those limitations are
-accepted for the frozen M5 comparison baseline; no additional Kimi tuning is planned.
-
-`range start` prints an instance ID and generation. `range create BUILD_ID` separates
-instance creation from startup; UUID-based lifecycle commands accept instance IDs only.
-Builds, instance manifests, request artifacts, and evidence are kept in `.offsecgym/`;
-set `OFFSECGYM_STATE_DIR` to use a different directory. Controller metadata lists
-nonsecret identity IDs and the counterfactual pair ID; the default agent-visible context
-does not include that roster. Hidden oracle files remain outside the Docker build context.
-See [SaaS range](docs/saas-range.md) and [runtime](docs/runtime.md).
-
-Generated Milestone 2 build and instance manifests are incompatible with this version.
-Stop and destroy live instances with the earlier version before upgrading, then use a fresh
-state directory and rebuild. Previously generated SaaS builds with an older hidden-oracle
-schema also require rebuilding. The existing YAML examples remain valid.
-
-PostgreSQL integration tests require `OFFSECGYM_TEST_DATABASE_URL` to point to an
-isolated, disposable database. Apply `alembic upgrade head` before running them.
-
-See [architecture](docs/architecture.md), [safety](docs/safety.md), and
-[implementation status](docs/implementation-status.md).
+OffSecGym is licensed under [Apache-2.0](LICENSE).
