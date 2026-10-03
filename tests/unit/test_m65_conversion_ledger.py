@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import hashlib
 import json
 from pathlib import Path
 
@@ -16,7 +15,7 @@ from offsecgym.runtime.manifests import StateStore
 from offsecgym.runtime.saas import SaasRangeCompiler
 from offsecgym.schemas.events import ReporterFinished, ReporterStarted, RunCompleted
 from offsecgym.schemas.ground_truth import GroundTruthManifest
-from offsecgym.schemas.specs import Budget
+from offsecgym.schemas.specs import ReporterBudget
 
 
 def _case(tmp_path: Path, *, patched: bool = False):
@@ -29,7 +28,10 @@ def _case(tmp_path: Path, *, patched: bool = False):
     run_id, trace, _, _, _, _ = _trace(tmp_path)
     trace[1] = trace[1].model_copy(update={"build_id": build.build_id})
     bundle = build_reporter_bundle(trace, tmp_path, expected_run_id=run_id)
-    digest = hashlib.sha256(bundle.packet.model_dump_json().encode()).hexdigest()
+    digest = bundle.packet.bundle_sha256
+    packet_path = tmp_path / "reporter_bundles" / f"{run_id.hex}.json"
+    packet_path.parent.mkdir()
+    packet_path.write_text(bundle.packet.model_dump_json())
     reporter_id, task_id = run_id, trace[1].build_id
     trace.extend(
         [
@@ -40,7 +42,14 @@ def _case(tmp_path: Path, *, patched: bool = False):
                 reporter_id=reporter_id,
                 task_id=task_id,
                 packet_sha256=digest,
-                budget=Budget(max_total_tokens=30_000, max_model_calls=2),
+                source_trace_sha256=bundle.packet.source_trace_sha256,
+                source_build_id=build.build_id,
+                budget=ReporterBudget(
+                    max_total_tokens=30_000,
+                    max_model_calls=2,
+                    max_retrieval_calls=8,
+                    max_finding_submissions=4,
+                ),
             ),
             ReporterFinished(
                 run_id=run_id,
@@ -60,18 +69,18 @@ def test_ledger_counts_each_vulnerable_root_once_and_checks_packet(tmp_path: Pat
     trace, oracle, fixture = _case(tmp_path)
     result = conversion_ledger(trace, tmp_path, oracle, fixture)
     assert result["score_valid"]
-    assert result["score"]["false_negatives"] == 5
+    assert result["original_score"]["false_negatives"] == 5
     assert len(result["rows"]) == 5
     assert {row["root"] for row in result["rows"]} == {prop.slug for prop in oracle.properties}
-    assert not any(row["incremental_reporter_root"] for row in result["rows"])
+    assert not any(row["reporter_recovered_root"] for row in result["rows"])
     trace[6] = trace[6].model_copy(update={"packet_sha256": "0" * 64})
-    with pytest.raises(ValueError, match="packet hash"):
+    with pytest.raises(ValueError, match="packet"):
         conversion_ledger(trace, tmp_path, oracle, fixture)
 
 
 def test_patched_roots_are_inapplicable(tmp_path: Path) -> None:
     trace, oracle, fixture = _case(tmp_path, patched=True)
     result = conversion_ledger(trace, tmp_path, oracle, fixture)
-    assert result["score"]["false_negatives"] == 0
+    assert result["original_score"]["false_negatives"] == 0
     assert len(result["rows"]) == 5
     assert all(row == {"root": row["root"], "applicable": False} for row in result["rows"])
