@@ -51,6 +51,7 @@ def analyze_witness_matrix(
     refund: Counter[str] = Counter()
     totals: Counter[str] = Counter()
     patched_classes: Counter[str] = Counter()
+    terminal_causes: Counter[str] = Counter()
     invalid = []
     rows = []
     vulnerable_for_bootstrap = []
@@ -81,6 +82,7 @@ def analyze_witness_matrix(
                     "reporter_status": conversion["reporter_status"],
                 }
             )
+        terminal_causes[record.get("terminal_cause", "unreported")] += 1
         row = {
             "seed": cell["range_seed"],
             "variant": cell["variant"],
@@ -215,6 +217,7 @@ def analyze_witness_matrix(
         "refund_transition": dict(refund),
         "overall": {
             **dict(totals),
+            "terminal_causes": dict(terminal_causes),
             "patched_reporter_false_classes": dict(patched_classes),
             "roots_recovered_per_100k_reporter_tokens": _ratio(
                 recovered * 100_000, reporter_tokens

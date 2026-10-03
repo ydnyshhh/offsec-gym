@@ -19,6 +19,7 @@ from offsecgym.runtime.saas import SAAS_V2_COMPILER_VERSION, SaasRangeCompiler
 from offsecgym.schemas.specs import ExperimentSpec, RangeSpec, ReporterBudget
 
 PROTOCOL = "m651-witness-recovery-v1"
+PILOT_PROTOCOL = "m651-witness-recovery-pilot-v1"
 SEED_MANIFEST = "experiments/manifests/m651-witness-seed-selection-v1.json"
 PROBE_CONFIG = "experiments/configs/kimi-k3-m651-witness-probe.yaml"
 REPORTER_CONFIG = "experiments/configs/kimi-k3-m651-witness-reporter.yaml"
@@ -229,6 +230,63 @@ def plan_witness_matrix(root: Path, *, source_commit: str) -> dict[str, object]:
             "stop on artifact, packet, bootstrap, or event replay failure",
             "stop before a next cell whose reserved worst-case cost exceeds the threshold",
         ],
+    }
+
+
+def plan_witness_pilot(root: Path, *, source_commit: str) -> dict[str, object]:
+    """Pin a distinct non-sample pair using the same frozen implementation."""
+    main = plan_witness_matrix(root, source_commit=source_commit)
+    pilot_seed = main["pilot_seed"]
+    base = ExperimentSpec.model_validate(yaml.safe_load((root / PROBE_CONFIG).read_text()))
+    reporter = ReporterBudget.model_validate(yaml.safe_load((root / REPORTER_CONFIG).read_text()))
+    with tempfile.TemporaryDirectory(prefix="offsecgym-m651-pilot-plan-") as temporary:
+        compiler = SaasRangeCompiler(StateStore(Path(temporary)))
+        vulnerable = compiler.build(spec_for_seed(base, pilot_seed, False).range)
+        patched = compiler.build(spec_for_seed(base, pilot_seed, True).range)
+        fixture = (compiler.state.build_dir(vulnerable.build_id) / "fixture.json").read_bytes()
+        if (
+            vulnerable.pair_id != patched.pair_id
+            or fixture != (compiler.state.build_dir(patched.build_id) / "fixture.json").read_bytes()
+        ):
+            raise ValueError("pilot sibling build differs")
+    pair = {
+        "pair_id": str(vulnerable.pair_id),
+        "vulnerable_build_id": str(vulnerable.build_id),
+        "patched_build_id": str(patched.build_id),
+        "fixture_sha256": _digest(fixture),
+    }
+    order_seed = int.from_bytes(
+        hashlib.sha256((PILOT_PROTOCOL + "|" + str(pilot_seed)).encode()).digest()[:8], "big"
+    )
+    blocks = [False, True]
+    random.Random(order_seed).shuffle(blocks)
+    cells = []
+    for order, patched_flag in enumerate(blocks, start=1):
+        variant = "patched" if patched_flag else "vulnerable"
+        cells.append(
+            {
+                "cell_id": _digest(_canonical([PILOT_PROTOCOL, pilot_seed, variant]))[:16],
+                "order": order,
+                "range_seed": pilot_seed,
+                "variant": variant,
+                "pair_id": pair["pair_id"],
+                "build_id": pair[f"{variant}_build_id"],
+                "experiment_sha256": recovery_experiment_hash(
+                    spec_for_seed(base, pilot_seed, patched_flag), reporter
+                ),
+            }
+        )
+    return {
+        **main,
+        "protocol": PILOT_PROTOCOL,
+        "status": "non_sample_pilot_not_executed",
+        "seed_set": [pilot_seed],
+        "range_pairs": {str(pilot_seed): pair},
+        "order_seed": order_seed,
+        "cells": cells,
+        "planned_live_cells": 2,
+        "maximum_estimated_token_cost_usd": 4.5,
+        "cumulative_estimated_cost_stop_usd": 4.5,
     }
 
 

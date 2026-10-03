@@ -26,11 +26,12 @@ from offsecgym.research.m64_execute import Journal, _sha256, _utc_now, _write_tr
 from offsecgym.research.m65_conversion_ledger import conversion_ledger
 from offsecgym.research.m65_witness_analysis import analyze_witness_matrix
 from offsecgym.research.m65_witness_matrix import (
-    MAX_ESTIMATED_USD,
     OUTPUT_USD_PER_MILLION,
+    PILOT_PROTOCOL,
     PROBE_CONFIG,
     REPORTER_CONFIG,
     plan_witness_matrix,
+    plan_witness_pilot,
     spec_for_seed,
 )
 from offsecgym.runtime.compose import ComposeRangeRuntime
@@ -39,6 +40,8 @@ from offsecgym.schemas.domain import ValidationContext
 from offsecgym.schemas.events import (
     ActionRequested,
     ModelCallCompleted,
+    ModelReservationRejected,
+    ModelToolRejected,
     PrerequisiteBootstrapCompleted,
     RangeStarted,
     ReporterFinished,
@@ -55,7 +58,10 @@ from offsecgym.worldview import EventWorldState
 
 def verify_manifest(root: Path, path: Path) -> dict[str, Any]:
     recorded = json.loads(path.read_text())
-    rebuilt = plan_witness_matrix(root, source_commit=recorded["source_commit"])
+    planner = (
+        plan_witness_pilot if recorded.get("protocol") == PILOT_PROTOCOL else plan_witness_matrix
+    )
+    rebuilt = planner(root, source_commit=recorded["source_commit"])
     if recorded != json.loads(json.dumps(rebuilt)):
         raise ValueError("M6.5.1 manifest no longer rebuilds from pinned inputs")
     paths = [
@@ -111,6 +117,30 @@ async def _close_terminal_monolithic_coverage(events, run_id) -> int:
     return len(projection.active_coverage)
 
 
+def terminal_cause(trace, failure_reason: str | None, model_call_cap: int) -> str:
+    ending = next((e for e in reversed(trace) if isinstance(e, RunCompleted)), None)
+    if ending is None:
+        return "missing_terminal_event"
+    if ending.status == "completed":
+        return "completed"
+    if ending.status == "agent_failed":
+        rejected = [
+            e for e in trace if isinstance(e, ModelToolRejected) and e.actor == "controller"
+        ]
+        if len(rejected) >= 3:
+            return "repeated_tool_call_rejection"
+        return failure_reason or "other_agent_failure"
+    if ending.status == "budget_exhausted":
+        if failure_reason:
+            return failure_reason
+        rejects = [e for e in trace if isinstance(e, ModelReservationRejected)]
+        if rejects:
+            return rejects[-1].reason_code
+        calls = [e for e in trace if isinstance(e, ModelCallCompleted) and e.actor != "reporter"]
+        return "model_call_limit" if len(calls) >= model_call_cap else "other_budget_limit"
+    return failure_reason or ending.status
+
+
 async def execute(
     root: Path,
     manifest_path: Path,
@@ -124,7 +154,7 @@ async def execute(
     if (
         not math.isfinite(max_estimated_usd)
         or max_estimated_usd <= 0
-        or max_estimated_usd > MAX_ESTIMATED_USD
+        or max_estimated_usd > manifest["cumulative_estimated_cost_stop_usd"]
     ):
         raise ValueError("Study B cost limit exceeds the reviewable protocol ceiling")
     if max_cells is not None and max_cells < 0:
@@ -279,6 +309,9 @@ async def execute(
                 "conversion": conversion,
                 "orchestration": orchestration_metrics(trace).model_dump(mode="json"),
                 "failure_reason": outcome.failure_reason,
+                "terminal_cause": terminal_cause(
+                    trace, outcome.failure_reason, spec.budget.max_model_calls or 0
+                ),
             }
             journal.append(record)
             journal.completed[cell["cell_id"]] = record
@@ -300,9 +333,24 @@ async def execute(
             "complete": complete,
         }
         if complete:
-            analysis = analyze_witness_matrix(
-                manifest, [journal.completed[item["cell_id"]] for item in ordered]
-            )
+            if manifest["protocol"] == PILOT_PROTOCOL:
+                analysis = {
+                    "protocol": PILOT_PROTOCOL,
+                    "status": "non_sample_pilot_only",
+                    "cells": [
+                        {
+                            "cell_id": item["cell_id"],
+                            "variant": item["variant"],
+                            "conversion": journal.completed[item["cell_id"]]["conversion"],
+                        }
+                        for item in ordered
+                    ],
+                    "estimated_cost_usd": round(spent, 6),
+                }
+            else:
+                analysis = analyze_witness_matrix(
+                    manifest, [journal.completed[item["cell_id"]] for item in ordered]
+                )
             output = journal_path.parent / "analysis.json"
             output.write_text(json.dumps(analysis, indent=2, sort_keys=True) + "\n")
             result["analysis_path"] = str(output)
