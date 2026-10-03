@@ -1,5 +1,6 @@
 """Frozen M6.5.1 pairs, pins, and cost gates are checked before live calls."""
 
+import hashlib
 import json
 from pathlib import Path
 
@@ -9,8 +10,9 @@ from offsecgym.research.m65_witness_execute import execute, spec_for_cell, verif
 from offsecgym.research.m65_witness_matrix import PILOT_PROTOCOL, PROTOCOL
 
 ROOT = Path(__file__).parents[2]
-MAIN = ROOT / "experiments/manifests/m651-witness-recovery-v1.json"
-PILOT = ROOT / "experiments/manifests/m651-witness-recovery-pilot-v1.json"
+MAIN = ROOT / "experiments/manifests/m651-witness-recovery-v2.json"
+PILOT = ROOT / "experiments/manifests/m651-witness-recovery-pilot-v2.json"
+ORIGINAL_PILOT = ROOT / "experiments/manifests/m651-witness-recovery-pilot-v1.json"
 
 
 def test_frozen_sample_is_new_paired_and_rebuilds_without_outcome_inspection() -> None:
@@ -20,15 +22,21 @@ def test_frozen_sample_is_new_paired_and_rebuilds_without_outcome_inspection() -
     assert pilot["protocol"] == PILOT_PROTOCOL
     assert len(sample["seed_set"]) == 10
     assert len(sample["cells"]) == 20
-    assert len(pilot["cells"]) == 2
+    assert len(pilot["cells"]) == 1
+    assert pilot["cells"][0]["variant"] == "vulnerable"
+    assert (
+        pilot["amendment_of"]["manifest_sha256"]
+        == hashlib.sha256(ORIGINAL_PILOT.read_bytes()).hexdigest()
+    )
     assert pilot["seed_set"] == [sample["pilot_seed"]]
     assert not set(sample["seed_set"]) & set(range(1001, 1011))
     assert sample["pilot_seed"] not in sample["seed_set"]
-    assert sample["combined_model_budget"]["max_total_tokens"] == 150_000
+    assert sample["combined_model_budget"]["max_total_tokens"] == 200_000
     assert sample["probe_budget"]["max_total_tokens"] == 120_000
-    assert sample["reporter_budget"]["max_total_tokens"] == 30_000
-    assert sample["maximum_estimated_token_cost_usd"] == 45.0
-    assert pilot["maximum_estimated_token_cost_usd"] == 4.5
+    assert sample["reporter_budget"]["max_total_tokens"] == 80_000
+    assert sample["maximum_estimated_token_cost_usd"] == 44.73216
+    assert sample["cumulative_estimated_cost_stop_usd"] == 45.0
+    assert pilot["maximum_estimated_token_cost_usd"] == 2.236608
     assert [x["order"] for x in sample["cells"]] == list(range(1, 21))
     assert len({x["cell_id"] for x in sample["cells"]}) == 20
     for seed in sample["seed_set"]:
@@ -56,7 +64,7 @@ async def test_cost_ceiling_stops_before_credentials_or_provider(tmp_path: Path)
             PILOT,
             tmp_path / "journal.jsonl",
             tmp_path / "state",
-            max_estimated_usd=4.50001,
+            max_estimated_usd=2.236609,
             max_cells=0,
         )
     assert not (tmp_path / "journal.jsonl").exists()
