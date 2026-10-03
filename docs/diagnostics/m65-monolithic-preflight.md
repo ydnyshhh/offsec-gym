@@ -46,7 +46,7 @@ Its bootstrap snapshot SHA-256 was
 identical to the frozen M6.4 seed-1101 worker pilot. The first model input
 contained checked identities, previously checked requests, and known entity
 facts. The existing transcript and structured monolithic fake-provider
-range tests also passed. The unit suite passed **163 tests** after the
+range tests also passed. The unit suite passed **165 tests** after the
 runtime and analysis commits. These tests make no paid model calls; they
 do not establish live provider behavior or finding quality.
 
@@ -80,17 +80,19 @@ tokens at this selected-upstream price would give about **$39.7**. A
 monolithic agent can use a different mix or fewer/more reported tokens, so
 that figure is not a forecast. The configured 900-second agent plus
 120-second bootstrap limits sum to **28.3 hours** over 100 serial cells
-before range lifecycle and cancellation overhang. The actual elapsed time
-needs a bounded live pilot.
+before range lifecycle and cancellation overhang. The non-sample pilot's
+94–137 second cells provide a limited latency check, not a 100-cell runtime
+forecast.
 
-## Remaining gate before paid collection
+## Gate status before full control collection
 
-1. Complete exact-head CI on the manifest/documentation commit.
-2. Run the user-approved, separately journaled vulnerable/patched live pilot
-   on non-sample seed 1101 at 40k, with a $1 configured cost cap per run and
-   $2 cumulative estimated threshold. Compare its
-   bootstrap snapshot, selected endpoint, score validity, event replay, and
-   observed usage/latency against this preflight.
+1. Exact-head CI passed on `cabd978` after adding full-history checkout for
+   the pinned-source guard. The earlier shallow-checkout runs failed that
+   guard and did not gate the pilot.
+2. The separately journaled vulnerable/patched seed-1101 live pilot
+   [completed](m65-monolithic-pilot.md) at 40k with the $1 configured cap
+   per run and $2 cumulative estimated threshold. Both cells were score
+   valid, cost $0.244053 estimated in total, and produced zero findings.
 3. Confirm a cumulative estimated-cost threshold and explicit authorization
    for the 100-cell historical control. Keep any pilot cells out of the
    control sample. An interrupted or unscored cell remains in the journal

@@ -49,7 +49,8 @@ cell order, analysis, and cost ceiling before any live call.
 The runner, deterministic 100-cell manifest, collector, and predeclared
 historical analysis are now implemented. The [preflight record](diagnostics/m65-monolithic-preflight.md)
 lists the exact source pins, fake-provider checks, cost range, and remaining
-live pilot/collection gates. No control cell or paid pilot has been run.
+live pilot/collection gates. The [two-cell non-sample live pilot](diagnostics/m65-monolithic-pilot.md)
+has completed; no control-matrix cell has been run.
 
 Analyze vulnerable recall and patched false findings for each of 40k, 60k,
 80k, 120k, and 160k. At low budgets, compare monolithic only with the
@@ -135,5 +136,6 @@ is only a provenance measure, not proof of useful cross-worker reasoning.
    dependency structure. Treat it as an external-validity test, not another
    tuning set for `tenant_boundary_v2`.
 
-No paid model collection is authorized by this design alone. Each live
-protocol needs a reviewable frozen manifest and cost decision.
+The two-cell seed-1101 pilot was separately approved and completed. The
+100-cell historical control and prospective reporter study still require
+their own reviewable frozen manifests and cost decisions before live calls.
