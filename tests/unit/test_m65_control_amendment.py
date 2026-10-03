@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+from runpy import run_path
 from uuid import uuid4
 
 import pytest
@@ -11,7 +13,10 @@ from offsecgym.schemas.domain import CoverageClaim
 from offsecgym.schemas.events import RunCompleted, RunStarted
 from offsecgym.storage.projection import project_controller_events
 from offsecgym.worldview import EventWorldState
-from research_ops.m65_control_continue import close_completed_monolithic_coverage
+
+close_completed_monolithic_coverage = run_path(
+    str(Path(__file__).parents[2] / "research_ops" / "m65_control_continue.py")
+)["close_completed_monolithic_coverage"]
 
 
 @pytest.mark.asyncio
