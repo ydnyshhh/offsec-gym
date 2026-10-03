@@ -3,17 +3,17 @@
 from __future__ import annotations
 
 import json
+import runpy
 from pathlib import Path
 
 import pytest
 
-from offsecgym.research.m65_witness_pilot import (
-    PILOT_MAX_ESTIMATED_USD,
-    PILOT_SEED,
-    plan_pilot,
-    run_pilot,
-    verify_pilot,
-)
+_pilot = runpy.run_path(str(Path(__file__).parents[2] / "research_ops/m65_witness_pilot.py"))
+PILOT_MAX_ESTIMATED_USD = _pilot["PILOT_MAX_ESTIMATED_USD"]
+PILOT_SEED = _pilot["PILOT_SEED"]
+plan_pilot = _pilot["plan_pilot"]
+run_pilot = _pilot["run_pilot"]
+verify_pilot = _pilot["verify_pilot"]
 
 
 def test_pilot_pair_is_separate_and_pinned(tmp_path: Path) -> None:
