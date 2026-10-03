@@ -738,6 +738,39 @@ class FindingValidated(TraceEvent):
         return self
 
 
+class ReporterStarted(TraceEvent):
+    """Boundary between frozen probing and the read-only reporting stage."""
+
+    type: Literal["reporter_started"] = "reporter_started"
+    reporter_id: UUID
+    task_id: UUID
+    packet_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    budget: Budget
+    original_finding_ids: tuple[UUID, ...] = ()
+
+    @model_validator(mode="after")
+    def distinct_originals(self) -> ReporterStarted:
+        if len(set(self.original_finding_ids)) != len(self.original_finding_ids):
+            raise ValueError("reporter original finding IDs must be distinct")
+        return self
+
+
+class ReporterFinished(TraceEvent):
+    type: Literal["reporter_finished"] = "reporter_finished"
+    reporter_id: UUID
+    task_id: UUID
+    status: Literal["completed", "budget_exhausted", "failed", "provider_failed"]
+    submitted_finding_ids: tuple[UUID, ...] = ()
+    evidence_lookup_action_ids: tuple[UUID, ...] = ()
+    reason_code: str | None = None
+
+    @model_validator(mode="after")
+    def distinct_outputs(self) -> ReporterFinished:
+        if len(set(self.submitted_finding_ids)) != len(self.submitted_finding_ids):
+            raise ValueError("reporter submitted finding IDs must be distinct")
+        return self
+
+
 AnyTraceEvent = Annotated[
     RunStarted
     | RangeStarted
@@ -791,6 +824,8 @@ AnyTraceEvent = Annotated[
     | ContextRetrieved
     | FindingSubmitted
     | FindingValidated
+    | ReporterStarted
+    | ReporterFinished
     | RunCompleted,
     Field(discriminator="type"),
 ]
