@@ -1,0 +1,344 @@
+{
+  "cells": [
+    {
+      "build_id": "2fa14542-b2b4-5197-81c6-68c3a0d6ec4c",
+      "cell_id": "713f0e25ebac798e",
+      "experiment_sha256": "2a65c6004cabed3dbbd04970174ca400ac043342900550aa1cf27315980c28b1",
+      "order": 1,
+      "pair_id": "54654f4c-92fc-596a-bab7-88db4182cee7",
+      "range_seed": 2001,
+      "variant": "vulnerable"
+    },
+    {
+      "build_id": "94afaabc-9a41-5041-80d5-45b42ef243d5",
+      "cell_id": "a9e6d3666b8d0775",
+      "experiment_sha256": "c5bd6a462f96b4dce129fbcf43bec54164b8b139eaf85cf41ae78e695e6a3b8c",
+      "order": 2,
+      "pair_id": "7f4d5743-63fd-503b-9a73-198c8c43fd86",
+      "range_seed": 2009,
+      "variant": "patched"
+    },
+    {
+      "build_id": "7a698020-32f9-5544-a47c-383f80b4d23b",
+      "cell_id": "11a2d37f6eb6f85c",
+      "experiment_sha256": "e6b78d712638d73a5e2a713b8022d44e9fdd5445cf6fc3fce2ec2a69b2128638",
+      "order": 3,
+      "pair_id": "460ae451-3843-5040-ad0a-8a55d30dd6a6",
+      "range_seed": 2002,
+      "variant": "patched"
+    },
+    {
+      "build_id": "91aed659-96af-590d-8f9c-3d77f9ae1712",
+      "cell_id": "9a928bf11856ea63",
+      "experiment_sha256": "1d107ff78c19bda59525af772eef62bf2ad07f7a82d2a3c2d14092e9be38f266",
+      "order": 4,
+      "pair_id": "7f4d5743-63fd-503b-9a73-198c8c43fd86",
+      "range_seed": 2009,
+      "variant": "vulnerable"
+    },
+    {
+      "build_id": "ecac7fb6-2086-59bf-a3f1-92ecede7d6e6",
+      "cell_id": "a71835656d0f6ba2",
+      "experiment_sha256": "6d6bbbbcbcd76f78499cf3b47cac45605b5712898f65d27b4c0421213edda19d",
+      "order": 5,
+      "pair_id": "460ae451-3843-5040-ad0a-8a55d30dd6a6",
+      "range_seed": 2002,
+      "variant": "vulnerable"
+    },
+    {
+      "build_id": "3e665ad0-af14-5b33-8c19-dbdd4c135fb8",
+      "cell_id": "f7b419b423f852ad",
+      "experiment_sha256": "f3dfd46f6e059185a81ba2f6ed244cec5abf11f1a93ca0b990c45625c5cbaf14",
+      "order": 6,
+      "pair_id": "4820705c-923b-5a46-a7a2-ec71e154ace1",
+      "range_seed": 2007,
+      "variant": "patched"
+    },
+    {
+      "build_id": "cce316b1-57f8-5b01-baac-eda87756f222",
+      "cell_id": "91093567c87b1e2b",
+      "experiment_sha256": "968643dc7711eabab8fba4cc2764dbb2f7df82756315571ce6ad4b4a2638626f",
+      "order": 7,
+      "pair_id": "68d5dedf-5629-50f1-a68d-99d6ee2db6f6",
+      "range_seed": 2008,
+      "variant": "patched"
+    },
+    {
+      "build_id": "81f53fde-b46c-5602-a13e-eef1d6d30189",
+      "cell_id": "47ec7ab96ba860da",
+      "experiment_sha256": "e82793d4a808ecda6ee96d2214799b98321def9914db8b4319ace3a9cf048d9b",
+      "order": 8,
+      "pair_id": "146389eb-4a2f-5ea0-a15b-e1b5367c8d0a",
+      "range_seed": 2010,
+      "variant": "vulnerable"
+    },
+    {
+      "build_id": "ec796ff3-db30-53d7-a8ff-b088aadbfb2b",
+      "cell_id": "89122f5448c6f5c5",
+      "experiment_sha256": "f403f636be3074edd416a05cd2e45e8d0fa1051d9a40e161775964ece1a34b95",
+      "order": 9,
+      "pair_id": "99098016-81ef-5609-a530-1115f612aaa1",
+      "range_seed": 2004,
+      "variant": "patched"
+    },
+    {
+      "build_id": "cc335813-ff93-5712-a1c9-eed5c5addb2b",
+      "cell_id": "48e0af1a7c0100ae",
+      "experiment_sha256": "7270cd07345e31f168da8869c53aca2d37f91de5516b109beba9d54f12989ca4",
+      "order": 10,
+      "pair_id": "54654f4c-92fc-596a-bab7-88db4182cee7",
+      "range_seed": 2001,
+      "variant": "patched"
+    },
+    {
+      "build_id": "ec848bf7-6fb8-5733-8515-50fa8352f0de",
+      "cell_id": "6e577aa61e56a6a0",
+      "experiment_sha256": "50b5b3eced6e3a37261e6158cf750387b9aec640ddc3418ef8dd6dc793717f4e",
+      "order": 11,
+      "pair_id": "6414da41-2949-5252-8ed5-8ef2fe4f14d6",
+      "range_seed": 2005,
+      "variant": "vulnerable"
+    },
+    {
+      "build_id": "d51307ba-35b6-5f04-8edf-7b13bd4bc588",
+      "cell_id": "e30727492db0e84e",
+      "experiment_sha256": "4a8381d9f21b7103fdf062a0cbda96ce72b1fccb736e47e04cd6036215185b6a",
+      "order": 12,
+      "pair_id": "6414da41-2949-5252-8ed5-8ef2fe4f14d6",
+      "range_seed": 2005,
+      "variant": "patched"
+    },
+    {
+      "build_id": "53542c49-9266-5bd3-83b5-4bb40a6bd429",
+      "cell_id": "6b21b67bcb53c3dc",
+      "experiment_sha256": "be8ed2d8ee5012df4017b45afed3304405157f8dd78def073f09b82634a2c58e",
+      "order": 13,
+      "pair_id": "4820705c-923b-5a46-a7a2-ec71e154ace1",
+      "range_seed": 2007,
+      "variant": "vulnerable"
+    },
+    {
+      "build_id": "62c1c25b-9f4f-528e-a96e-be48cb26d157",
+      "cell_id": "f9bed1aec2959bba",
+      "experiment_sha256": "d89385f7e57452bcc5fdafa2df5382e6ab4e457e49d70d53cb87836c0424cd66",
+      "order": 14,
+      "pair_id": "74be364c-664a-5a8b-b843-cc13346cf509",
+      "range_seed": 2006,
+      "variant": "vulnerable"
+    },
+    {
+      "build_id": "bdb018e6-2c7b-51d8-8530-bfee53656486",
+      "cell_id": "1656d36ba59461ea",
+      "experiment_sha256": "4cff136d6bfce931207089add8da6b48e2ff1398ad787e311ecea72529c9acd2",
+      "order": 15,
+      "pair_id": "146389eb-4a2f-5ea0-a15b-e1b5367c8d0a",
+      "range_seed": 2010,
+      "variant": "patched"
+    },
+    {
+      "build_id": "9e341bae-5428-58e2-a4f1-9fec72b7fba5",
+      "cell_id": "8bb12a304e3648c2",
+      "experiment_sha256": "32a6ee55b0274932959fa9cb82104665ea5594c4528ef2c6434cc77c50f74b4d",
+      "order": 16,
+      "pair_id": "99098016-81ef-5609-a530-1115f612aaa1",
+      "range_seed": 2004,
+      "variant": "vulnerable"
+    },
+    {
+      "build_id": "1cd10bad-5f28-5928-8d53-ce1004275723",
+      "cell_id": "403b947e4f5a4886",
+      "experiment_sha256": "64d3ea6da7e5dce93ef057a01333d2f570f65fc7c2b12957547a0ae80ffb8da2",
+      "order": 17,
+      "pair_id": "74be364c-664a-5a8b-b843-cc13346cf509",
+      "range_seed": 2006,
+      "variant": "patched"
+    },
+    {
+      "build_id": "cfc2d50b-02d3-51ab-ab72-604462b2a2fe",
+      "cell_id": "a91c19c5f769a213",
+      "experiment_sha256": "646bbe7d56e03c8f98f8b99e51742c30359311b5513e2d3a167f87a0df7c3dc3",
+      "order": 18,
+      "pair_id": "68d5dedf-5629-50f1-a68d-99d6ee2db6f6",
+      "range_seed": 2008,
+      "variant": "vulnerable"
+    },
+    {
+      "build_id": "ae03a5e2-0dfa-5bbf-a188-8064c9c1f43e",
+      "cell_id": "b1afda12b004000f",
+      "experiment_sha256": "c868a3652e9ae0cca5de8be2ad8c6fd3027b11b9151d14ebeaefdad24b2051fe",
+      "order": 19,
+      "pair_id": "4fd4fea1-e4b9-52b5-9091-0eeb23e3ba27",
+      "range_seed": 2003,
+      "variant": "patched"
+    },
+    {
+      "build_id": "afeb1a71-af57-5a3d-bf8f-2b41f44fdcad",
+      "cell_id": "cf40fec3c08ad517",
+      "experiment_sha256": "ee2a6dcf79d2a586d76115fe8348dae40e3b7362a8c87a4c87b4c124ed0e8ae6",
+      "order": 20,
+      "pair_id": "4fd4fea1-e4b9-52b5-9091-0eeb23e3ba27",
+      "range_seed": 2003,
+      "variant": "vulnerable"
+    }
+  ],
+  "combined_model_budget": {
+    "max_actions": 60,
+    "max_concurrency": 1,
+    "max_cost_usd": null,
+    "max_http_requests": 60,
+    "max_model_calls": 24,
+    "max_output_tokens_per_call": 8192,
+    "max_total_tokens": 200000,
+    "max_wall_seconds": 900,
+    "max_workers": 6
+  },
+  "cumulative_estimated_cost_stop_usd": 60.0,
+  "expected_selected_endpoint": {
+    "revision": "moonshotai/kimi-k3-20260715",
+    "upstream_provider": "Moonshot AI"
+  },
+  "maximum_estimated_token_cost_usd": 60.0,
+  "model_request": {
+    "input_reservation_bytes_per_token": 2.0,
+    "input_reservation_margin_tokens": 1024,
+    "input_usd_per_million_tokens": null,
+    "name": "moonshotai/kimi-k3",
+    "output_usd_per_million_tokens": null,
+    "provider": "openrouter",
+    "reasoning": "high",
+    "upstream_provider": "moonshotai"
+  },
+  "order_seed": 6502,
+  "planned_live_cells": 20,
+  "price_snapshot": {
+    "input_usd_per_million": 3.0,
+    "output_usd_per_million": 15.0
+  },
+  "probe_budget": {
+    "max_actions": 60,
+    "max_concurrency": 1,
+    "max_cost_usd": null,
+    "max_http_requests": 60,
+    "max_model_calls": 20,
+    "max_output_tokens_per_call": 8192,
+    "max_total_tokens": 120000,
+    "max_wall_seconds": 600,
+    "max_workers": 6
+  },
+  "probe_config": {
+    "path": "experiments/configs/kimi-k3-m65-witness-probe.yaml",
+    "sha256": "5640e0e6a443308a4e9da8d4e85abef901bae519b618360f5fd75d2f21b87ac7"
+  },
+  "probe_policy": "admitted_sequential_workers",
+  "protocol": "m65-witness-recovery-v1",
+  "range_compiler_version": "tenant-boundary-v2/compiler-1",
+  "range_pairs": {
+    "2001": {
+      "fixture_sha256": "a23278734459b2137ee361a664904bd018041d6c8b6e8b72aea861bb43ebd558",
+      "pair_id": "54654f4c-92fc-596a-bab7-88db4182cee7",
+      "patched_build_id": "cc335813-ff93-5712-a1c9-eed5c5addb2b",
+      "vulnerable_build_id": "2fa14542-b2b4-5197-81c6-68c3a0d6ec4c"
+    },
+    "2002": {
+      "fixture_sha256": "3dc88f5d311f2323ab9700449f8773c1e2c20cf0ac4da02c5a020e984db0d298",
+      "pair_id": "460ae451-3843-5040-ad0a-8a55d30dd6a6",
+      "patched_build_id": "7a698020-32f9-5544-a47c-383f80b4d23b",
+      "vulnerable_build_id": "ecac7fb6-2086-59bf-a3f1-92ecede7d6e6"
+    },
+    "2003": {
+      "fixture_sha256": "525aae5de546684979c8743726d5e807d8695c47175d94621fcdf12b18360bc5",
+      "pair_id": "4fd4fea1-e4b9-52b5-9091-0eeb23e3ba27",
+      "patched_build_id": "ae03a5e2-0dfa-5bbf-a188-8064c9c1f43e",
+      "vulnerable_build_id": "afeb1a71-af57-5a3d-bf8f-2b41f44fdcad"
+    },
+    "2004": {
+      "fixture_sha256": "b6bc9b57cc714f324aafc543e45df163deffd472fe0c3bd860562d6f62b4568c",
+      "pair_id": "99098016-81ef-5609-a530-1115f612aaa1",
+      "patched_build_id": "ec796ff3-db30-53d7-a8ff-b088aadbfb2b",
+      "vulnerable_build_id": "9e341bae-5428-58e2-a4f1-9fec72b7fba5"
+    },
+    "2005": {
+      "fixture_sha256": "40994f8e8bfc2ce605baf8196e9361e70574181b56b5b6d3e9a04a1fa0739e78",
+      "pair_id": "6414da41-2949-5252-8ed5-8ef2fe4f14d6",
+      "patched_build_id": "d51307ba-35b6-5f04-8edf-7b13bd4bc588",
+      "vulnerable_build_id": "ec848bf7-6fb8-5733-8515-50fa8352f0de"
+    },
+    "2006": {
+      "fixture_sha256": "4a4f311861a765344bb28d4fc5fbd7d988d86e92569aa1d71517644bfeaf2605",
+      "pair_id": "74be364c-664a-5a8b-b843-cc13346cf509",
+      "patched_build_id": "1cd10bad-5f28-5928-8d53-ce1004275723",
+      "vulnerable_build_id": "62c1c25b-9f4f-528e-a96e-be48cb26d157"
+    },
+    "2007": {
+      "fixture_sha256": "ee80965c74124e3163a07bfc53f4e97eb397ac9e95c4ef22c0279594daf2037d",
+      "pair_id": "4820705c-923b-5a46-a7a2-ec71e154ace1",
+      "patched_build_id": "3e665ad0-af14-5b33-8c19-dbdd4c135fb8",
+      "vulnerable_build_id": "53542c49-9266-5bd3-83b5-4bb40a6bd429"
+    },
+    "2008": {
+      "fixture_sha256": "a0db9f3f7aaad425101702de78ff807f11122197d38bea0a8b16569f7d768ab8",
+      "pair_id": "68d5dedf-5629-50f1-a68d-99d6ee2db6f6",
+      "patched_build_id": "cce316b1-57f8-5b01-baac-eda87756f222",
+      "vulnerable_build_id": "cfc2d50b-02d3-51ab-ab72-604462b2a2fe"
+    },
+    "2009": {
+      "fixture_sha256": "627f8db5a717a9545a95179799ef6f2551b4298aa377bd2248b5e38a23d8c42c",
+      "pair_id": "7f4d5743-63fd-503b-9a73-198c8c43fd86",
+      "patched_build_id": "94afaabc-9a41-5041-80d5-45b42ef243d5",
+      "vulnerable_build_id": "91aed659-96af-590d-8f9c-3d77f9ae1712"
+    },
+    "2010": {
+      "fixture_sha256": "3906bfbe30c4dd87e027491629357cb28fbb1a97b7ec5ac73d4b5acd61b56800",
+      "pair_id": "146389eb-4a2f-5ea0-a15b-e1b5367c8d0a",
+      "patched_build_id": "bdb018e6-2c7b-51d8-8530-bfee53656486",
+      "vulnerable_build_id": "81f53fde-b46c-5602-a13e-eef1d6d30189"
+    }
+  },
+  "reporter_budget": {
+    "max_actions": null,
+    "max_concurrency": null,
+    "max_cost_usd": null,
+    "max_http_requests": null,
+    "max_model_calls": 4,
+    "max_output_tokens_per_call": 4096,
+    "max_total_tokens": 80000,
+    "max_wall_seconds": 300,
+    "max_workers": null
+  },
+  "reporter_config": {
+    "path": "experiments/configs/kimi-k3-m65-witness-reporter.yaml",
+    "sha256": "a2fb77c018deec58e7146708bd1e60c5a14b7d03e649693e958602d7dde2300a"
+  },
+  "reporter_contract": "m65-read-only-v1",
+  "requires_separate_paid_approval": true,
+  "seed_set": [
+    2001,
+    2002,
+    2003,
+    2004,
+    2005,
+    2006,
+    2007,
+    2008,
+    2009,
+    2010
+  ],
+  "source_commit": "7108976",
+  "source_files": {
+    "src/offsecgym/experiment/reporter_recovery.py": "8c1b208269b0d2a2dd819c71a8182e5920234ef74f164545193931822f3d4000",
+    "src/offsecgym/research/m65_conversion_ledger.py": "53502ad1e4415440f62f801aa276e21502a364e3f9512e0d52e632b77a8b311c",
+    "src/offsecgym/research/m65_reporter.py": "784d2ea952d50def8c1cd4639c568aac924edc2d3da39764c97c28dfeadebf2c",
+    "src/offsecgym/research/m65_witness_analysis.py": "7f6d19c3ebc3d1332ce3ddc890b3117bc75be2076acb8978bf4fd449931b7598",
+    "src/offsecgym/research/m65_witness_execute.py": "74e4fbc74d24cd41c8c6a5ec8396e113b570b0b120d73a05783baff34184d22d",
+    "src/offsecgym/research/m65_witness_matrix.py": "c67660399b20b5a3a647c99c7808592602c9442e097dae7b56257f6766839abc",
+    "src/offsecgym/research/m65_witness_packet.py": "f2373b98502e5aa17dad999676e8b76b3c805117bc1417a49a16dc255a601db8"
+  },
+  "status": "preflight_not_authorized",
+  "stopping_rules": [
+    "one run per cell; no silent retry",
+    "stop on interrupted or unscored probe/reporter",
+    "stop on selected endpoint drift",
+    "stop on artifact, packet, bootstrap, or event replay failure",
+    "stop before a next cell whose reserved worst-case cost exceeds the threshold"
+  ]
+}

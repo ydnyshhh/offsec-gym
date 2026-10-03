@@ -32,8 +32,53 @@ and patched-state labels enter only the offline evaluator after validation.
 
 The proposed live assay uses the unchanged opportunity-aware sequential worker
 policy, Kimi K3 with high reasoning and the same selected Moonshot AI endpoint
-as M6.4. A separate manifest will pin the exact request, budgets, source,
+as M6.4. The separate manifest below pins the exact request, budgets, source,
 build pairs, cell order, cost threshold, and stopping rules. **No paid Study B
-run will start until that manifest, fake-provider checks, and a separate cost
-decision are complete.** This recovery assay measures reportability with
+run will start until exact-head checks and a separate cost decision are
+complete.** This recovery assay measures reportability with
 extra inference; it is not an equal-compute estimate of reporter benefit.
+
+## Reviewable offline protocol
+
+The [20-cell manifest](../../experiments/manifests/m65-witness-recovery-v1.json)
+was generated after the seed declaration commit `1048837`. Its SHA-256 is
+`c7f9da7d873430b59a322769643fc08f62eb73ea3849942c715253b2554ac45a`;
+it pins source commit `7108976`, both configs, paired build IDs and fixture
+hashes, deterministic cell order, the reporter contract, and source hashes.
+The probe keeps the original opportunity-aware worker policy and its 120,000
+model-token/20-call task budget. The fresh reporter has 80,000 tokens, four
+calls, a 4,096-token per-call output cap, and 300 wall seconds. The controller
+declares a combined 200,000-token/24-call budget for atomic reservations;
+the worker task budget remains 120,000. This split needs an end-to-end
+PostgreSQL fake-worker check before any paid call to show that the larger
+controller declaration does not expand probe admission or trajectory budget.
+
+The selected endpoint is pinned as `moonshotai/kimi-k3-20260715` from
+`Moonshot AI`. At the observed $3/M input and $15/M output rates, treating
+**all** 200,000 configured tokens in every one of 20 cells as output gives a
+conservative $60 estimated token-cost ceiling. That is a proposed threshold,
+not an approval or a prediction of actual spend. The collector reserves this
+worst-case $3 per cell before starting it and stops on endpoint drift,
+unscored stages, artifact or packet mismatch, incomplete cells, or a failed
+controller replay. A provider failure remains in the journal without retry.
+
+Offline checks completed so far:
+
+- The reporter and packet expose evidence lookup and finding submission only;
+  no live HTTP dispatch tool is present.
+- Same-run and same-generation artifact checks, response hashes, foreign
+  citation rejection, oracle isolation, model-call artifacts, provider-error
+  preservation, and a full fake probe→reporter→validator lifecycle passed
+  targeted tests.
+- The prospective ledger checks packet hashes and the reporter boundary,
+  counts configured roots once, and marks patched roots inapplicable.
+- All 179 score-valid frozen M6.4 traces were accepted by the packet builder
+  in an offline *format-feasibility* check; this says nothing about future
+  reporter success.
+
+Before a pilot, require exact-head CI, a PostgreSQL fake-worker budget check,
+and a review of the committed manifest and cost ceiling. A two-cell
+non-sample pilot could use paired seed 2101 with the same policy and at most
+$6 estimated token cost, but that pilot is not authorized. It must stay
+outside the 20-cell prospective sample and cannot be silently folded into
+the primary analysis.
