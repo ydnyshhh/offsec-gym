@@ -1,0 +1,511 @@
+{
+  "common_feasible_auc_differences": [
+    {
+      "control_minus": "fixed_sequential",
+      "matched_score_valid_seed_curves": 10,
+      "mean_normalized_auc_difference": 0.44000000000000006,
+      "seed_bootstrap_95pct": [
+        0.35000000000000003,
+        0.53
+      ]
+    },
+    {
+      "control_minus": "matched_parallel",
+      "matched_score_valid_seed_curves": 10,
+      "mean_normalized_auc_difference": 0.44000000000000006,
+      "seed_bootstrap_95pct": [
+        0.34,
+        0.53
+      ]
+    },
+    {
+      "control_minus": "opportunity_aware",
+      "matched_score_valid_seed_curves": 9,
+      "mean_normalized_auc_difference": 0.4222222222222223,
+      "seed_bootstrap_95pct": [
+        0.3111111111111111,
+        0.5333333333333334
+      ]
+    }
+  ],
+  "comparison": "matched historical; not randomized concurrent arms or fresh held-out seeds",
+  "control_invalid_statuses": [],
+  "historical_invalid_statuses": [
+    "provider_failed"
+  ],
+  "paired_budget_differences": [
+    {
+      "budget": 40000,
+      "control_minus": "fixed_sequential",
+      "historical_policy_feasible": false,
+      "matched_score_valid_seeds": 0,
+      "mean_difference": null,
+      "seed_bootstrap_95pct": null,
+      "variant": "vulnerable"
+    },
+    {
+      "budget": 40000,
+      "control_minus": "matched_parallel",
+      "historical_policy_feasible": false,
+      "matched_score_valid_seeds": 0,
+      "mean_difference": null,
+      "seed_bootstrap_95pct": null,
+      "variant": "vulnerable"
+    },
+    {
+      "budget": 40000,
+      "control_minus": "opportunity_aware",
+      "historical_policy_feasible": true,
+      "matched_score_valid_seeds": 10,
+      "mean_difference": 0.06000000000000002,
+      "seed_bootstrap_95pct": [
+        -0.14,
+        0.30000000000000004
+      ],
+      "variant": "vulnerable"
+    },
+    {
+      "budget": 40000,
+      "control_minus": "fixed_sequential",
+      "historical_policy_feasible": false,
+      "matched_score_valid_seeds": 0,
+      "mean_difference": null,
+      "seed_bootstrap_95pct": null,
+      "variant": "patched"
+    },
+    {
+      "budget": 40000,
+      "control_minus": "matched_parallel",
+      "historical_policy_feasible": false,
+      "matched_score_valid_seeds": 0,
+      "mean_difference": null,
+      "seed_bootstrap_95pct": null,
+      "variant": "patched"
+    },
+    {
+      "budget": 40000,
+      "control_minus": "opportunity_aware",
+      "historical_policy_feasible": true,
+      "matched_score_valid_seeds": 10,
+      "mean_difference": 0.0,
+      "seed_bootstrap_95pct": [
+        0.0,
+        0.0
+      ],
+      "variant": "patched"
+    },
+    {
+      "budget": 60000,
+      "control_minus": "fixed_sequential",
+      "historical_policy_feasible": false,
+      "matched_score_valid_seeds": 0,
+      "mean_difference": null,
+      "seed_bootstrap_95pct": null,
+      "variant": "vulnerable"
+    },
+    {
+      "budget": 60000,
+      "control_minus": "matched_parallel",
+      "historical_policy_feasible": false,
+      "matched_score_valid_seeds": 0,
+      "mean_difference": null,
+      "seed_bootstrap_95pct": null,
+      "variant": "vulnerable"
+    },
+    {
+      "budget": 60000,
+      "control_minus": "opportunity_aware",
+      "historical_policy_feasible": true,
+      "matched_score_valid_seeds": 10,
+      "mean_difference": 0.4,
+      "seed_bootstrap_95pct": [
+        0.28,
+        0.5
+      ],
+      "variant": "vulnerable"
+    },
+    {
+      "budget": 60000,
+      "control_minus": "fixed_sequential",
+      "historical_policy_feasible": false,
+      "matched_score_valid_seeds": 0,
+      "mean_difference": null,
+      "seed_bootstrap_95pct": null,
+      "variant": "patched"
+    },
+    {
+      "budget": 60000,
+      "control_minus": "matched_parallel",
+      "historical_policy_feasible": false,
+      "matched_score_valid_seeds": 0,
+      "mean_difference": null,
+      "seed_bootstrap_95pct": null,
+      "variant": "patched"
+    },
+    {
+      "budget": 60000,
+      "control_minus": "opportunity_aware",
+      "historical_policy_feasible": true,
+      "matched_score_valid_seeds": 10,
+      "mean_difference": 0.1,
+      "seed_bootstrap_95pct": [
+        0.0,
+        0.3
+      ],
+      "variant": "patched"
+    },
+    {
+      "budget": 80000,
+      "control_minus": "fixed_sequential",
+      "historical_policy_feasible": false,
+      "matched_score_valid_seeds": 0,
+      "mean_difference": null,
+      "seed_bootstrap_95pct": null,
+      "variant": "vulnerable"
+    },
+    {
+      "budget": 80000,
+      "control_minus": "matched_parallel",
+      "historical_policy_feasible": false,
+      "matched_score_valid_seeds": 0,
+      "mean_difference": null,
+      "seed_bootstrap_95pct": null,
+      "variant": "vulnerable"
+    },
+    {
+      "budget": 80000,
+      "control_minus": "opportunity_aware",
+      "historical_policy_feasible": true,
+      "matched_score_valid_seeds": 10,
+      "mean_difference": 0.36000000000000004,
+      "seed_bootstrap_95pct": [
+        0.16000000000000003,
+        0.52
+      ],
+      "variant": "vulnerable"
+    },
+    {
+      "budget": 80000,
+      "control_minus": "fixed_sequential",
+      "historical_policy_feasible": false,
+      "matched_score_valid_seeds": 0,
+      "mean_difference": null,
+      "seed_bootstrap_95pct": null,
+      "variant": "patched"
+    },
+    {
+      "budget": 80000,
+      "control_minus": "matched_parallel",
+      "historical_policy_feasible": false,
+      "matched_score_valid_seeds": 0,
+      "mean_difference": null,
+      "seed_bootstrap_95pct": null,
+      "variant": "patched"
+    },
+    {
+      "budget": 80000,
+      "control_minus": "opportunity_aware",
+      "historical_policy_feasible": true,
+      "matched_score_valid_seeds": 10,
+      "mean_difference": -1.1,
+      "seed_bootstrap_95pct": [
+        -3.0,
+        0.0
+      ],
+      "variant": "patched"
+    },
+    {
+      "budget": 120000,
+      "control_minus": "fixed_sequential",
+      "historical_policy_feasible": true,
+      "matched_score_valid_seeds": 10,
+      "mean_difference": 0.52,
+      "seed_bootstrap_95pct": [
+        0.4,
+        0.64
+      ],
+      "variant": "vulnerable"
+    },
+    {
+      "budget": 120000,
+      "control_minus": "matched_parallel",
+      "historical_policy_feasible": true,
+      "matched_score_valid_seeds": 10,
+      "mean_difference": 0.5,
+      "seed_bootstrap_95pct": [
+        0.4,
+        0.6000000000000001
+      ],
+      "variant": "vulnerable"
+    },
+    {
+      "budget": 120000,
+      "control_minus": "opportunity_aware",
+      "historical_policy_feasible": true,
+      "matched_score_valid_seeds": 10,
+      "mean_difference": 0.48000000000000004,
+      "seed_bootstrap_95pct": [
+        0.4,
+        0.56
+      ],
+      "variant": "vulnerable"
+    },
+    {
+      "budget": 120000,
+      "control_minus": "fixed_sequential",
+      "historical_policy_feasible": true,
+      "matched_score_valid_seeds": 10,
+      "mean_difference": -0.5,
+      "seed_bootstrap_95pct": [
+        -1.4,
+        0.0
+      ],
+      "variant": "patched"
+    },
+    {
+      "budget": 120000,
+      "control_minus": "matched_parallel",
+      "historical_policy_feasible": true,
+      "matched_score_valid_seeds": 10,
+      "mean_difference": -0.3,
+      "seed_bootstrap_95pct": [
+        -0.9,
+        0.0
+      ],
+      "variant": "patched"
+    },
+    {
+      "budget": 120000,
+      "control_minus": "opportunity_aware",
+      "historical_policy_feasible": true,
+      "matched_score_valid_seeds": 10,
+      "mean_difference": -1.0,
+      "seed_bootstrap_95pct": [
+        -2.1,
+        0.0
+      ],
+      "variant": "patched"
+    },
+    {
+      "budget": 160000,
+      "control_minus": "fixed_sequential",
+      "historical_policy_feasible": true,
+      "matched_score_valid_seeds": 10,
+      "mean_difference": 0.36000000000000004,
+      "seed_bootstrap_95pct": [
+        0.24000000000000002,
+        0.5
+      ],
+      "variant": "vulnerable"
+    },
+    {
+      "budget": 160000,
+      "control_minus": "matched_parallel",
+      "historical_policy_feasible": true,
+      "matched_score_valid_seeds": 10,
+      "mean_difference": 0.38000000000000006,
+      "seed_bootstrap_95pct": [
+        0.22000000000000003,
+        0.52
+      ],
+      "variant": "vulnerable"
+    },
+    {
+      "budget": 160000,
+      "control_minus": "opportunity_aware",
+      "historical_policy_feasible": true,
+      "matched_score_valid_seeds": 9,
+      "mean_difference": 0.3777777777777778,
+      "seed_bootstrap_95pct": [
+        0.2,
+        0.5777777777777778
+      ],
+      "variant": "vulnerable"
+    },
+    {
+      "budget": 160000,
+      "control_minus": "fixed_sequential",
+      "historical_policy_feasible": true,
+      "matched_score_valid_seeds": 10,
+      "mean_difference": 0.1,
+      "seed_bootstrap_95pct": [
+        -1.7,
+        1.8
+      ],
+      "variant": "patched"
+    },
+    {
+      "budget": 160000,
+      "control_minus": "matched_parallel",
+      "historical_policy_feasible": true,
+      "matched_score_valid_seeds": 10,
+      "mean_difference": -0.2,
+      "seed_bootstrap_95pct": [
+        -1.9,
+        1.4
+      ],
+      "variant": "patched"
+    },
+    {
+      "budget": 160000,
+      "control_minus": "opportunity_aware",
+      "historical_policy_feasible": true,
+      "matched_score_valid_seeds": 10,
+      "mean_difference": 0.9,
+      "seed_bootstrap_95pct": [
+        0.0,
+        2.0
+      ],
+      "variant": "patched"
+    }
+  ],
+  "protocol": "m65-common-bootstrap-monolithic-v1",
+  "resolved_endpoints_scored": [
+    [
+      "moonshotai/kimi-k3-20260715",
+      "Moonshot AI"
+    ]
+  ],
+  "strata": [
+    {
+      "budget": 40000,
+      "invalid_statuses": [],
+      "mean_candidates": 0,
+      "mean_duplicate_validated_roots": 0,
+      "mean_elapsed_seconds": 117.5483,
+      "mean_patched_false_findings": 0.0,
+      "mean_root_recall": null,
+      "planned_cells": 10,
+      "reported_model_tokens": 221577,
+      "score_valid_cells": 10,
+      "validated_roots_per_100k_reported_tokens": null,
+      "variant": "patched"
+    },
+    {
+      "budget": 40000,
+      "invalid_statuses": [],
+      "mean_candidates": 2.2,
+      "mean_duplicate_validated_roots": 0.6,
+      "mean_elapsed_seconds": 132.28730000000002,
+      "mean_patched_false_findings": null,
+      "mean_root_recall": 0.26,
+      "planned_cells": 10,
+      "reported_model_tokens": 221957,
+      "score_valid_cells": 10,
+      "validated_roots_per_100k_reported_tokens": 5.856990317944467,
+      "variant": "vulnerable"
+    },
+    {
+      "budget": 60000,
+      "invalid_statuses": [],
+      "mean_candidates": 0.1,
+      "mean_duplicate_validated_roots": 0,
+      "mean_elapsed_seconds": 191.3928,
+      "mean_patched_false_findings": 0.1,
+      "mean_root_recall": null,
+      "planned_cells": 10,
+      "reported_model_tokens": 441892,
+      "score_valid_cells": 10,
+      "validated_roots_per_100k_reported_tokens": null,
+      "variant": "patched"
+    },
+    {
+      "budget": 60000,
+      "invalid_statuses": [],
+      "mean_candidates": 6.6,
+      "mean_duplicate_validated_roots": 2,
+      "mean_elapsed_seconds": 234.6385,
+      "mean_patched_false_findings": null,
+      "mean_root_recall": 0.68,
+      "planned_cells": 10,
+      "reported_model_tokens": 429224,
+      "score_valid_cells": 10,
+      "validated_roots_per_100k_reported_tokens": 7.921271876689095,
+      "variant": "vulnerable"
+    },
+    {
+      "budget": 80000,
+      "invalid_statuses": [],
+      "mean_candidates": 0,
+      "mean_duplicate_validated_roots": 0,
+      "mean_elapsed_seconds": 285.4317,
+      "mean_patched_false_findings": 0.0,
+      "mean_root_recall": null,
+      "planned_cells": 10,
+      "reported_model_tokens": 620613,
+      "score_valid_cells": 10,
+      "validated_roots_per_100k_reported_tokens": null,
+      "variant": "patched"
+    },
+    {
+      "budget": 80000,
+      "invalid_statuses": [],
+      "mean_candidates": 7.3,
+      "mean_duplicate_validated_roots": 3.2,
+      "mean_elapsed_seconds": 318.5272,
+      "mean_patched_false_findings": null,
+      "mean_root_recall": 0.64,
+      "planned_cells": 10,
+      "reported_model_tokens": 596293,
+      "score_valid_cells": 10,
+      "validated_roots_per_100k_reported_tokens": 5.366489293015347,
+      "variant": "vulnerable"
+    },
+    {
+      "budget": 120000,
+      "invalid_statuses": [],
+      "mean_candidates": 0,
+      "mean_duplicate_validated_roots": 0,
+      "mean_elapsed_seconds": 491.8175,
+      "mean_patched_false_findings": 0.0,
+      "mean_root_recall": null,
+      "planned_cells": 10,
+      "reported_model_tokens": 1024331,
+      "score_valid_cells": 10,
+      "validated_roots_per_100k_reported_tokens": null,
+      "variant": "patched"
+    },
+    {
+      "budget": 120000,
+      "invalid_statuses": [],
+      "mean_candidates": 10.5,
+      "mean_duplicate_validated_roots": 4.8,
+      "mean_elapsed_seconds": 487.5616,
+      "mean_patched_false_findings": null,
+      "mean_root_recall": 0.76,
+      "planned_cells": 10,
+      "reported_model_tokens": 1029526,
+      "score_valid_cells": 10,
+      "validated_roots_per_100k_reported_tokens": 3.691018973780167,
+      "variant": "vulnerable"
+    },
+    {
+      "budget": 160000,
+      "invalid_statuses": [],
+      "mean_candidates": 1,
+      "mean_duplicate_validated_roots": 0,
+      "mean_elapsed_seconds": 567.5619,
+      "mean_patched_false_findings": 1.0,
+      "mean_root_recall": null,
+      "planned_cells": 10,
+      "reported_model_tokens": 1345550,
+      "score_valid_cells": 10,
+      "validated_roots_per_100k_reported_tokens": null,
+      "variant": "patched"
+    },
+    {
+      "budget": 160000,
+      "invalid_statuses": [],
+      "mean_candidates": 14.9,
+      "mean_duplicate_validated_roots": 8.3,
+      "mean_elapsed_seconds": 603.7465,
+      "mean_patched_false_findings": null,
+      "mean_root_recall": 0.74,
+      "planned_cells": 10,
+      "reported_model_tokens": 1204639,
+      "score_valid_cells": 10,
+      "validated_roots_per_100k_reported_tokens": 3.071459582497329,
+      "variant": "vulnerable"
+    }
+  ]
+}

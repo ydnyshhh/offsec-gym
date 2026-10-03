@@ -1,0 +1,33 @@
+{
+  "analysis_sha256": "a6a3034c4e500f5f08be0f02c7e8f3ffd1a1c1987f5ba62e80cea8112f8bb78a",
+  "completed_cells": 100,
+  "database_event_identity_matched_runs": 100,
+  "distinct_run_ids": 100,
+  "estimated_token_cost_usd": 34.875198,
+  "historical_comparison": "matched historical, not concurrent randomized",
+  "journal_sha256": "e42df35279366a9093c87221043d073810962404ae8f7d5dcd310ea9b7327e74",
+  "manifest_sha256": "86b57480088e402c4541741bd6821858c40900bd72dead627d4b916d2cdd2eba",
+  "protocol": "m65-common-bootstrap-monolithic-v1",
+  "score_valid_cells": 100,
+  "selected_endpoint": [
+    "moonshotai/kimi-k3-20260715",
+    "Moonshot AI"
+  ],
+  "statuses": {
+    "agent_failed": 8,
+    "budget_exhausted": 90,
+    "completed": 2
+  },
+  "totals": {
+    "candidates": 426,
+    "distinct_validated_roots": 154,
+    "duplicate_validated_roots": 189,
+    "events": 40380,
+    "false_findings": 83,
+    "input_tokens": 6013236,
+    "model_calls": 752,
+    "output_tokens": 1122366,
+    "postrun_bookkeeping_cells": 9,
+    "validated_submissions": 343
+  }
+}
