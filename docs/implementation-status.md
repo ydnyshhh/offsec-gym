@@ -161,8 +161,12 @@ Do not rerun or retune M6.4 to improve these observations.
 
 The next [M6.5 research design](milestone-6.5.md) separates a common-bootstrap
 monolithic control from a prospective witness-to-finding study on new seeds.
-Neither design authorizes paid model calls; each requires its own frozen
-manifest, integrity checks, cost review, and explicit collection decision.
+The [common-bootstrap control preflight](diagnostics/m65-monolithic-preflight.md)
+now has a tested runner, 100-cell pinned manifest, fail-closed collector, and
+predeclared historical analysis. It has not made paid model calls. The
+witness-to-finding study remains a separate prospective protocol on new
+seeds. Each live protocol still requires a cost review and collection
+decision.
 
 ## Known architectural debt
 

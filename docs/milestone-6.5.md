@@ -46,6 +46,11 @@ uses zero model tokens. A bootstrap mismatch or endpoint drift invalidates a
 cell. Pin the new runner code, config, fixture hashes, paired build IDs,
 cell order, analysis, and cost ceiling before any live call.
 
+The runner, deterministic 100-cell manifest, collector, and predeclared
+historical analysis are now implemented. The [preflight record](diagnostics/m65-monolithic-preflight.md)
+lists the exact source pins, fake-provider checks, cost range, and remaining
+live pilot/collection gates. No control cell or paid pilot has been run.
+
 Analyze vulnerable recall and patched false findings for each of 40k, 60k,
 80k, 120k, and 160k. At low budgets, compare monolithic only with the
 opportunity-aware arm; fixed and parallel M6.4 cells were structurally
