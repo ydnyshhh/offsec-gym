@@ -133,13 +133,13 @@
 
 ## Partially implemented
 
-- M6.5.1 has an [implemented prospective witness-recovery protocol](milestone-6.5.1.md)
-  and [preflight](diagnostics/m651-witness-recovery-preflight.md). Ten new
-  vulnerable/patched seed pairs and a distinct non-sample pilot pair are pinned.
-  The read-only reporter, separate resource ledger, offline root-stage analysis,
-  journaled collector, and cost stops are ready. No M6.5.1 paid call or held-out
-  sample run has occurred. The reporter token allowance remains provisional until
-  the non-sample pilot establishes end-to-end context feasibility.
+- M6.5.1 has an [implemented prospective witness-recovery protocol](milestone-6.5.1.md).
+  The [v1 non-sample pilot](diagnostics/m651-witness-pilot-v1-results.md) completed
+  two score-valid cells but failed the reporter continuation preflight in both.
+  A [versioned v2 amendment](diagnostics/m651-witness-recovery-v2-preflight.md)
+  pins a larger separate reporter allowance under the same cost stops, with a
+  one-cell non-sample feasibility recheck still pending. The ten paired held-out
+  sample seeds and build order remain unchanged; no full-sample cell has run.
 - Model token and cost reservations use a conservative request-size preflight
   estimate, now calibrated as configurable bytes per token plus a margin and
   recorded with split input/output estimates and signed errors. They settle to

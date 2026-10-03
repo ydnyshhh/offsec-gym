@@ -1,6 +1,6 @@
 # M6.5.1: prospective witness recovery from a frozen monolithic probe
 
-**Status:** implemented and predeclared; no M6.5.1 paid model call or pilot has run.
+**Status:** v1 pilot completed and failed its reporter continuation feasibility gate; the versioned v2 amendment is prepared. The 20-cell sample remains unrun.
 This is a separate protocol from the completed [M6.5 common-bootstrap control](diagnostics/m65-common-bootstrap-control-results.md). Its sample has new seeds. Completed M6.4 and M6.5 manifests, analyses, traces, scores, and published hashes remain unchanged.
 
 ## Question and interpretation
@@ -21,7 +21,7 @@ The model tool registry contains only `get_evidence`, `get_entity`, `search_evid
 
 The reporter prompt is hashed in the manifest. It asks for directly evidenced vulnerabilities, requires same-identity ordered before/action/after evidence for transitions, warns against inventing absent fields or treating expected authorization behavior as a finding, and allows an empty report. It never names configured hidden roots or a patch state.
 
-The reporter allowance is 30,000 model tokens, four calls, 4,096 output tokens per call, 300 seconds, 24 retrieval calls, and 12 finding submissions. This is **provisional pending the non-sample pilot**. It is charged separately from Stage A. The combined controller reservation is 150,000 tokens and 24 calls. Any pilot-driven amendment must be limited to feasibility, committed and repinned before full collection, and cannot depend on whether the pilot found a vulnerability. Do not run the full sample until that gate is resolved and its separate paid cost decision is made.
+The original v1 reporter allowance was 30,000 model tokens, four calls, 4,096 output tokens per call, 300 seconds, 24 retrieval calls, and 12 finding submissions. It was charged separately from Stage A. The [v1 pilot](diagnostics/m651-witness-pilot-v1-results.md) showed that 30,000 tokens allowed the first turn but blocked the second-turn preflight in both cells. The [v2 feasibility amendment](diagnostics/m651-witness-recovery-v2-preflight.md) raises the reporter cap to 80,000 tokens while keeping its other limits, prompt, tools, and the probe policy fixed. Output-aware conservative cost reservation keeps the 20-cell sample below its approved $45 stop. A one-cell non-sample v2 recheck must clear the continuation and replay gates before the full sample starts.
 
 ## Prospective stages and outcomes
 
@@ -43,4 +43,4 @@ Secondary outputs keep submissions, validated submissions, distinct roots, dupli
 
 These are hypotheses, not pass gates. Probe and reporter provider failures are journaled without automatic retry. An interrupted cell requires event-store reconciliation before any decision about continuation. The collector fails closed on manifest/source/config/build drift, selected endpoint drift, bootstrap mismatch, active controller reservations, reused run IDs, trace/packet hash mismatch, score replay disagreement, and the cumulative cost stop. Terminal-cause attribution distinguishes call/token/action/HTTP/wall limits, repeated tool rejections, provider failures, and unknown cases when mechanically available. It does not retrofit causes into completed historical studies.
 
-The [preflight record](diagnostics/m651-witness-recovery-preflight.md) gives exact hashes, tests, context measurements, cost bounds, and prepared commands. Neither live command has been executed.
+The original [v1 preflight](diagnostics/m651-witness-recovery-preflight.md), [failed pilot result](diagnostics/m651-witness-pilot-v1-results.md), and [v2 amendment preflight](diagnostics/m651-witness-recovery-v2-preflight.md) preserve the sequence of decisions, exact hashes, costs, and prepared commands. Neither v2 live command has been executed.
