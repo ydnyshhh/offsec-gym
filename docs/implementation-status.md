@@ -130,16 +130,16 @@
   the [results](diagnostics/m65-common-bootstrap-control-results.md) preserve
   the matched historical comparison, $34.875198 estimated token cost, patched
   false findings, and the post-run coverage-closure amendment.
+- M6.5.1 prospective witness recovery completed all 20 held-out paired cells
+  with score-valid outcomes. A fresh read-only reporter recovered four of nine
+  proof-capable roots missed by the probe, all in one seed; the seed-bootstrap
+  interval spans 0%–100%. The [results](diagnostics/m651-witness-recovery-v2-results.md)
+  preserve the failed v1 pilot, v2 feasibility recheck, $14.978964 estimated
+  sample cost, zero patched reporter false findings, and budget-censored
+  reporter behavior without retuning the frozen protocol.
 
 ## Partially implemented
 
-- M6.5.1 has an [implemented prospective witness-recovery protocol](milestone-6.5.1.md).
-  The [v1 non-sample pilot](diagnostics/m651-witness-pilot-v1-results.md) completed
-  two score-valid cells but failed the reporter continuation preflight in both.
-  A [versioned v2 amendment](diagnostics/m651-witness-recovery-v2-preflight.md)
-  pins a larger separate reporter allowance under the same cost stops, with a
-  one-cell non-sample feasibility recheck still pending. The ten paired held-out
-  sample seeds and build order remain unchanged; no full-sample cell has run.
 - Model token and cost reservations use a conservative request-size preflight
   estimate, now calibrated as configurable bytes per token plus a margin and
   recorded with split input/output estimates and signed errors. They settle to
@@ -173,13 +173,15 @@ Do not rerun or retune M6.4 to improve these observations.
 
 The [M6.5 research design](milestone-6.5.md) separated a common-bootstrap
 monolithic control from a prospective witness-to-finding study on new seeds.
-The [control](diagnostics/m65-common-bootstrap-control-results.md) is complete
-and frozen. Its historical matched comparison shows higher monolithic root
-recall at common feasible budgets, with temporal and system differences that
-prevent a causal architecture claim. The [M6.5.1 recovery protocol](milestone-6.5.1.md)
-is implemented and predeclared but unrun. Its non-sample pilot is the next
-feasibility gate; the full sample requires a separate cost decision. No control
-cell is part of that sample.
+Both the [control](diagnostics/m65-common-bootstrap-control-results.md) and
+the [M6.5.1 recovery assay](diagnostics/m651-witness-recovery-v2-results.md)
+are complete and frozen. The control's historical architecture comparison
+remains noncausal. The recovery assay shows that extra read-only inference
+can report some proof-capable roots missed by a probe, while refund often
+lacks a complete ordered witness and the recovery estimate is concentrated
+in one seed. An equal-compute integrated-continuation comparison or a second
+range family would be a separately designed study, not a retuning of either
+completed sample.
 
 ## Known architectural debt
 

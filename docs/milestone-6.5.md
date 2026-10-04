@@ -1,11 +1,10 @@
 # M6.5 research design: from action evidence to validated findings
 
-**Collection status, 2026-10-03:** Study A's 100-cell common-bootstrap
-monolithic control is complete; see its
-[audited results](diagnostics/m65-common-bootstrap-control-results.md).
-The protocol below records the design declared before that collection.
-Study B remains a separate prospective witness-to-finding protocol on new
-paired seeds.
+**Collection status, 2026-10-04:** Study A's 100-cell common-bootstrap
+monolithic control and Study B's 20-cell witness-recovery assay are complete;
+see their separate [control](diagnostics/m65-common-bootstrap-control-results.md)
+and [recovery](diagnostics/m651-witness-recovery-v2-results.md) reports. The
+protocol below records the design declared before either collection.
 
 This is a design for **new protocols**, not a revision of the completed
 `m64-v2-worker-primary-1` study. M6.4 is frozen at `50c3374`: 180 feasible
@@ -144,7 +143,8 @@ is only a provenance measure, not proof of useful cross-worker reasoning.
    dependency structure. Treat it as an external-validity test, not another
    tuning set for `tenant_boundary_v2`.
 
-The two-cell seed-1101 pilot and the 100-cell historical control were
-separately approved and completed. The prospective reporter study is a
-different protocol; its pilot and full sample need separate cost decisions
-before live calls.
+The two-cell seed-1101 pilot, 100-cell historical control, M6.5.1 non-sample
+pilots, and 20-cell held-out reporter assay were separately approved and
+completed. Their protocols and results remain distinct. Any equal-compute
+integrated-continuation comparison or new range family needs a new design
+and approval before live calls.
