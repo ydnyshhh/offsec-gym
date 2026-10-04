@@ -20,8 +20,11 @@ def payload_sha256(payload: dict[str, object]) -> str:
 
 
 class ModelCallArtifacts:
-    def __init__(self, state_root: Path) -> None:
-        self.root = state_root / "model_calls"
+    def __init__(self, state_root: Path, *, branch_id: UUID | None = None) -> None:
+        self.base_root = state_root / "model_calls"
+        self.root = self.base_root
+        if branch_id is not None:
+            self.root = self.root / "branches" / branch_id.hex
 
     def _path(self, run_id: UUID, call_id: UUID, kind: Literal["request", "response"]) -> Path:
         return self.root / run_id.hex / call_id.hex / f"{kind}.json"
@@ -34,7 +37,12 @@ class ModelCallArtifacts:
         payload: dict[str, object],
     ) -> tuple[UUID, str]:
         path = self._path(run_id, call_id, kind)
-        for directory in (self.root, path.parent.parent, path.parent):
+        directories = (
+            [self.base_root, self.base_root / "branches", self.root]
+            if self.root != self.base_root
+            else [self.root]
+        )
+        for directory in (*directories, path.parent.parent, path.parent):
             directory.mkdir(mode=0o700, exist_ok=True)
             if directory.is_symlink() or stat.S_IMODE(directory.stat().st_mode) & 0o077:
                 raise OSError(f"model artifact directory is not private: {directory}")

@@ -217,11 +217,13 @@ class ReadOnlyReporter:
         model: ModelSpec,
         events: EventStore,
         state_root: Path,
+        *,
+        branch_id: UUID | None = None,
     ) -> None:
         self.provider = provider
         self.model = model
         self.events = events
-        self.artifacts = ModelCallArtifacts(state_root)
+        self.artifacts = ModelCallArtifacts(state_root, branch_id=branch_id)
         self.controller = (
             PostgresControllerState(events) if isinstance(events, PostgresEventStore) else None
         )
@@ -244,6 +246,7 @@ class ReadOnlyReporter:
         global_budget: Budget,
         reporter_id: UUID | None = None,
         task_id: UUID | None = None,
+        initial_context_items: tuple[dict[str, object], ...] = (),
     ) -> ReporterResult:
         if (
             reporter_budget.max_total_tokens is None
@@ -256,7 +259,8 @@ class ReadOnlyReporter:
         reporter_id = reporter_id or uuid4()
         task_id = task_id or uuid4()
         input_items: list[dict[str, object]] = [
-            {"role": "user", "content": initial_evidence_index(bundle)}
+            *initial_context_items,
+            {"role": "user", "content": initial_evidence_index(bundle)},
         ]
         submitted: list[UUID] = []
         lookups: list[UUID] = []

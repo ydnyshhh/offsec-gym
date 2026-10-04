@@ -793,6 +793,46 @@ class ReporterFindingSubmitted(TraceEvent):
     source_evidence_ids: tuple[UUID, ...] = Field(min_length=1)
 
 
+class ProbeCheckpointSaved(TraceEvent):
+    """Private post-tool context snapshot for a future paired reporting split."""
+
+    type: Literal["probe_checkpoint_saved"] = "probe_checkpoint_saved"
+    checkpoint_id: UUID
+    source_sequence: int = Field(gt=0)
+    source_trace_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    checkpoint_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    latest_model_call_id: UUID
+    latest_request_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+
+
+class ReportingBranchStarted(TraceEvent):
+    type: Literal["reporting_branch_started"] = "reporting_branch_started"
+    branch_id: UUID
+    arm: Literal["fresh", "continuation"]
+    checkpoint_id: UUID
+    source_trace_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    initial_context_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+
+
+class ReportingPrefixRejected(TraceEvent):
+    type: Literal["reporting_prefix_rejected"] = "reporting_prefix_rejected"
+    reason_code: str = Field(min_length=1, max_length=128)
+
+
+class WitnessHypothesisStarted(TraceEvent):
+    """Agent-proposed temporal hypothesis; it never encodes oracle truth."""
+
+    type: Literal["witness_hypothesis_started"] = "witness_hypothesis_started"
+    witness_id: UUID
+    identity_id: UUID
+    object_id: UUID
+    range_generation: int = Field(ge=0)
+    before_path: str = Field(min_length=1, max_length=2048)
+    action_method: Literal["POST", "PUT", "PATCH", "DELETE"]
+    action_path: str = Field(min_length=1, max_length=2048)
+    state_field: str = Field(min_length=1, max_length=64)
+
+
 AnyTraceEvent = Annotated[
     RunStarted
     | RangeStarted
@@ -849,6 +889,10 @@ AnyTraceEvent = Annotated[
     | ReporterStarted
     | ReporterEvidenceRetrieved
     | ReporterFindingSubmitted
+    | ProbeCheckpointSaved
+    | ReportingBranchStarted
+    | ReportingPrefixRejected
+    | WitnessHypothesisStarted
     | ReporterFinished
     | RunCompleted,
     Field(discriminator="type"),
