@@ -1,7 +1,8 @@
 # M6.5.2 design: equal-compute reporting context
 
-**Status:** proposed protocol, not implemented or approved for live model
-collection. [M6.5.1](diagnostics/m651-witness-recovery-v2-results.md) is
+**Status:** opt-in engineering implementation with fake-provider and PostgreSQL
+branch tests; no frozen M6.5.2 manifest, paid pilot, or sample has run.
+[M6.5.1](diagnostics/m651-witness-recovery-v2-results.md) is
 complete and frozen. Its 4/9 recovery result used extra reporter inference;
 it cannot identify whether a fresh context helped relative to spending the
 same inference on a continuation of the probing model.
@@ -60,13 +61,19 @@ rather than describe the treatment as generic long-history attention debt.
    after both branches close. Source evidence remains immutable; stateful
    transition replay uses separate branch-safe clones.
 
-The provider adapter currently makes stateless Responses requests with
-`store: false` and explicitly carries encrypted reasoning output. The probe
-agent's `carry`, selected context, and working-set variables live inside
-`MonolithicSaasAgent.run`; they are not durable checkpoints today. Replaying
-the last HTTP request alone would neither reconstruct post-tool state nor
-prove an authentic continuation. A first implementation task is therefore
-a typed, replayable checkpoint with an exact request hash for each branch.
+The provider adapter makes stateless Responses requests with `store: false`
+and explicitly carries encrypted reasoning output. The opt-in probe now saves
+a private post-tool checkpoint containing its base items, exact provider carry
+items, rendered working state, and source/request digests. A PostgreSQL branch
+store binds two private event streams to the same immutable source prefix and
+rejects gateway events. The paired runner gives both arms the same
+`ReadOnlyReporter` instruction, tools, evidence packet, and added budget; only
+the continuation arm receives the checkpoint carry. This is specifically a
+**reporting-context carryover** treatment, not a continuation of the probe's
+original instruction or tool set. Branch-specific model artifacts, findings,
+validation, and deterministic score replay are implemented. The checkpoint
+artifact is verified against its event, but a production pilot still needs a
+frozen manifest and an audit of exact continuation-request reconstruction.
 
 ## Equal compute and reachable compute
 
@@ -118,3 +125,22 @@ control arm for this experiment.
   prompt or seed selection.
 
 No scheduler, M6.5.1 reporter cap, or frozen result is changed by this design.
+
+## Implementation boundary
+
+`PairedReportingContextRunner`, `ProbeCheckpointStore`, and
+`ReportingBranchStore` implement the opt-in execution path. The read-only
+`audit_paired_branches` verifies source hashes, branch attribution, first
+request context, equal non-context request fields, model-call limits, and
+absence of post-split gateway actions. `analyze_paired_reporting` provides the
+pre-treatment proof-eligible paired contrast and seed-pair bootstrap from
+audited records. The historical collectors keep their source-drift checks;
+their tests pin the original collection commits so later development does not
+rewrite a frozen protocol.
+
+This is **not yet a runnable confirmatory collection**. Before paid use, freeze
+new seeds, endpoint and price snapshot, probe checkpoint rule, branch caps,
+artifact retention, cost stop, invalid-prefix disposition, and collector
+reconciliation in a versioned manifest. Run a non-sample pilot only after its
+costed protocol and approval. Source plus both branches count toward total
+study cost; score-invalid branches remain recorded rather than replaced.

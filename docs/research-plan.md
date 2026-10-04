@@ -45,13 +45,16 @@ frozen; its failed v1 pilot and bounded v2 results remain separate records.
    Give both arms the same read-only evidence and reporting tools; preserve
    the exact probe carry state only in the continuation arm. This targets
    proof-to-finding conversion without changing exploration or adding
-   compute to just one arm. Build branch isolation and replayable checkpoints
-   before a costed pilot.
+   compute to just one arm. Opt-in branch isolation, replayable checkpoints,
+   and paired audit/analysis code are implemented; freeze a costed protocol
+   and pass the remaining endpoint preflight before a pilot.
 2. [M6.6](milestone-6.6.md) should test a generic, event-backed
    before/action/after witness ledger against the same exploration policy
    without that scaffold. This targets successful-action-to-complete-proof
    conversion, especially for temporal authorization tests. Keep the
-   intervention oracle-free and include patched false-finding checks.
+   intervention oracle-free and include patched false-finding checks. The
+   event-derived ledger and policy runner are implemented; a full paired
+   fake-range parity test and frozen collection protocol remain.
 3. Add a second state-changing range family before claiming the witness
    mechanism generalizes beyond the current synthetic SaaS workflow.
 
@@ -60,4 +63,5 @@ and stopping rules explicit in every new manifest. Preserve distinct root
 recall, duplicate submissions, false findings, latency, token/cost use, and
 score-invalid failures separately. Both follow-ups are designs, not approved
 model collections. No new model collection starts without a costed, frozen
-protocol and approval.
+protocol and approval. The engineering implementations above have made no
+paid model calls and have not changed either frozen dataset.

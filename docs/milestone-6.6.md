@@ -1,7 +1,10 @@
 # M6.6 design: witness-oriented exploration
 
-**Status:** proposed, separate from M6.5.2 and not approved for live model
-collection. [M6.5.1](diagnostics/m651-witness-recovery-v2-results.md)
+**Status:** opt-in oracle-free witness ledger and policy runner implemented
+with fake-provider tests. No M6.6 paid pilot or sample is approved or run.
+The second state-changing range family and a frozen costed manifest are still
+required before a confirmatory generalization study.
+[M6.5.1](diagnostics/m651-witness-recovery-v2-results.md)
 found 19 successful unauthorized refund actions across ten vulnerable runs,
 yet only two runs held a complete ordered, same-identity paid-before /
 refund / refunded-after witness. A read-only reporter cannot generate a
@@ -102,3 +105,32 @@ list of known vulnerable routes.
 
 M6.6 addresses the action-to-proof bottleneck. It does not retune the
 read-only reporter or answer M6.5.2's fresh-versus-continued-context question.
+
+## Implementation boundary
+
+`EventWitnessLedger` persists only a typed model-proposed hypothesis. It
+projects before/action/after slots on demand from authoritative gateway events
+and verified response artifacts, so a process restart can reconstruct its
+state without a mutable process-local ledger. It requires the same actor,
+object, range generation, ordered action sequences, complete responses, a
+successful candidate action, and an observed state change. An intervening
+state-changing request to the object makes the proof ambiguous. A complete
+ledger entry is an **observed transition**, not a security verdict or proof of
+causality beyond the observed sequence. Hidden oracle information is not read
+by the agent-facing tool.
+
+`WitnessPlanningExperimentRunner` enables the typed `start_witness` and
+`get_witness` tools plus a bounded reminder while otherwise inheriting the
+M6.5 monolithic control path. `analyze_witness_policy` defines a four-cell
+seed-block analysis with the intention-to-treat assigned-root denominator,
+seed-pair bootstrap, conditional transition-to-witness diagnostic, patched
+false findings, and resource totals. No sample collector or historical control
+has been repurposed for this study.
+
+The current implementation does not automatically open a hypothesis for every
+state-changing gateway action; the model must use the opt-in tool. It also has
+no second synthetic state-changing family. Before live collection, test equal
+budget and action permissions across both arms in a full fake-provider range
+run, freeze the policy and predeclared trace-stage extraction, create a costed
+manifest and stop rule, and run a separately approved non-sample pilot. No
+generalization claim follows from the current SaaS-only tests.
