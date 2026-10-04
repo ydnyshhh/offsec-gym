@@ -1,7 +1,9 @@
 # M6.5.2 design: equal-compute reporting context
 
-**Status:** opt-in engineering implementation with fake-provider and PostgreSQL
-branch tests; no frozen M6.5.2 manifest, paid pilot, or sample has run.
+**Status:** the paired runner, exact-request audit, fixed-budget collector,
+read-only postcheck, 24-seed sample manifest, and separate non-sample pilot
+manifest are committed. Exact-head CI and paid-call approval remain. Neither
+pilot nor sample has run.
 [M6.5.1](diagnostics/m651-witness-recovery-v2-results.md) is
 complete and frozen. Its 4/9 recovery result used extra reporter inference;
 it cannot identify whether a fresh context helped relative to spending the
@@ -138,9 +140,73 @@ audited records. The historical collectors keep their source-drift checks;
 their tests pin the original collection commits so later development does not
 rewrite a frozen protocol.
 
-This is **not yet a runnable confirmatory collection**. Before paid use, freeze
-new seeds, endpoint and price snapshot, probe checkpoint rule, branch caps,
-artifact retention, cost stop, invalid-prefix disposition, and collector
-reconciliation in a versioned manifest. Run a non-sample pilot only after its
-costed protocol and approval. Source plus both branches count toward total
-study cost; score-invalid branches remain recorded rather than replaced.
+The collector and postcheck are available for the frozen costed protocol.
+Their source files, seed selection, model configuration, endpoint, price
+snapshot, cell order, branch order, budgets, and analysis code are pinned in
+committed manifests. Exact-head CI must pass before paid use. Source plus both
+branches count toward total study cost; score-invalid branches remain recorded
+rather than replaced.
+
+## Single-configuration confirmatory protocol
+
+The prepared protocol uses **24 new paired seeds** (48 source prefixes) and a
+separate, new non-sample vulnerable pilot seed. Each seed has one vulnerable
+and one fully patched build. Cell order is shuffled from a committed seed
+selection source. Every source prefix forks into both reporting arms; branch
+order is deterministic from the seed and patch state. No budget curve is
+included.
+
+| Item | Fixed setting |
+| --- | --- |
+| Model | `moonshotai/kimi-k3`, reasoning `high` |
+| Provider | OpenRouter, pinned to Moonshot AI with fallback disabled |
+| Selected endpoint | `moonshotai/kimi-k3-20260715` on `Moonshot AI` |
+| Range | `tenant_boundary_v2`, known routes, common prerequisite bootstrap |
+| Probe | Structured monolithic, 10 completed model turns, 120k total tokens, 8192 output tokens per turn, 60 actions and 60 HTTP requests |
+| Split | Immediately after all tool outputs from the tenth completed turn; an earlier natural stop may split at its final completed turn |
+| Each reporting arm | Read-only, 4 calls, 80k total tokens, 4096 output tokens per call, 24 retrievals, 12 finding submissions, 300-second wall cap |
+| Validator | Same deterministic validator and frozen source evidence in both arms |
+| Price snapshot | Moonshot AI endpoint: $3 input / $15 output per million tokens, checked against [OpenRouter endpoint metadata](https://openrouter.ai/api/v1/models/moonshotai/kimi-k3/endpoints) on 2026-10-04 |
+
+The configured maximum estimated token cost is **$2.216256 per source prefix
+including both arms**, **$2.216256** for the one-cell pilot, and
+**$106.380288** for all 48 sample cells. The pilot stop is $2.50 and the
+sample stop is $108. These are conservative ceilings derived from the
+input/output token caps and frozen price snapshot; actual usage may be lower.
+The pilot and sample require separate paid-call approval. The pilot is for
+infrastructure feasibility only: both arms must make at least one request,
+both first requests must reconstruct byte for byte, selected endpoint and
+scores must be valid, and no gateway action may occur after the split. Pilot
+outcomes cannot change seeds, model, budget, prompt, or analysis for the
+confirmatory sample.
+
+### Exact continuation semantics
+
+The checkpoint is saved after processing the model output and every tool
+result of the final probe turn, before source validation. It binds the latest
+completed model call's verified request and response artifacts, source event
+sequence/hash, the initial base items, the last provider output items
+(including opaque encrypted reasoning), one ordered function-call output per
+model tool call, and a bounded rendering of the working set. Its event and
+private artifact name policy `m652-post-tool-carry-v1`.
+
+Both arms use the identical read-only reporter instruction, tools, evidence
+index, model, and added allowance. The continuation-context arm prepends the
+saved base items, provider/tool carry, and working-set text before the shared
+evidence index. The fresh arm receives only that index. This tests the exact
+**context carryover policy** under a common reporting role. It does not
+continue the probe's original HTTP-capable instruction or tool schema. The
+auditor reconstructs each arm's entire first provider request from the
+checkpoint and frozen packet, serializes it with the same function used by
+the HTTP adapter, and compares the resulting bytes with the ordered private
+request artifact. It also checks source and branch event hashes, tool/budget
+equality, endpoint selection, finding attribution, and score replay.
+
+The primary analysis uses only source-trace complete-proof roots that the
+probe had not validated before the split. It reports fresh minus continuation
+new distinct roots with seed-pair bootstrap uncertainty, plus invalid-prefix
+flow, discordant roots, patched new false findings, and resource use. A
+natural agent failure before any checkpoint stays in the sample as an
+ineligible source prefix; provider, artifact, validation, and endpoint
+failures stop collection for reconciliation. No interrupted cell is retried
+without reading its preassigned run ID and authoritative event stream.
