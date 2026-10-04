@@ -179,9 +179,11 @@ are complete and frozen. The control's historical architecture comparison
 remains noncausal. The recovery assay shows that extra read-only inference
 can report some proof-capable roots missed by a probe, while refund often
 lacks a complete ordered witness and the recovery estimate is concentrated
-in one seed. An equal-compute integrated-continuation comparison or a second
-range family would be a separately designed study, not a retuning of either
-completed sample.
+in one seed. The proposed [M6.5.2 equal-compute context study](milestone-6.5.2.md)
+and [M6.6 witness-oriented exploration study](milestone-6.6.md) now separate
+proof-to-finding from action-to-proof questions. Both are designs awaiting
+implementation, a frozen costed protocol, and live-call approval; neither
+retunes a completed sample.
 
 ## Known architectural debt
 
