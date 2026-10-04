@@ -7,15 +7,18 @@ import pytest
 
 from offsecgym.experiment.scripted import experiment_hash
 from offsecgym.research.m64_execute import Journal, spec_for_cell, verify_manifest
+from offsecgym.research.m64_matrix import plan_m64_matrix
 
 
 def test_m64_collector_reconstructs_every_feasible_cell() -> None:
     root = Path(__file__).parents[2]
-    manifest = verify_manifest(
-        root,
-        root / "experiments/manifests/m64-v2-worker-primary-1.json",
-        require_source_history=False,  # GitHub Actions checks out only the tip commit.
+    path = root / "experiments/manifests/m64-v2-worker-primary-1.json"
+    manifest = json.loads(path.read_text())
+    assert manifest == json.loads(
+        json.dumps(plan_m64_matrix(root, source_commit=manifest["source_commit"]))
     )
+    with pytest.raises(ValueError, match="source differs|uncommitted changes"):
+        verify_manifest(root, path)
     for cell in manifest["cells"]:
         if cell["policy_feasible"]:
             spec = spec_for_cell(root, manifest, cell)

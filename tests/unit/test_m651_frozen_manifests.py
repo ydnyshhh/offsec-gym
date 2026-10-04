@@ -2,10 +2,12 @@
 
 import hashlib
 import json
+import subprocess
 from pathlib import Path
 
 import pytest
 
+from offsecgym.research import m65_witness_execute
 from offsecgym.research.m65_witness_execute import execute, spec_for_cell, verify_manifest
 from offsecgym.research.m65_witness_matrix import PILOT_PROTOCOL, PROTOCOL
 
@@ -15,9 +17,21 @@ PILOT = ROOT / "experiments/manifests/m651-witness-recovery-pilot-v2.json"
 ORIGINAL_PILOT = ROOT / "experiments/manifests/m651-witness-recovery-pilot-v1.json"
 
 
-def test_frozen_sample_is_new_paired_and_rebuilds_without_outcome_inspection() -> None:
-    sample = verify_manifest(ROOT, MAIN)
-    pilot = verify_manifest(ROOT, PILOT)
+def test_frozen_sample_is_new_paired_and_pinned_to_historical_source() -> None:
+    sample = json.loads(MAIN.read_text())
+    pilot = json.loads(PILOT.read_text())
+    for manifest in (sample, pilot):
+        for path, digest in manifest["source_files"].items():
+            committed = subprocess.run(
+                ["git", "show", f"{manifest['source_commit']}:{path}"],
+                cwd=ROOT,
+                check=True,
+                capture_output=True,
+            ).stdout
+            assert hashlib.sha256(committed).hexdigest() == digest
+    # The historical collector must refuse to run on a later implementation.
+    with pytest.raises(ValueError, match="no longer rebuilds|source differs"):
+        verify_manifest(ROOT, MAIN)
     assert sample["protocol"] == PROTOCOL
     assert pilot["protocol"] == PILOT_PROTOCOL
     assert len(sample["seed_set"]) == 10
@@ -57,7 +71,14 @@ def test_cell_rejects_seed_or_config_drift() -> None:
 
 
 @pytest.mark.asyncio
-async def test_cost_ceiling_stops_before_credentials_or_provider(tmp_path: Path) -> None:
+async def test_cost_ceiling_stops_before_credentials_or_provider(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(
+        m65_witness_execute,
+        "verify_manifest",
+        lambda root, path: json.loads(path.read_text()),
+    )
     with pytest.raises(ValueError, match="cost limit"):
         await execute(
             ROOT,
