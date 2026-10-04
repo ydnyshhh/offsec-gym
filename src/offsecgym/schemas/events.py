@@ -803,6 +803,7 @@ class ProbeCheckpointSaved(TraceEvent):
     checkpoint_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
     latest_model_call_id: UUID
     latest_request_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    continuation_semantics: Literal["m652-post-tool-carry-v1"] = "m652-post-tool-carry-v1"
 
 
 class ReportingBranchStarted(TraceEvent):

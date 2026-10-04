@@ -10,15 +10,23 @@ from uuid import UUID, uuid4
 from pydantic import Field
 
 from offsecgym.interfaces import EventStore
-from offsecgym.providers.artifacts import payload_sha256
+from offsecgym.providers.artifacts import ModelCallArtifacts, payload_sha256
 from offsecgym.runtime.manifests import write_json_atomic
 from offsecgym.schemas.common import StrictModel
-from offsecgym.schemas.events import ModelCallStarted, ProbeCheckpointSaved
+from offsecgym.schemas.events import (
+    ModelCallCompleted,
+    ModelCallStarted,
+    ProbeCheckpointSaved,
+    RunCompleted,
+)
 from offsecgym.storage.reporting_branch import prefix_sha256
+
+CONTINUATION_SEMANTICS = "m652-post-tool-carry-v1"
 
 
 class ProbeCheckpoint(StrictModel):
-    schema_version: str = "1"
+    schema_version: str = "2"
+    continuation_semantics: str = CONTINUATION_SEMANTICS
     checkpoint_id: UUID
     run_id: UUID
     source_sequence: int = Field(gt=0)
@@ -58,6 +66,51 @@ class ProbeCheckpointStore:
         ]
         if len(starts) != 1 or starts[0].input_sha256 != latest_request_sha256:
             raise ValueError("checkpoint model request is not in its source trace")
+        completions = [
+            event
+            for event in trace
+            if isinstance(event, ModelCallCompleted) and event.call_id == latest_model_call_id
+        ]
+        if (
+            len(completions) != 1
+            or completions[0].provider_status != "completed"
+            or completions[0].sequence_number <= starts[0].sequence_number
+            or any(isinstance(event, RunCompleted) for event in trace)
+        ):
+            raise ValueError("checkpoint requires a completed model turn before run closure")
+        artifacts = ModelCallArtifacts(self.root.parent)
+        assert starts[0].request_artifact_id is not None
+        assert completions[0].response_artifact_id is not None
+        assert completions[0].response_sha256 is not None
+        artifacts.read_verified(
+            run_id,
+            latest_model_call_id,
+            "request",
+            starts[0].request_artifact_id,
+            latest_request_sha256,
+        )
+        response = artifacts.read_verified(
+            run_id,
+            latest_model_call_id,
+            "response",
+            completions[0].response_artifact_id,
+            completions[0].response_sha256,
+        )
+        output = response.get("output")
+        if not isinstance(output, list) or carry_items[: len(output)] != output:
+            raise ValueError("checkpoint carry differs from verified model output")
+        call_ids = [
+            item.get("call_id")
+            for item in output
+            if isinstance(item, dict) and item.get("type") == "function_call"
+        ]
+        tool_outputs = carry_items[len(output) :]
+        if (
+            len(tool_outputs) != len(call_ids)
+            or [item.get("call_id") for item in tool_outputs] != call_ids
+            or any(item.get("type") != "function_call_output" for item in tool_outputs)
+        ):
+            raise ValueError("checkpoint post-tool carry is incomplete or reordered")
         checkpoint = ProbeCheckpoint(
             checkpoint_id=uuid4(),
             run_id=run_id,
@@ -65,6 +118,7 @@ class ProbeCheckpointStore:
             source_trace_sha256=prefix_sha256(trace),
             latest_model_call_id=latest_model_call_id,
             latest_request_sha256=latest_request_sha256,
+            continuation_semantics=CONTINUATION_SEMANTICS,
             base_items=tuple(base_items),
             carry_items=tuple(carry_items),
             working_state_text=working_state_text,
@@ -89,6 +143,7 @@ class ProbeCheckpointStore:
             checkpoint_sha256=payload_sha256(payload),
             latest_model_call_id=latest_model_call_id,
             latest_request_sha256=latest_request_sha256,
+            continuation_semantics=CONTINUATION_SEMANTICS,
         )
         return await self.events.append(event)
 
@@ -119,6 +174,8 @@ class ProbeCheckpointStore:
                 checkpoint.source_trace_sha256 != event.source_trace_sha256,
                 checkpoint.latest_model_call_id != event.latest_model_call_id,
                 checkpoint.latest_request_sha256 != event.latest_request_sha256,
+                checkpoint.continuation_semantics != event.continuation_semantics,
+                checkpoint.continuation_semantics != CONTINUATION_SEMANTICS,
             )
         ):
             raise ValueError("checkpoint artifact provenance differs from event")

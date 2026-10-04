@@ -7,7 +7,9 @@ from uuid import UUID
 
 from offsecgym.evaluation import RunEvaluation, evaluate_run, unscored_run
 from offsecgym.providers.artifacts import ModelCallArtifacts, payload_sha256
-from offsecgym.research.m65_reporter import initial_evidence_index
+from offsecgym.providers.base import ModelProvider
+from offsecgym.providers.openai import request_wire_bytes
+from offsecgym.research.m65_reporter import REPORTER_PROMPT, initial_evidence_index, reporter_tools
 from offsecgym.research.m65_witness_packet import build_reporter_bundle
 from offsecgym.research.m652_checkpoint import ProbeCheckpointStore
 from offsecgym.schemas.events import (
@@ -26,6 +28,7 @@ from offsecgym.schemas.events import (
     RunCompleted,
 )
 from offsecgym.schemas.ground_truth import GroundTruthManifest
+from offsecgym.schemas.specs import ModelSpec
 from offsecgym.storage.event_store import PostgresEventStore
 from offsecgym.storage.reporting_branch import ReportingBranchStore, prefix_sha256
 
@@ -57,6 +60,8 @@ async def audit_paired_branches(
     run_id: UUID,
     branch_ids: dict[str, UUID],
     *,
+    provider: ModelProvider,
+    model: ModelSpec,
     expected_endpoint: tuple[str, str] | None = None,
 ) -> dict[str, object]:
     if set(branch_ids) != {"fresh", "continuation"} or len(set(branch_ids.values())) != 2:
@@ -159,8 +164,22 @@ async def audit_paired_branches(
                 first.request_artifact_id,
                 first.request_sha256,
             )
-            if request.get("input") != [*expected_items, expected_index]:
-                raise ValueError("reporting first request did not use the assigned context")
+            reconstructed = provider.prepare_request(
+                model,
+                REPORTER_PROMPT,
+                [*expected_items, expected_index],
+                reporter_tools(),
+                min(
+                    started.budget.max_total_tokens or 0,
+                    started.budget.max_output_tokens_per_call or 0,
+                ),
+            )
+            if request_wire_bytes(request) != request_wire_bytes(reconstructed):
+                raise ValueError(
+                    "reporting first request differs byte for byte from checkpoint reconstruction"
+                )
+            if payload_sha256(request) != first.request_sha256:
+                raise ValueError("reporting first request event digest differs")
             common = {key: value for key, value in request.items() if key != "input"}
             if common_request is None:
                 common_request = common
@@ -178,6 +197,8 @@ async def audit_paired_branches(
             "run_status": ending.status,
             "reporter_reason": finished.reason_code,
             "model_calls": len(calls),
+            "first_request_sha256": calls[0].request_sha256 if calls else None,
+            "first_request_bytes_reconstructed": bool(calls),
             "input_tokens": sum(x.input_tokens for x in completions),
             "output_tokens": sum(x.output_tokens for x in completions),
             "new_finding_ids": tuple(str(x) for x in finished.submitted_finding_ids),

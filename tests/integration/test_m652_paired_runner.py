@@ -14,6 +14,7 @@ import yaml
 from sqlalchemy.ext.asyncio import create_async_engine
 
 from offsecgym.experiment.reporting_context import PairedReportingContextRunner
+from offsecgym.providers.artifacts import ModelCallArtifacts
 from offsecgym.providers.base import ModelTurn, ModelUsage
 from offsecgym.research.m652_audit import audit_paired_branches, replay_branch_score
 from offsecgym.runtime.compose import ComposeRangeRuntime
@@ -28,7 +29,9 @@ from offsecgym.schemas.domain import (
 from offsecgym.schemas.events import (
     ActionCompleted,
     ActionRequested,
+    ModelCallCompleted,
     ModelCallStarted,
+    PrerequisiteBootstrapCompleted,
     RangeStarted,
     ReporterStarted,
     ReportingBranchStarted,
@@ -107,6 +110,18 @@ class QueueProvider:
         )
 
 
+class CompleteProbeProvider(QueueProvider):
+    async def complete(self, request_payload):
+        output = () if len(self.requests) == 1 else (_call(len(self.requests)),)
+        return ModelTurn(
+            response_id=f"response-{len(self.requests)}",
+            status="completed",
+            output=output,
+            usage=ModelUsage(input_tokens=200, output_tokens=100),
+            raw_response={"output": list(output)},
+        )
+
+
 def no_docker_runtime(tmp_path: Path, monkeypatch) -> ComposeRangeRuntime:
     runtime = ComposeRangeRuntime(tmp_path)
 
@@ -139,6 +154,68 @@ def no_docker_runtime(tmp_path: Path, monkeypatch) -> ComposeRangeRuntime:
     monkeypatch.setattr(runtime, "snapshot_metadata", metadata)
     monkeypatch.setattr(runtime, "destroy_instance", status)
     return runtime
+
+
+@pytest.mark.postgres
+async def test_real_probe_agent_saves_reconstructable_post_tool_checkpoint(
+    tmp_path: Path, monkeypatch
+) -> None:
+    url = os.getenv("OFFSECGYM_TEST_DATABASE_URL")
+    if not url:
+        pytest.skip("OFFSECGYM_TEST_DATABASE_URL is not set")
+    engine = create_async_engine(url)
+    try:
+        events = PostgresEventStore(engine)
+        runtime = no_docker_runtime(tmp_path, monkeypatch)
+        provider = CompleteProbeProvider()
+        budget = ReporterBudget(
+            max_total_tokens=20_000,
+            max_model_calls=1,
+            max_output_tokens_per_call=128,
+            max_retrieval_calls=2,
+            max_finding_submissions=2,
+            max_wall_seconds=20,
+        )
+
+        class NoBootstrapRunner(PairedReportingContextRunner):
+            async def _before_agent(self, spec, context, tools):
+                await events.append(
+                    PrerequisiteBootstrapCompleted(
+                        run_id=context.run_id,
+                        actor="controller",
+                        snapshot_hash="0" * 64,
+                        identity_count=0,
+                        workspace_count=0,
+                        document_count=0,
+                        invoice_count=0,
+                        ticket_count=0,
+                        action_count=0,
+                        http_request_count=0,
+                    )
+                )
+
+        runner = NoBootstrapRunner(runtime, events, provider, budget, checkpoint_after_calls=1)
+        spec = _spec().model_copy(
+            update={"budget": _spec().budget.model_copy(update={"max_total_tokens": 120_000})}
+        )
+        outcome = await runner.run(spec)
+        assert outcome.evaluation.score_valid, outcome.failure_reason
+        trace = await events.read_run(outcome.run_id)
+        assert len(provider.requests) == 3, [
+            (event.type, getattr(event, "reason_code", None)) for event in trace[-8:]
+        ]
+        branches = {item.arm: item.branch_id for item in runner.arm_outcomes[outcome.run_id]}
+        audited = await audit_paired_branches(
+            events,
+            tmp_path,
+            outcome.run_id,
+            branches,
+            provider=provider,
+            model=spec.model,
+        )
+        assert all(item["first_request_bytes_reconstructed"] for item in audited["arms"].values())
+    finally:
+        await engine.dispose()
 
 
 @pytest.mark.postgres
@@ -228,6 +305,13 @@ async def test_paired_runner_forks_one_fake_probe_without_live_model_or_http(
                         response_sha256=evidence.response_sha256,
                     )
                 )
+                model_artifacts = ModelCallArtifacts(tmp_path)
+                request_id, request_sha = model_artifacts.write(
+                    context.run_id, call_id, "request", {"input": "probe"}
+                )
+                response_id, response_sha = model_artifacts.write(
+                    context.run_id, call_id, "response", {"output": []}
+                )
                 await events.append(
                     ModelCallStarted(
                         run_id=context.run_id,
@@ -235,17 +319,30 @@ async def test_paired_runner_forks_one_fake_probe_without_live_model_or_http(
                         call_id=call_id,
                         provider="fake",
                         model="fake",
-                        input_sha256="a" * 64,
-                        request_artifact_id=uuid4(),
-                        request_sha256="a" * 64,
+                        input_sha256=request_sha,
+                        request_artifact_id=request_id,
+                        request_sha256=request_sha,
+                    )
+                )
+                await events.append(
+                    ModelCallCompleted(
+                        run_id=context.run_id,
+                        actor="controller",
+                        call_id=call_id,
+                        provider_status="completed",
+                        tool_call_count=0,
+                        input_tokens=10,
+                        output_tokens=5,
+                        response_artifact_id=response_id,
+                        response_sha256=response_sha,
                     )
                 )
                 await self.runner.checkpoints.save(
                     context.run_id,
                     latest_model_call_id=call_id,
-                    latest_request_sha256="a" * 64,
+                    latest_request_sha256=request_sha,
                     base_items=[{"role": "user", "content": "probe"}],
-                    carry_items=[{"role": "assistant", "content": "prior reasoning context"}],
+                    carry_items=[],
                     working_state_text="checked /api/me",
                 )
                 return AgentResult(task_id=task.task_id, status="completed")
@@ -258,7 +355,9 @@ async def test_paired_runner_forks_one_fake_probe_without_live_model_or_http(
                 return FakeProbe(self)
 
         runner = FakeProbeRunner(runtime, events, provider, budget, checkpoint_after_calls=1)
-        result = await runner.run(_spec())
+        assigned_run_id = uuid4()
+        result = await runner.run(_spec(), run_id=assigned_run_id)
+        assert result.run_id == assigned_run_id
         assert result.evaluation.score_valid
         outcomes = runner.arm_outcomes[result.run_id]
         assert {item.arm for item in outcomes} == {"fresh", "continuation"}
@@ -270,9 +369,30 @@ async def test_paired_runner_forks_one_fake_probe_without_live_model_or_http(
             tmp_path,
             result.run_id,
             {item.arm: item.branch_id for item in outcomes},
+            provider=provider,
+            model=_spec().model,
         )
         assert audit["arms"]["fresh"]["model_calls"] == 1
         assert audit["arms"]["continuation"]["model_calls"] == 1
+        assert all(arm["first_request_bytes_reconstructed"] for arm in audit["arms"].values())
+
+        class DriftProvider(QueueProvider):
+            def prepare_request(self, model, instructions, input_items, tools, max_output_tokens):
+                result = super().prepare_request(
+                    model, instructions, input_items, tools, max_output_tokens
+                )
+                result["instructions"] = "changed after collection"
+                return result
+
+        with pytest.raises(ValueError, match="byte for byte"):
+            await audit_paired_branches(
+                events,
+                tmp_path,
+                result.run_id,
+                {item.arm: item.branch_id for item in outcomes},
+                provider=DriftProvider(),
+                model=_spec().model,
+            )
         for item in outcomes:
             branch = ReportingBranchStore(events, item.branch_id, result.run_id)
             trace = await branch.read_run(result.run_id)

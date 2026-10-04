@@ -13,9 +13,16 @@ from test_milestone_3_runner import MemoryEvents
 
 from offsecgym.experiment.reporting_context import PairedReportingContextRunner
 from offsecgym.providers.artifacts import ModelCallArtifacts
+from offsecgym.providers.openai import request_wire_bytes
 from offsecgym.research.m65_witness_packet import ReadOnlyReporterTools, build_reporter_bundle
 from offsecgym.research.m652_checkpoint import ProbeCheckpointStore
-from offsecgym.schemas.events import ModelCallStarted, ProbeCheckpointSaved, RunStarted, parse_event
+from offsecgym.schemas.events import (
+    ModelCallCompleted,
+    ModelCallStarted,
+    ProbeCheckpointSaved,
+    RunStarted,
+    parse_event,
+)
 
 
 @pytest.mark.asyncio
@@ -23,6 +30,13 @@ async def test_checkpoint_round_trip_binds_exact_prefix_and_private_carry(tmp_pa
     run_id, call_id = uuid4(), uuid4()
     events = MemoryEvents()
     await events.append(RunStarted(run_id=run_id, actor="test", experiment_hash="a" * 64))
+    artifacts = ModelCallArtifacts(tmp_path)
+    request_id, request_sha = artifacts.write(run_id, call_id, "request", {"input": "probe"})
+    output = [
+        {"type": "reasoning", "encrypted_content": "opaque"},
+        {"type": "function_call", "call_id": "c1", "name": "http_request", "arguments": "{}"},
+    ]
+    response_id, response_sha = artifacts.write(run_id, call_id, "response", {"output": output})
     await events.append(
         ModelCallStarted(
             run_id=run_id,
@@ -30,26 +44,39 @@ async def test_checkpoint_round_trip_binds_exact_prefix_and_private_carry(tmp_pa
             call_id=call_id,
             provider="fake",
             model="fake",
-            input_sha256="b" * 64,
-            request_artifact_id=uuid4(),
-            request_sha256="b" * 64,
+            input_sha256=request_sha,
+            request_artifact_id=request_id,
+            request_sha256=request_sha,
+        )
+    )
+    await events.append(
+        ModelCallCompleted(
+            run_id=run_id,
+            actor="test",
+            call_id=call_id,
+            provider_status="completed",
+            tool_call_count=1,
+            input_tokens=10,
+            output_tokens=5,
+            response_artifact_id=response_id,
+            response_sha256=response_sha,
         )
     )
     store = ProbeCheckpointStore(events, tmp_path)
     saved = await store.save(
         run_id,
         latest_model_call_id=call_id,
-        latest_request_sha256="b" * 64,
+        latest_request_sha256=request_sha,
         base_items=[{"role": "user", "content": "probe"}],
         carry_items=[
-            {"type": "reasoning", "encrypted_content": "opaque"},
+            *output,
             {"type": "function_call_output", "call_id": "c1", "output": "{}"},
         ],
         working_state_text="recent checked action",
     )
     assert isinstance(parse_event(saved.model_dump(mode="python")), ProbeCheckpointSaved)
     checkpoint = await store.load_latest(run_id)
-    assert checkpoint.source_sequence == 2
+    assert checkpoint.source_sequence == 3
     assert checkpoint.carry_items[0]["encrypted_content"] == "opaque"
     assert PairedReportingContextRunner._continuation_items(checkpoint) == (
         {"role": "user", "content": "probe"},
@@ -105,3 +132,8 @@ def test_model_artifacts_have_separate_branch_namespaces(tmp_path: Path) -> None
     assert right.read_verified(run_id, call_id, "request", right_id, right_sha) == {
         "input": "right"
     }
+    third_call_id = uuid4()
+    ordered_request = {"model": "fake", "instructions": "report", "input": []}
+    third_id, third_sha = left.write(run_id, third_call_id, "request", ordered_request)
+    reconstructed = left.read_verified(run_id, third_call_id, "request", third_id, third_sha)
+    assert request_wire_bytes(reconstructed) == request_wire_bytes(ordered_request)

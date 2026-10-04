@@ -42,6 +42,30 @@ class ReportingArmOutcome:
     reporter_reason: str | None
 
 
+def paired_experiment_hash(
+    spec: ExperimentSpec, reporter_budget: ReporterBudget, checkpoint_after_calls: int
+) -> str:
+    record = {
+        "probe": spec.model_dump(mode="json"),
+        "reporter_budget": reporter_budget.model_dump(mode="json"),
+        "checkpoint_after_calls": checkpoint_after_calls,
+        "version": "m652-paired-context-v1",
+    }
+    return hashlib.sha256(
+        json.dumps(record, sort_keys=True, separators=(",", ":")).encode()
+    ).hexdigest()
+
+
+def arm_order_for_spec(spec: ExperimentSpec) -> tuple[str, str]:
+    order = ("fresh", "continuation")
+    if (
+        hashlib.sha256(f"{spec.seed}:{spec.range.seed}:{spec.range.patched}".encode()).digest()[0]
+        & 1
+    ):
+        return tuple(reversed(order))
+    return order
+
+
 class PairedReportingContextRunner(BootstrappedMonolithicExperimentRunner):
     """Opt-in source probe followed by fresh and authentic-carry reporting arms.
 
@@ -78,15 +102,7 @@ class PairedReportingContextRunner(BootstrappedMonolithicExperimentRunner):
         self.arm_outcomes: dict[UUID, tuple[ReportingArmOutcome, ...]] = {}
 
     def _experiment_hash(self, spec: ExperimentSpec) -> str:
-        record = {
-            "probe": spec.model_dump(mode="json"),
-            "reporter_budget": self.reporter_budget.model_dump(mode="json"),
-            "checkpoint_after_calls": self.checkpoint_after_calls,
-            "version": "m652-paired-context-v1",
-        }
-        return hashlib.sha256(
-            json.dumps(record, sort_keys=True, separators=(",", ":")).encode()
-        ).hexdigest()
+        return paired_experiment_hash(spec, self.reporter_budget, self.checkpoint_after_calls)
 
     def _agent(self, findings_store: BoundFindingSink, spec: ExperimentSpec):
         if spec.model is None or spec.budget.max_model_calls is None:
@@ -153,14 +169,7 @@ class PairedReportingContextRunner(BootstrappedMonolithicExperimentRunner):
             )
             for arm in ("fresh", "continuation")
         }
-        order = ("fresh", "continuation")
-        if (
-            hashlib.sha256(f"{spec.seed}:{spec.range.seed}:{spec.range.patched}".encode()).digest()[
-                0
-            ]
-            & 1
-        ):
-            order = tuple(reversed(order))
+        order = arm_order_for_spec(spec)
         results: dict[str, ReportingArmOutcome] = {}
         for arm in order:
             branch = branches[arm]

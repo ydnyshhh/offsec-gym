@@ -196,10 +196,12 @@ class ScriptedExperimentRunner:
         """Optional bounded stage before validation; ordinary runners do nothing."""
         return None
 
-    async def run(self, spec: ExperimentSpec) -> ScriptedExperimentOutcome:
+    async def run(
+        self, spec: ExperimentSpec, *, run_id: UUID | None = None
+    ) -> ScriptedExperimentOutcome:
         if not self._supported(spec):
             raise ValueError("runner requires a supported deterministic SaaS experiment")
-        run_id = uuid4()
+        run_id = run_id or uuid4()
         instance_id: UUID | None = None
         build_id: UUID | None = None
         agent_result: AgentResult | None = None

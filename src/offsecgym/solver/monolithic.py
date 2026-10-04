@@ -1012,7 +1012,7 @@ class MonolithicSaasAgent:
             ):
                 return AgentResult(
                     task_id=task.task_id,
-                    status="completed",
+                    status="budget_exhausted",
                     observation_ids=tuple(observations),
                     candidate_finding_ids=tuple(submitted),
                 )
