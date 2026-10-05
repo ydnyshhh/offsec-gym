@@ -81,26 +81,28 @@ def project_witness(
         or hypothesis.range_generation != bundle.packet.range_generation
     ):
         raise ValueError("witness hypothesis belongs to another range generation")
-    actions = [
+    state_actions = [
         item
         for item in bundle.packet.actions
         if item.identity_id == hypothesis.identity_id
         and item.route_target_id == hypothesis.object_id
     ]
+    action_object_id = hypothesis.action_object_id or hypothesis.object_id
     reads = [
         (item, value)
-        for item in actions
+        for item in state_actions
         if item.method == "GET" and item.path == hypothesis.before_path
         if (value := _state(bundle, item, hypothesis.state_field, hypothesis.object_id)) is not None
     ]
     transitions = [
         item
-        for item in actions
+        for item in bundle.packet.actions
+        if item.identity_id == hypothesis.identity_id and item.route_target_id == action_object_id
         if item.method == hypothesis.action_method
         and item.path == hypothesis.action_path
         and 200 <= item.http_status < 300
         and not item.truncated
-        and item.response_object_id in (None, hypothesis.object_id)
+        and item.response_object_id in (None, action_object_id)
     ]
     best: WitnessProjection | None = None
     for transition in transitions:
@@ -187,11 +189,14 @@ class EventWitnessLedger:
         action_path: str,
         state_field: str,
         causation_id: UUID,
+        action_object_id: UUID | None = None,
     ) -> WitnessProjection:
-        if str(object_id) not in before_path.split("/") or str(object_id) not in action_path.split(
-            "/"
-        ):
-            raise ValueError("witness paths must address the same exact object UUID")
+        if str(object_id) not in before_path.split("/") or str(
+            action_object_id or object_id
+        ) not in action_path.split("/"):
+            raise ValueError(
+                "witness paths must address the same exact object UUID or declared action object"
+            )
         trace = list(await self.events.read_run(run_id))
         ranges = [item for item in trace if isinstance(item, RangeStarted)]
         if len(ranges) != 1 or ranges[0].range_generation is None:
@@ -201,6 +206,7 @@ class EventWitnessLedger:
                 isinstance(prior, WitnessHypothesisStarted)
                 and prior.identity_id == identity_id
                 and prior.object_id == object_id
+                and prior.action_object_id == action_object_id
                 and prior.action_method == action_method
                 and prior.action_path == action_path
                 and prior.before_path == before_path
@@ -216,6 +222,7 @@ class EventWitnessLedger:
                 witness_id=uuid4(),
                 identity_id=identity_id,
                 object_id=object_id,
+                action_object_id=action_object_id,
                 range_generation=ranges[0].range_generation,
                 before_path=before_path,
                 action_method=action_method,

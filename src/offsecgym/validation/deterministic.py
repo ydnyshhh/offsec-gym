@@ -12,6 +12,7 @@ from uuid import UUID
 from pydantic import ValidationError
 
 from offsecgym.interfaces import EventStore, OracleStore
+from offsecgym.runtime.enterprise import FAMILY as ENTERPRISE_FAMILY
 from offsecgym.runtime.manifests import BuildIntegrityError, StateStore
 from offsecgym.runtime.oracle import OracleBindingError
 from offsecgym.schemas.domain import (
@@ -31,6 +32,7 @@ from offsecgym.schemas.ground_truth import (
     ResponseStatusRequirement,
     StateTransitionRequirement,
 )
+from offsecgym.validation.enterprise import validate_enterprise_proof
 
 
 @dataclass(frozen=True)
@@ -119,6 +121,24 @@ class DeterministicValidator:
             return verdict("rejected", "oracle_context_mismatch")
         except (BuildIntegrityError, OSError, ValueError, TypeError):
             return verdict("inconclusive", "validation_infrastructure_failed")
+        if build.spec.family == ENTERPRISE_FAMILY:
+            matches = [
+                prop
+                for prop in oracle.properties
+                if prop.family == finding.family and prop.expectation == finding.security_property
+            ]
+            if len(matches) != 1:
+                return verdict("rejected", "property_unmatched")
+            prop = matches[0]
+            reason = validate_enterprise_proof(finding, prop, actions, fixture)
+            if reason:
+                return verdict("rejected", reason)
+            return verdict(
+                "validated",
+                "temporal_proof_confirmed",
+                matched_property_id=prop.property_id,
+                matched_root_cause_id=prop.root_cause_id,
+            )
         matches = [
             prop
             for prop in oracle.properties

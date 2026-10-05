@@ -192,6 +192,32 @@ def test_complete_witness_has_exact_ordered_gateway_citations() -> None:
     assert parse_event(hypothesis.model_dump(mode="python")) == hypothesis
 
 
+def test_cross_object_transition_keeps_state_object_explicit() -> None:
+    hypothesis, bundle = _case()
+    change_id = uuid4()
+    old_action = bundle.packet.actions[1]
+    new_path = f"/api/changes/{change_id}/deploy"
+    replacement = old_action.model_copy(
+        update={
+            "path": new_path,
+            "route_target_id": change_id,
+            "response_object_id": change_id,
+        }
+    )
+    packet = bundle.packet.model_copy(
+        update={"actions": (bundle.packet.actions[0], replacement, bundle.packet.actions[2])}
+    )
+    cross_object = hypothesis.model_copy(
+        update={"action_object_id": change_id, "action_path": new_path}
+    )
+    assert project_witness(
+        cross_object, ReporterEvidenceBundle(packet, bundle.by_action)
+    ).status == ("complete")
+    assert project_witness(hypothesis, ReporterEvidenceBundle(packet, bundle.by_action)).status == (
+        "action_missing"
+    )
+
+
 @pytest.mark.parametrize(
     ("defect", "status"),
     [

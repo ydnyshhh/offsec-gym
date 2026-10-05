@@ -177,6 +177,7 @@ class EventWorldState:
                 "contains_document",
                 "contains_invoice",
                 "contains_ticket",
+                "has_role_in_project",
             }
             peers = [
                 item

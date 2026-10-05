@@ -78,6 +78,8 @@ class PrerequisiteBootstrapCompleted(TraceEvent):
     action_count: int = Field(ge=0)
     http_request_count: int = Field(ge=0)
     model_call_count: Literal[0] = 0
+    range_family: str = "saas"
+    entity_counts: dict[str, int] = Field(default_factory=dict)
 
 
 class ActionRequested(TraceEvent):
@@ -827,6 +829,7 @@ class WitnessHypothesisStarted(TraceEvent):
     witness_id: UUID
     identity_id: UUID
     object_id: UUID
+    action_object_id: UUID | None = None
     range_generation: int = Field(ge=0)
     before_path: str = Field(min_length=1, max_length=2048)
     action_method: Literal["POST", "PUT", "PATCH", "DELETE"]

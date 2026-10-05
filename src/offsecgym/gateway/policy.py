@@ -38,7 +38,7 @@ def scope_reason(
             return "method_not_allowed"
         if action.identity_id is not None or action.json_body is not None:
             return "invalid_request"
-    elif family == "saas":
+    elif family in {"saas", "enterprise_change_control_v1"}:
         if action.method not in {"GET", "POST"}:
             return "method_not_allowed"
         if urlsplit(action.path).path == "/api/login":

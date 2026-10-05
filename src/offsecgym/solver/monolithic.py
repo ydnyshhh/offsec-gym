@@ -211,6 +211,7 @@ class TaskBlockedArgs(StrictModel):
 class StartWitnessArgs(StrictModel):
     identity_id: UUID
     object_id: UUID
+    action_object_id: UUID | None = None
     before_path: str = Field(min_length=1, max_length=2048)
     action_method: Literal["POST", "PUT", "PATCH", "DELETE"]
     action_path: str = Field(min_length=1, max_length=2048)
@@ -1242,6 +1243,7 @@ class MonolithicSaasAgent:
                     run_id,
                     identity_id=args.identity_id,
                     object_id=args.object_id,
+                    action_object_id=args.action_object_id,
                     before_path=args.before_path,
                     action_method=args.action_method,
                     action_path=args.action_path,
