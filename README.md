@@ -11,6 +11,11 @@ designs on the same task.
 The central question is: **with the same model, target, visibility, and compute
 budget, how does the agent's memory or orchestration change what it finds?**
 
+The platform also includes [Range B](docs/enterprise-change-control-range.md),
+an isolated enterprise change-control system with scoped roles, approvals,
+queued deployments, and three state-changing security roots. Its local scripted
+test checks the range and validators; no model benchmark has been run on it.
+
 ## What an experiment looks like
 
 The main range is a fictional multi-tenant SaaS application. Its vulnerable

@@ -2,6 +2,13 @@
 
 ## Implemented
 
+- Range B enterprise change-control v1: deterministic multi-service synthetic
+  fixture, independently patchable self-approval/stale-role/cancelled-job roots,
+  isolated Compose services, gateway and WorldState integration, bounded
+  enterprise bootstrap, ordered hidden validators, scripted end-to-end test,
+  cross-object witness support, and read-only research metrics. No live model
+  run or M7 result is claimed; see [Range B](enterprise-change-control-range.md).
+
 - Python package, lockfile, schema and interface foundations, CLI spec validation.
 - Typed initial trace events and PostgreSQL append/read store with first migration.
 - Architecture, safety, schema, validation, evaluation, and research documents.
