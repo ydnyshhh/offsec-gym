@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import subprocess
 from pathlib import Path
 from uuid import UUID
 
@@ -137,6 +138,11 @@ def extract(
     state_dir: Path,
 ) -> dict[str, object]:
     manifest = json.loads(manifest_path.read_text())
+    head = subprocess.check_output(
+        ["git", "rev-parse", "HEAD"], cwd=Path(__file__).resolve().parents[1], text=True
+    ).strip()
+    if head != manifest["protocol_commit"]:
+        raise ValueError("offline stage extraction requires the exact protocol_commit checkout")
     cells = [cell for cell in manifest["cells"] if cell["cell_id"] == cell_id]
     if len(cells) != 1:
         raise ValueError("pilot cell ID is absent or duplicated")

@@ -12,7 +12,6 @@ from pathlib import Path
 import yaml
 
 from offsecgym.experiment.scripted import experiment_hash
-from offsecgym.research.m651_seed_selection import EXPLICIT_EXCLUSIONS, _walk_seeds
 from offsecgym.runtime.enterprise import COMPILER_VERSION as ENTERPRISE_COMPILER_VERSION
 from offsecgym.runtime.enterprise import FAMILY as ENTERPRISE_FAMILY
 from offsecgym.runtime.saas import SAAS_V2_COMPILER_VERSION
@@ -27,6 +26,7 @@ CONFIGS = {
     ENTERPRISE_FAMILY: "experiments/configs/m66-pilot-range-b.yaml",
 }
 PINNED_SEEDS = {"saas": 124501, ENTERPRISE_FAMILY: 704929}
+EXCLUSION_REGISTRY = "experiments/manifests/m66-prior-seed-exclusions-v1.json"
 SOURCE_PATHS = {
     "model_policy": ("src/offsecgym/solver/monolithic.py",),
     "range_surface": ("src/offsecgym/solver/range_surface.py",),
@@ -40,6 +40,13 @@ ANALYSIS_PATHS = (
     "src/offsecgym/research/m66_pilot_analysis.py",
     "src/offsecgym/research/m66_analysis.py",
     "research_ops/m66_extract_stages.py",
+)
+PROTOCOL_PATHS = (
+    *ANALYSIS_PATHS,
+    "src/offsecgym/research/m66_pilot_protocol.py",
+    "docs/diagnostics/m66-live-pilot-preflight.md",
+    EXCLUSION_REGISTRY,
+    *CONFIGS.values(),
 )
 REQUESTED_MODEL = "moonshotai/kimi-k3"
 SELECTED_REVISION = "moonshotai/kimi-k3-20260715"
@@ -68,36 +75,23 @@ def arm_order(family: str, variant: str) -> tuple[str, str]:
 
 
 def historical_exclusions(root: Path) -> set[int]:
-    """Exclude prior seeds while ignoring this pilot's own frozen config/manifest."""
-    excluded = set(EXPLICIT_EXCLUSIONS) | set(range(100))
-    for folder in (
-        root / "experiments" / "manifests",
-        root / "experiments" / "configs",
-        root / "docs" / "diagnostics",
-        root / ".offsecgym" / "diagnostics",
+    """Read the versioned selection-time snapshot, never mutable local diagnostics."""
+    registry = json.loads((root / EXCLUSION_REGISTRY).read_text())
+    if (
+        registry.get("schema_version") != "1"
+        or registry.get("protocol") != PROTOCOL
+        or registry.get("registry") != "prior_seed_exclusions"
     ):
-        if not folder.exists():
-            continue
-        for path in sorted(folder.rglob("*")):
-            if (
-                not path.is_file()
-                or path.name.startswith("m66-pilot-")
-                or path.suffix not in {".json", ".jsonl", ".yaml", ".yml"}
-                or path.stat().st_size > 2_000_000
-            ):
-                continue
-            if path.suffix == ".jsonl":
-                for line in path.read_text().splitlines():
-                    if line.strip():
-                        excluded.update(_walk_seeds(json.loads(line)))
-                continue
-            value = (
-                json.loads(path.read_text())
-                if path.suffix == ".json"
-                else yaml.safe_load(path.read_text())
-            )
-            excluded.update(_walk_seeds(value))
-    return excluded
+        raise ValueError("pilot seed exclusion registry identity differs")
+    seeds = registry.get("excluded_seeds")
+    if (
+        not isinstance(seeds, list)
+        or any(type(seed) is not int or seed < 0 for seed in seeds)
+        or seeds != sorted(set(seeds))
+        or not set(range(100)) <= set(seeds)
+    ):
+        raise ValueError("pilot seed exclusion registry is invalid or incomplete")
+    return set(seeds)
 
 
 def _file_bundle(root: Path, paths: tuple[str, ...]) -> dict[str, object]:
@@ -111,9 +105,35 @@ def _source_file(root: Path, source_commit: str, path: str) -> bytes:
     )
 
 
-def plan_pilot(root: Path, *, source_commit: str, price_checked_at: str) -> dict[str, object]:
-    if len(source_commit) != 40 or any(c not in "0123456789abcdef" for c in source_commit):
-        raise ValueError("source_commit must be one immutable full SHA")
+def _full_commit(value: str, label: str) -> None:
+    if len(value) != 40 or any(c not in "0123456789abcdef" for c in value):
+        raise ValueError(f"{label} must be one immutable full SHA")
+
+
+def _require_protocol_checkout(root: Path, source_commit: str, protocol_commit: str) -> None:
+    head = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=root, text=True).strip()
+    if head != protocol_commit:
+        raise ValueError("offline protocol generation requires the exact protocol_commit checkout")
+    ancestry = subprocess.run(
+        ["git", "merge-base", "--is-ancestor", source_commit, protocol_commit],
+        cwd=root,
+        check=False,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+    )
+    if ancestry.returncode != 0:
+        raise ValueError("source_commit must be an ancestor of protocol_commit")
+    for path in PROTOCOL_PATHS:
+        if _source_file(root, protocol_commit, path) != (root / path).read_bytes():
+            raise ValueError(f"protocol file differs from pinned protocol_commit: {path}")
+
+
+def plan_pilot(
+    root: Path, *, source_commit: str, protocol_commit: str, price_checked_at: str
+) -> dict[str, object]:
+    _full_commit(source_commit, "source_commit")
+    _full_commit(protocol_commit, "protocol_commit")
+    _require_protocol_checkout(root, source_commit, protocol_commit)
     checked = datetime.fromisoformat(price_checked_at.replace("Z", "+00:00"))
     if checked.utcoffset() is None:
         raise ValueError("price check needs a timezone")
@@ -123,6 +143,7 @@ def plan_pilot(root: Path, *, source_commit: str, price_checked_at: str) -> dict
     ):
         raise ValueError("pilot seed derivation differs from frozen selection")
     excluded = historical_exclusions(root)
+    exclusion_registry_sha256 = _sha256((root / EXCLUSION_REGISTRY).read_bytes())
     if set(PINNED_SEEDS.values()) & excluded or len(set(PINNED_SEEDS.values())) != 2:
         raise ValueError("pilot seed collides with prior study use")
     sources = {}
@@ -210,6 +231,7 @@ def plan_pilot(root: Path, *, source_commit: str, price_checked_at: str) -> dict
         "schema_version": "1",
         "status": "frozen_unrun",
         "source_commit": source_commit,
+        "protocol_commit": protocol_commit,
         "range_a_compiler_version": SAAS_V2_COMPILER_VERSION,
         "range_b_compiler_version": ENTERPRISE_COMPILER_VERSION,
         "range_b_qualification_bundle_sha256": qualification["source_bundle_sha256"],
@@ -231,6 +253,8 @@ def plan_pilot(root: Path, *, source_commit: str, price_checked_at: str) -> dict
             "reason": "m66_live_pilot",
             "prior_exclusion_count": len(excluded),
             "prior_exclusion_sha256": _sha256(_canonical(sorted(excluded))),
+            "prior_exclusion_registry_path": EXCLUSION_REGISTRY,
+            "prior_exclusion_registry_sha256": exclusion_registry_sha256,
             "fixture_inspection_before_selection": False,
         },
         "model_request": {
@@ -267,15 +291,18 @@ def main() -> None:
     parser.add_argument("output", type=Path)
     parser.add_argument("--repository-root", type=Path, default=Path.cwd())
     parser.add_argument("--source-commit", required=True)
+    parser.add_argument("--protocol-commit", required=True)
     parser.add_argument("--price-checked-at", required=True)
     args = parser.parse_args()
     result = plan_pilot(
         args.repository_root,
         source_commit=args.source_commit,
+        protocol_commit=args.protocol_commit,
         price_checked_at=args.price_checked_at,
     )
     args.output.parent.mkdir(parents=True, exist_ok=True)
-    args.output.write_text(json.dumps(result, indent=2, sort_keys=True) + "\n")
+    with args.output.open("x", encoding="utf-8") as stream:
+        stream.write(json.dumps(result, indent=2, sort_keys=True) + "\n")
 
 
 if __name__ == "__main__":

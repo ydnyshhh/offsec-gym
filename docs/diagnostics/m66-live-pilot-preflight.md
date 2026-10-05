@@ -11,18 +11,21 @@ sample. The confirmatory witness-completion estimand is specified separately
 in the M6.6 analysis module; this pilot does not estimate it.
 
 The source boundary is the exact merge commit of PR #3 after its exact-head CI
-passes. The manifest pins that immutable commit and independent SHA-256 hashes
-for the model policy, tool schemas, range surface, witness policy, pair runner,
+passes. The protocol boundary is the exact merge commit of PR #4 after its own
+exact-head CI passes. The manifest pins both immutable commits and independent
+SHA-256 hashes for the model policy, tool schemas, range surface, witness policy, pair runner,
 and trace analysis. Range B's existing qualification hash certifies mechanics,
 not the model-facing policy. A changed prompt, tool, witness ledger, validator,
 bootstrap, range, or budget requires a new protocol version; the v1 record is
 never overwritten. No paid pilot calls are authorized by this preflight.
 
 Range B build and pair identifiers incorporate the checkout's Git commit.
-Therefore model collection must execute from the pinned merge-commit checkout,
-not from this later protocol or analysis commit. Offline analysis may run from
-the protocol commit against verified artifacts. The collector must record and
-verify the build ID, pair ID, source commit, and fixture binding for each cell.
+Therefore model collection must execute from the pinned `source_commit` checkout,
+not from this later protocol or analysis commit. Offline stage extraction must
+execute from the pinned `protocol_commit` checkout, which also binds its
+transitive imports. The manifest generator verifies this checkout and refuses
+to overwrite an existing manifest. The collector must record and verify the
+build ID, pair ID, source commit, and fixture binding for each cell.
 
 ## Matrix, seeds, and arm order
 
@@ -30,7 +33,10 @@ The selected seeds are Range A **124501** and Range B **704929**. They were
 derived, before either fixture was generated or inspected, by taking the first
 eight bytes of SHA-256 of `m66-pilot-range-a-v1|0` or
 `m66-pilot-range-b-v1|0`, reducing modulo 800000, and adding 100000. Prior
-study seeds were excluded. Both seeds are permanently reserved as
+study seeds were excluded using the checked-in, versioned
+`experiments/manifests/m66-prior-seed-exclusions-v1.json` snapshot. The pilot
+manifest records its file hash and canonical seed-set hash; regeneration never
+scans mutable `.offsecgym` files. Both seeds are permanently reserved as
 `m66_live_pilot` and must not enter confirmatory collection.
 
 For each family, run one vulnerable and one fully patched build; for each
@@ -47,7 +53,7 @@ pilot. Arm order is derived from the low bit of the first SHA-256 byte of
 
 The eight exact cells, their experiment hashes, seed exclusion record, source
 hashes, and price snapshot are serialized in
-`experiments/manifests/m66-pilot-v1.json`. The manifest generator refuses
+`experiments/manifests/m66-pilot-v1.json` after both PRs merge. The manifest generator refuses
 source drift, seed collisions, changed base tool schemas, or changed budget and
 model policy. Cell failures stay in their planned position; there is no retry
 or replacement based on observed results.
@@ -76,6 +82,12 @@ between arms within a family/build. The independent cumulative estimated
 model-token stop is $15, above the all-output worst case of $14.40 at the
 recorded $3/$15 per million input/output tokens. Bootstrap actions, HTTP
 requests, and time must be reported separately.
+
+The frozen manifest is a specification, not spending authorization. After its
+SHA-256 is recorded, paid collection requires a separate user-approved artifact
+containing `protocol`, `manifest_sha256`, `approved_at`, `cost_ceiling_usd`, and
+`approved_for_paid_calls: true`. That artifact must not rewrite the manifest's
+`paid_model_calls_authorized: false` field. Until then, no pilot model call runs.
 
 ## Frozen offline stage extraction
 

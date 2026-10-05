@@ -19,13 +19,17 @@ def _source_commit() -> str:
 
 def test_pilot_manifest_is_exactly_eight_balanced_excluded_cells() -> None:
     manifest = protocol.plan_pilot(
-        ROOT, source_commit=_source_commit(), price_checked_at="2026-10-05T20:05:00Z"
+        ROOT,
+        source_commit=_source_commit(),
+        protocol_commit=_source_commit(),
+        price_checked_at="2026-10-05T20:05:00Z",
     )
     cells = manifest["cells"]
     assert len(cells) == len({cell["cell_id"] for cell in cells}) == 8
     assert manifest["seed_selection"]["excluded_from_confirmatory_sample"] is True
     assert manifest["seed_selection"]["fixture_inspection_before_selection"] is False
     assert manifest["paid_model_calls_authorized"] is False
+    assert manifest["protocol_commit"] == _source_commit()
     assert manifest["maximum_configured_estimated_cost_usd"] == 14.4
     assert {cell["seed"] for cell in cells} == {124501, 704929}
     assert {cell["range_family"] for cell in cells} == {"saas", ENTERPRISE_FAMILY}
@@ -77,12 +81,39 @@ def test_pilot_manifest_rejects_source_drift(monkeypatch: pytest.MonkeyPatch) ->
     monkeypatch.setattr(protocol, "_source_file", changed)
     with pytest.raises(ValueError, match="model_policy differs from pinned source commit"):
         protocol.plan_pilot(
-            ROOT, source_commit=_source_commit(), price_checked_at="2026-10-05T20:05:00Z"
+            ROOT,
+            source_commit=_source_commit(),
+            protocol_commit=_source_commit(),
+            price_checked_at="2026-10-05T20:05:00Z",
         )
 
 
 def test_pilot_manifest_rejects_unusable_price_timestamp() -> None:
     with pytest.raises(ValueError, match="timezone"):
         protocol.plan_pilot(
-            ROOT, source_commit=_source_commit(), price_checked_at="2026-10-05T20:05:00"
+            ROOT,
+            source_commit=_source_commit(),
+            protocol_commit=_source_commit(),
+            price_checked_at="2026-10-05T20:05:00",
+        )
+
+
+def test_seed_registry_ignores_machine_local_diagnostics(tmp_path: Path) -> None:
+    registry = tmp_path / protocol.EXCLUSION_REGISTRY
+    registry.parent.mkdir(parents=True)
+    registry.write_bytes((ROOT / protocol.EXCLUSION_REGISTRY).read_bytes())
+    local = tmp_path / ".offsecgym" / "diagnostics"
+    local.mkdir(parents=True)
+    (local / "new-cell.json").write_text('{"seed":124501}')
+    assert protocol.historical_exclusions(tmp_path) == protocol.historical_exclusions(ROOT)
+    assert 124501 not in protocol.historical_exclusions(tmp_path)
+
+
+def test_pilot_manifest_rejects_wrong_protocol_checkout() -> None:
+    with pytest.raises(ValueError, match="exact protocol_commit checkout"):
+        protocol.plan_pilot(
+            ROOT,
+            source_commit=_source_commit(),
+            protocol_commit="0" * 40,
+            price_checked_at="2026-10-05T20:05:00Z",
         )
