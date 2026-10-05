@@ -28,21 +28,43 @@ false findings. The bootstrap snapshot matched the worker protocol for every
 seed and patch state. The comparison remains historical rather than a new
 held-out, concurrently randomized architecture test.
 
+The separate [M6.5.1 witness-recovery assay](diagnostics/m651-witness-recovery-v2-results.md)
+completed 20 new paired cells. A fresh read-only reporter recovered four of
+nine proof-capable roots missed by the integrated probe, but all four came
+from one seed and the seed-bootstrap interval spans 0%–100%. The reporter
+used additional compute, made many same-root submissions, and sometimes
+could not reach a later call because its context exceeded preflight budget.
+For refund, the probe often executed the unauthorized transition but rarely
+constructed a complete ordered before/action/after witness. This assay is
+frozen; its failed v1 pilot and bounded v2 results remain separate records.
+
+The [M6.5.2 reporting-context study](diagnostics/m652-reporting-context-v1-results.md)
+completed 48 cells on 24 new seed pairs after a separate feasibility pilot.
+From the same frozen probe prefixes, fresh reporting recovered 11/19
+proof-eligible missed roots versus 15/19 for continued context. The
+fresh-minus-continuation paired interval spans −62.5 to +8.3 points; no
+winner is established. Eleven prefixes lacked both valid reporting arms,
+including two unscored provider failures. Post-start, versioned no-retry
+attrition amendments and possible nonrandom missingness limit the
+conditional estimate. The final PostgreSQL postcheck replayed all scores,
+traces, and the predeclared analysis.
+
 ## Next questions
 
-1. On new held-out seeds, test the conversion from trusted action evidence to
-   finding submission. Start with a read-only reporter recovery assay, then
-   predeclare an equal-compute comparison if recovery justifies it. Do not
-   interpret extra-inference recovery as a free performance improvement.
-2. Version the per-root `Ready → Admitted → Executed → Trace proof → Submitted
-   → Validated` ledger prospectively. Report denominators and transition
-   failures by vulnerability type, with a separate refund/state-transition
-   analysis and patched false-finding checks.
-3. After those tests, add a second range family with a different dependency
-   structure to assess whether the orchestration observations generalize.
+1. [M6.6](milestone-6.6.md) should test a generic, event-backed
+   before/action/after witness ledger against the same exploration policy
+   without that scaffold. This targets successful-action-to-complete-proof
+   conversion, especially for temporal authorization tests. Keep the
+   intervention oracle-free and include patched false-finding checks. The
+   event-derived ledger and policy runner are implemented; a full paired
+   fake-range parity test and frozen collection protocol remain.
+2. Add a second state-changing range family before claiming the witness
+   mechanism generalizes beyond the current synthetic SaaS workflow.
 
 Keep model, bootstrap, validator, range visibility, budget, provider endpoint,
 and stopping rules explicit in every new manifest. Preserve distinct root
 recall, duplicate submissions, false findings, latency, token/cost use, and
-score-invalid failures separately. No new model collection starts without a
-costed, frozen protocol.
+score-invalid failures separately. M6.6 remains a design, not an approved
+model collection. No new collection starts without a costed, frozen
+protocol and approval. The completed M6.5.2 dataset remains separate from
+the earlier M6.4 and M6.5 collections.

@@ -7,7 +7,9 @@ from pathlib import Path
 
 import pytest
 
+from offsecgym.research import m65_monolithic_execute
 from offsecgym.research.m65_monolithic_execute import execute, spec_for_cell, verify_manifest
+from offsecgym.research.m65_monolithic_matrix import plan_m65_monolithic_matrix
 
 
 def _manifest_path() -> Path:
@@ -18,7 +20,12 @@ def _manifest_path() -> Path:
 
 def test_m65_collector_reconstructs_pinned_control_cells(tmp_path: Path) -> None:
     root = Path(__file__).parents[2]
-    manifest = verify_manifest(root, _manifest_path(), require_source_history=False)
+    manifest = json.loads(_manifest_path().read_text())
+    assert manifest == json.loads(
+        json.dumps(plan_m65_monolithic_matrix(root, source_commit=manifest["source_commit"]))
+    )
+    with pytest.raises(ValueError, match="source differs|uncommitted changes"):
+        verify_manifest(root, _manifest_path())
     assert manifest["planned_live_cells"] == 100
     for cell in manifest["cells"]:
         spec = spec_for_cell(root, manifest, cell)
@@ -35,8 +42,17 @@ def test_m65_collector_reconstructs_pinned_control_cells(tmp_path: Path) -> None
 
 
 @pytest.mark.asyncio
-async def test_m65_collector_checks_cost_and_cell_limit_before_provider(tmp_path: Path) -> None:
+async def test_m65_collector_checks_cost_and_cell_limit_before_provider(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     root = Path(__file__).parents[2]
+    # The historical source-history gate is exercised separately; test these
+    # early argument checks even when this checkout contains later research.
+    monkeypatch.setattr(
+        m65_monolithic_execute,
+        "verify_manifest",
+        lambda root, path: json.loads(path.read_text()),
+    )
     args = (
         root,
         _manifest_path(),

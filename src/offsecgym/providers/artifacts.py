@@ -4,12 +4,28 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import stat
 from pathlib import Path
 from typing import Literal
 from uuid import UUID, uuid4
 
 from offsecgym.runtime.manifests import write_json_atomic
+
+
+def _write_ordered_json_atomic(path: Path, payload: dict[str, object]) -> None:
+    """Keep request key order so its exact provider wire bytes can be replayed."""
+    temporary = path.with_name(f".{path.name}.{uuid4().hex}.tmp")
+    try:
+        descriptor = os.open(temporary, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+        with os.fdopen(descriptor, "w", encoding="utf-8") as stream:
+            json.dump(payload, stream, indent=2, ensure_ascii=False, allow_nan=False)
+            stream.write("\n")
+            stream.flush()
+            os.fsync(stream.fileno())
+        os.replace(temporary, path)
+    finally:
+        temporary.unlink(missing_ok=True)
 
 
 def payload_sha256(payload: dict[str, object]) -> str:
@@ -20,8 +36,11 @@ def payload_sha256(payload: dict[str, object]) -> str:
 
 
 class ModelCallArtifacts:
-    def __init__(self, state_root: Path) -> None:
-        self.root = state_root / "model_calls"
+    def __init__(self, state_root: Path, *, branch_id: UUID | None = None) -> None:
+        self.base_root = state_root / "model_calls"
+        self.root = self.base_root
+        if branch_id is not None:
+            self.root = self.root / "branches" / branch_id.hex
 
     def _path(self, run_id: UUID, call_id: UUID, kind: Literal["request", "response"]) -> Path:
         return self.root / run_id.hex / call_id.hex / f"{kind}.json"
@@ -34,7 +53,12 @@ class ModelCallArtifacts:
         payload: dict[str, object],
     ) -> tuple[UUID, str]:
         path = self._path(run_id, call_id, kind)
-        for directory in (self.root, path.parent.parent, path.parent):
+        directories = (
+            [self.base_root, self.base_root / "branches", self.root]
+            if self.root != self.base_root
+            else [self.root]
+        )
+        for directory in (*directories, path.parent.parent, path.parent):
             directory.mkdir(mode=0o700, exist_ok=True)
             if directory.is_symlink() or stat.S_IMODE(directory.stat().st_mode) & 0o077:
                 raise OSError(f"model artifact directory is not private: {directory}")
@@ -42,16 +66,17 @@ class ModelCallArtifacts:
             raise FileExistsError(f"model artifact already exists: {path}")
         artifact_id = uuid4()
         digest = payload_sha256(payload)
-        write_json_atomic(
-            path,
-            {
-                "artifact_id": str(artifact_id),
-                "run_id": str(run_id),
-                "call_id": str(call_id),
-                "kind": kind,
-                "payload": payload,
-            },
-        )
+        record = {
+            "artifact_id": str(artifact_id),
+            "run_id": str(run_id),
+            "call_id": str(call_id),
+            "kind": kind,
+            "payload": payload,
+        }
+        if self.root != self.base_root and kind == "request":
+            _write_ordered_json_atomic(path, record)
+        else:
+            write_json_atomic(path, record)
         if stat.S_IMODE(path.stat().st_mode) != 0o600:
             raise OSError(f"model artifact is not private: {path}")
         return artifact_id, digest

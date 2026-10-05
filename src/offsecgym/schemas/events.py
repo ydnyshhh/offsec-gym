@@ -11,7 +11,7 @@ from pydantic import Field, TypeAdapter, field_validator, model_validator
 from offsecgym.schemas.common import StrictModel, new_id
 from offsecgym.schemas.domain import CandidateFinding, CoverageClaim, ValidationResult, WorldFact
 from offsecgym.schemas.scheduler import TaskBudgetRequest, TaskState
-from offsecgym.schemas.specs import BootstrapBudget, Budget
+from offsecgym.schemas.specs import BootstrapBudget, Budget, ReporterBudget
 from offsecgym.schemas.workers import WorkerTaskPacket
 
 
@@ -738,6 +738,102 @@ class FindingValidated(TraceEvent):
         return self
 
 
+class ReporterStarted(TraceEvent):
+    """Boundary between frozen probing and the read-only reporting stage."""
+
+    type: Literal["reporter_started"] = "reporter_started"
+    reporter_id: UUID
+    task_id: UUID
+    packet_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    source_trace_sha256: str | None = Field(default=None, pattern=r"^[0-9a-f]{64}$")
+    source_build_id: UUID | None = None
+    budget: ReporterBudget
+    original_finding_ids: tuple[UUID, ...] = ()
+
+    @model_validator(mode="after")
+    def distinct_originals(self) -> ReporterStarted:
+        if len(set(self.original_finding_ids)) != len(self.original_finding_ids):
+            raise ValueError("reporter original finding IDs must be distinct")
+        return self
+
+
+class ReporterFinished(TraceEvent):
+    type: Literal["reporter_finished"] = "reporter_finished"
+    reporter_id: UUID
+    task_id: UUID
+    status: Literal["completed", "budget_exhausted", "failed", "provider_failed"]
+    submitted_finding_ids: tuple[UUID, ...] = ()
+    evidence_lookup_action_ids: tuple[UUID, ...] = ()
+    reason_code: str | None = None
+
+    @model_validator(mode="after")
+    def distinct_outputs(self) -> ReporterFinished:
+        if len(set(self.submitted_finding_ids)) != len(self.submitted_finding_ids):
+            raise ValueError("reporter submitted finding IDs must be distinct")
+        return self
+
+
+class ReporterEvidenceRetrieved(TraceEvent):
+    type: Literal["reporter_evidence_retrieved"] = "reporter_evidence_retrieved"
+    reporter_id: UUID
+    task_id: UUID
+    model_call_id: UUID
+    tool_call_id: str = Field(min_length=1)
+    lookup_kind: Literal["evidence", "entity", "search"]
+    lookup_key_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    result_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+
+
+class ReporterFindingSubmitted(TraceEvent):
+    type: Literal["reporter_finding_submitted"] = "reporter_finding_submitted"
+    reporter_id: UUID
+    task_id: UUID
+    finding_id: UUID
+    source_probe_run_id: UUID
+    source_evidence_ids: tuple[UUID, ...] = Field(min_length=1)
+
+
+class ProbeCheckpointSaved(TraceEvent):
+    """Private post-tool context snapshot for a future paired reporting split."""
+
+    type: Literal["probe_checkpoint_saved"] = "probe_checkpoint_saved"
+    checkpoint_id: UUID
+    source_sequence: int = Field(gt=0)
+    source_trace_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    checkpoint_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    latest_model_call_id: UUID
+    latest_request_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    continuation_semantics: Literal["m652-post-tool-carry-v1"] = "m652-post-tool-carry-v1"
+
+
+class ReportingBranchStarted(TraceEvent):
+    type: Literal["reporting_branch_started"] = "reporting_branch_started"
+    branch_id: UUID
+    arm: Literal["fresh", "continuation"]
+    checkpoint_id: UUID
+    source_trace_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    initial_context_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+
+
+class ReportingPrefixRejected(TraceEvent):
+    type: Literal["reporting_prefix_rejected"] = "reporting_prefix_rejected"
+    reason_code: str = Field(min_length=1, max_length=128)
+
+
+class WitnessHypothesisStarted(TraceEvent):
+    """Agent-proposed temporal hypothesis; it never encodes oracle truth."""
+
+    type: Literal["witness_hypothesis_started"] = "witness_hypothesis_started"
+    witness_id: UUID
+    identity_id: UUID
+    object_id: UUID
+    range_generation: int = Field(ge=0)
+    before_path: str = Field(min_length=1, max_length=2048)
+    action_method: Literal["POST", "PUT", "PATCH", "DELETE"]
+    action_path: str = Field(min_length=1, max_length=2048)
+    state_field: str = Field(min_length=1, max_length=64)
+
+
 AnyTraceEvent = Annotated[
     RunStarted
     | RangeStarted
@@ -791,6 +887,14 @@ AnyTraceEvent = Annotated[
     | ContextRetrieved
     | FindingSubmitted
     | FindingValidated
+    | ReporterStarted
+    | ReporterEvidenceRetrieved
+    | ReporterFindingSubmitted
+    | ProbeCheckpointSaved
+    | ReportingBranchStarted
+    | ReportingPrefixRejected
+    | WitnessHypothesisStarted
+    | ReporterFinished
     | RunCompleted,
     Field(discriminator="type"),
 ]

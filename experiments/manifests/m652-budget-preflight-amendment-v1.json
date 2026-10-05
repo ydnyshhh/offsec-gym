@@ -1,0 +1,24 @@
+{
+  "protocol": "m652-budget-preflight-eligibility-v1",
+  "status": "prospective amendment after retained cell 2; no model-policy change",
+  "frozen_runtime_source_commit": "dd3b1b0d1275a18647a6aaf0bf5b22a263bd172a",
+  "resume_script_commit": "02f106b649f872c7548ebe3fbf1b4e71fa022b40",
+  "resume_script_path": "research_ops/m652_resume_after_preflight.py",
+  "resume_script_sha256": "a01e32b46e7429a8c6f9a31f77090139b6210cc989c8ab8afabcdfc5e435c6ff",
+  "sample_manifest_sha256": "2afc5caaea1cfc330ea507783e4b8900fbd1255cc99e03f88bcf34b4a240197b",
+  "stop_journal_sha256": "ab4f3d3b08446d9925fe7e69444914ac4c7d69aeff818481ff791b8cf60cde23",
+  "stopped_run_id": "f8adfe3d-6bfb-4e3b-8f9b-ea6865b5bc46",
+  "stopped_cell_order": 2,
+  "stopped_cell_id": "36be9ab0d4a7709d",
+  "approved_change": "Retain as an ineligible source prefix only a score-valid budget_exhausted run whose verified last post-tool checkpoint is followed by context_retrieved, model_reservation_rejected(model_token_budget_exhausted), and reporting_prefix_rejected(invalid_source_prefix_ValueError), with no branch or gateway action afterward. Reconcile from PostgreSQL and oracle before accepting. Apply the same rule prospectively to unstarted cells.",
+  "unchanged": [
+    "48-cell sample manifest and seed/cell order",
+    "model, selected endpoint, reasoning, prompt and provider request",
+    "120k-token probe and 80k-token per-arm reporting budgets",
+    "checkpoint semantics and branch treatment",
+    "validator, source-only eligibility, primary analysis and $108 sample stop"
+  ],
+  "retry_or_replacement_of_cell_2": false,
+  "resume_only_unstarted_cells": true,
+  "new_paid_calls_before_exact_head_ci": false
+}

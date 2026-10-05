@@ -39,6 +39,40 @@ events = Table(
 
 Index("ix_events_run_type", events.c.run_id, events.c.type)
 
+# A reporting branch sees an immutable source prefix followed by its own events.
+# The source action/evidence IDs and run binding are preserved without copying
+# provider or gateway artifacts into a second authoritative run.
+reporting_branches = Table(
+    "reporting_branches",
+    metadata,
+    Column("branch_id", UUID(as_uuid=True), primary_key=True),
+    Column("source_run_id", UUID(as_uuid=True), ForeignKey("runs.run_id"), nullable=False),
+    Column("arm", String(16), nullable=False),
+    Column("checkpoint_id", UUID(as_uuid=True), nullable=False),
+    Column("source_sequence", BigInteger, nullable=False),
+    Column("source_sha256", String(64), nullable=False),
+    Column("last_sequence", BigInteger, nullable=False),
+    Column("created_at", DateTime(timezone=True), nullable=False),
+    UniqueConstraint("source_run_id", "arm", name="uq_reporting_source_arm"),
+)
+
+reporting_branch_events = Table(
+    "reporting_branch_events",
+    metadata,
+    Column(
+        "branch_id",
+        UUID(as_uuid=True),
+        ForeignKey("reporting_branches.branch_id"),
+        primary_key=True,
+    ),
+    Column("sequence_number", BigInteger, primary_key=True),
+    Column("event_id", UUID(as_uuid=True), nullable=False),
+    Column("type", String(80), nullable=False),
+    Column("occurred_at", DateTime(timezone=True), nullable=False),
+    Column("payload", JSONB, nullable=False),
+    UniqueConstraint("branch_id", "event_id", name="uq_reporting_branch_event_id"),
+)
+
 run_usage = Table(
     "run_usage",
     metadata,

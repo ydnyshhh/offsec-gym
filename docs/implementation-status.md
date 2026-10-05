@@ -130,6 +130,26 @@
   the [results](diagnostics/m65-common-bootstrap-control-results.md) preserve
   the matched historical comparison, $34.875198 estimated token cost, patched
   false findings, and the post-run coverage-closure amendment.
+- M6.5.1 prospective witness recovery completed all 20 held-out paired cells
+  with score-valid outcomes. A fresh read-only reporter recovered four of nine
+  proof-capable roots missed by the probe, all in one seed; the seed-bootstrap
+  interval spans 0%–100%. The [results](diagnostics/m651-witness-recovery-v2-results.md)
+  preserve the failed v1 pilot, v2 feasibility recheck, $14.978964 estimated
+  sample cost, zero patched reporter false findings, and budget-censored
+  reporter behavior without retuning the frozen protocol.
+- M6.5.2 completed its separate feasibility pilot and all 48 reporting-
+  context cells on 24 new seed pairs. The read-only PostgreSQL audit passed.
+  Fresh context recovered 11/19 proof-eligible missed roots versus 15/19
+  for continuation; the seed-pair bootstrap interval for the −21.1-point
+  fresh-minus-continuation difference includes zero. The
+  [results](diagnostics/m652-reporting-context-v1-results.md) preserve
+  two unscored provider failures, nine other reporting-ineligible prefixes,
+  post-start operational amendments, patched finding submissions, and
+  $36.821124 estimated token cost.
+- M6.6 now has an opt-in event-derived temporal witness ledger, typed model
+  tools, bounded active reminder, and seed-block policy analysis. The ledger
+  observes state transitions without asserting a security verdict. No M6.6
+  model pilot or sample has run.
 
 ## Partially implemented
 
@@ -154,6 +174,9 @@
 - A managed artifact store and full experiment run manifests remain future controller work.
 - The model-turn protocol still uses OpenAI Responses item shapes. Normalize model output
   and opaque continuation state before adding a second provider.
+- M6.6 still needs a full paired fake-range parity test, frozen trace-stage
+  extraction and costed protocol, and a second state-changing range family
+  before testing generalization.
 
 ## Next milestone
 
@@ -166,12 +189,18 @@ Do not rerun or retune M6.4 to improve these observations.
 
 The [M6.5 research design](milestone-6.5.md) separated a common-bootstrap
 monolithic control from a prospective witness-to-finding study on new seeds.
-The [control](diagnostics/m65-common-bootstrap-control-results.md) is complete
-and frozen. Its historical matched comparison shows higher monolithic root
-recall at common feasible budgets, with temporal and system differences that
-prevent a causal architecture claim. The next live question is the separate
-witness-to-finding protocol on new paired seeds. Its pilot and full sample
-require their own cost decisions; no control cell is part of that sample.
+Both the [control](diagnostics/m65-common-bootstrap-control-results.md) and
+the [M6.5.1 recovery assay](diagnostics/m651-witness-recovery-v2-results.md)
+are complete and frozen. The control's historical architecture comparison
+remains noncausal. The recovery assay shows that extra read-only inference
+can report some proof-capable roots missed by a probe, while refund often
+lacks a complete ordered witness and the recovery estimate is concentrated
+in one seed. The [M6.5.2 equal-compute context study](diagnostics/m652-reporting-context-v1-results.md)
+is complete. Its observed continuation advantage has a wide paired interval,
+and post-start attrition limits interpretation. The [M6.6 witness-oriented
+exploration study](milestone-6.6.md) remains the proposed action-to-proof
+test; it awaits a frozen costed protocol, further preflight gates, and
+live-call approval.
 
 ## Known architectural debt
 

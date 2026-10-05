@@ -1,0 +1,18 @@
+{
+  "protocol": "m652-read-only-audit-amendment-v1",
+  "status": "audit-only; model protocol and seed/cell manifests unchanged",
+  "frozen_source_commit": "dd3b1b0d1275a18647a6aaf0bf5b22a263bd172a",
+  "audit_amendment_commit": "f51f9317dee0425c22816741571c6926c716f01d",
+  "pilot_manifest_sha256": "8199fcf6b9ec12e506e671d7849462754980d38dcb5206432dec432df53dd61c",
+  "sample_manifest_sha256": "2afc5caaea1cfc330ea507783e4b8900fbd1255cc99e03f88bcf34b4a240197b",
+  "original_postcheck_sha256": "a874864f4466db31096ee5545184d4554fc80fac6c01450bf206d49809b636d6",
+  "corrected_postcheck_path": "research_ops/m652_postcheck_v2.py",
+  "corrected_postcheck_sha256": "a98b59d8885ba0b5a7640083e67ac9a26c29433131a67888f17f5b3ff985af13",
+  "correction": "Compare the replayed audit after JSON round trip with the JSON journal record; tuple finding IDs become lists in the journal.",
+  "pilot_source_run_id": "d44896e5-864f-4306-9338-45e38a3d2782",
+  "pilot_journal_sha256": "2e14ce8f7ebff1dcfac7656557f2499f665bdc18438a4b3fe5b0ca4ed4736123",
+  "pilot_analysis_sha256": "88e725e7790a5b30db2af21c7f5a6d4bed1f97b417d2de78065a2231a4cf6a35",
+  "pilot_corrected_postcheck_receipt_sha256": "d46a8143b8afeaf065098e1471edbcc6cd1cc04f3c081829f129b1590036378e",
+  "model_calls_retried": 0,
+  "affected_scientific_inputs": []
+}

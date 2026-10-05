@@ -1,0 +1,35 @@
+{
+  "protocol": "m652-bounded-provider-attrition-v1",
+  "status": "post-start operational amendment for 21 unstarted cells after the documented cell-27 stop",
+  "user_direction": "continue monitor and the run",
+  "frozen_runtime_source_commit": "dd3b1b0d1275a18647a6aaf0bf5b22a263bd172a",
+  "resume_script_commit": "1bab1d406835abf2e730b64bc8ceb58949636653",
+  "resume_script_path": "research_ops/m652_resume_with_provider_attrition.py",
+  "resume_script_sha256": "8baf79927c8760b7f03031ed4ad8521832a5b95f0baa92781d08b51cabe5f19d",
+  "sample_manifest_sha256": "2afc5caaea1cfc330ea507783e4b8900fbd1255cc99e03f88bcf34b4a240197b",
+  "stop_journal_sha256": "4013c4b450ba03189c5f4ef68524862ac18fdba27a5ff0aa8f75021cddafb2dc",
+  "completed_cells_at_amendment": 27,
+  "unstarted_cells_at_amendment": 21,
+  "known_failed_runs": {
+    "16": "232a0788-aa12-4f7c-8e5c-016fe6acbada",
+    "27": "c2ce2afd-ccc3-4df2-bfb0-68f6d6210aba"
+  },
+  "max_provider_failed_cells": 4,
+  "accepted_future_transient_failures": [
+    "provider_rate_limited with HTTP 429",
+    "provider_timeout with HTTP 408",
+    "provider_server_error with HTTP 5xx",
+    "provider_unavailable without HTTP status"
+  ],
+  "retention_rule": "Retain each source provider failure unscored and without retry only after its authoritative PostgreSQL stream, trace bytes and event identities, single failed call, terminal status, absence of later model/gateway work and reporting branches, selected endpoint for completed calls, and unscored evaluation replay exactly. Stop after a fifth provider-failed source or any other score-invalid, integrity, endpoint, auth, quota, request, or reporting-branch failure. Continue only unstarted cells.",
+  "unchanged": [
+    "48-cell sample manifest, seeds, cell order, and 24 seed pairs",
+    "model, selected endpoint, high reasoning, prompt, and provider request",
+    "120k-token probe and 80k-token per-arm reporter budgets",
+    "checkpoint semantics and budget-preflight eligibility amendment",
+    "validator, source-only proof eligibility, primary analysis, and $108 cost stop"
+  ],
+  "scientific_limitation": "This rule was added after two observed provider failures. The primary analysis remains conditional on valid source and both reporting arms, so its estimate can be biased if provider failure is related to a cell's outcome. Report all attrition and avoid an unconditional 24-pair claim.",
+  "retry_or_replacement_of_completed_cells": false,
+  "new_paid_calls_before_exact_head_ci": false
+}

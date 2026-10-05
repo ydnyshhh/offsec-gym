@@ -7,6 +7,7 @@ from pathlib import Path
 
 import pytest
 
+from offsecgym.research import m65_monolithic_pilot
 from offsecgym.research.m65_monolithic_pilot import (
     EXPECTED_BOOTSTRAP_SHA256,
     EXPECTED_PAIR_ID,
@@ -46,6 +47,12 @@ async def test_m65_pilot_requires_key_and_database_before_any_run(
     monkeypatch.delenv("OPENROUTER_API_KEY", raising=False)
     monkeypatch.delenv("OFFSECGYM_DATABASE_URL", raising=False)
     root = Path(__file__).parents[2]
+    # The pilot's frozen-source gate is independent of missing-credential logic.
+    monkeypatch.setattr(
+        m65_monolithic_pilot,
+        "verify_manifest",
+        lambda root, path: json.loads(path.read_text()),
+    )
     with pytest.raises(ValueError, match="required"):
         await run_pilot(
             root,

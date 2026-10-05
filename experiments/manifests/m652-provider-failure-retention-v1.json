@@ -1,0 +1,30 @@
+{
+  "protocol": "m652-single-provider-failure-retention-v1",
+  "status": "operational continuation amendment after retained cell 16; no model-policy change",
+  "frozen_runtime_source_commit": "dd3b1b0d1275a18647a6aaf0bf5b22a263bd172a",
+  "resume_script_commit": "33c06b038abbd0dc75c4761eb2c71bf245be3470",
+  "resume_script_path": "research_ops/m652_resume_after_provider_failure.py",
+  "resume_script_sha256": "45df7487a5b2215d1127203a63adac148b4a8450acd4aa19fc93abee40d8d87f",
+  "sample_manifest_sha256": "2afc5caaea1cfc330ea507783e4b8900fbd1255cc99e03f88bcf34b4a240197b",
+  "stop_journal_sha256": "775073bdc84ab7ff9de0c6f35b6dc0b23e09eeb58900e440eb0092948b1bac93",
+  "stopped_run_id": "232a0788-aa12-4f7c-8e5c-016fe6acbada",
+  "stopped_cell_order": 16,
+  "stopped_cell_id": "d68ec416469f9812",
+  "stopped_source_status": "provider_failed",
+  "stopped_model_failure": {
+    "http_status": 429,
+    "reason_code": "provider_rate_limited"
+  },
+  "continuation_rule": "Retain cell 16 exactly once as source-score-invalid after its authoritative PostgreSQL trace, terminal model failure, no later model or gateway work, no reporting branches, trace hash, and unscored evaluation replay are verified. Never retry or replace it. Continue only the remaining unstarted cells with the previously pinned budget-preflight controller. A further provider failure still stops the collector.",
+  "predeclared_analysis_treatment": "The unchanged M6.5.2 analysis lists source-score-invalid prefixes and excludes them from the eligible-root numerator and denominator; no post hoc score is assigned to cell 16.",
+  "unchanged": [
+    "48-cell sample manifest, seeds, cell order, and 24 seed pairs",
+    "model, selected endpoint, reasoning, prompt, and provider request",
+    "120k-token probe and 80k-token per-arm reporter budgets",
+    "checkpoint semantics, validator, source-only eligibility, and primary analysis",
+    "$108 cumulative sample cost stop"
+  ],
+  "retry_or_replacement_of_cell_16": false,
+  "resume_only_unstarted_cells": true,
+  "new_paid_calls_before_exact_head_ci": false
+}

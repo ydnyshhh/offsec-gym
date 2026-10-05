@@ -22,6 +22,11 @@ class _NoRedirect(HTTPRedirectHandler):
         return None
 
 
+def request_wire_bytes(payload: dict[str, object]) -> bytes:
+    """The exact JSON bytes sent to a Responses provider, excluding HTTP headers."""
+    return json.dumps(payload, separators=(",", ":")).encode()
+
+
 class OpenAIResponsesProvider:
     URL = "https://api.openai.com/v1/responses"
     PROVIDER = "openai"
@@ -88,7 +93,7 @@ class OpenAIResponsesProvider:
     def _post(self, payload: dict[str, object]) -> dict[str, object]:
         request = Request(
             self.URL,
-            data=json.dumps(payload, separators=(",", ":")).encode(),
+            data=request_wire_bytes(payload),
             headers={
                 "Authorization": f"Bearer {self._api_key}",
                 "Content-Type": "application/json",

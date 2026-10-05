@@ -1,0 +1,928 @@
+{
+  "analysis_sha256": "f7938c18dfd078d25ac40dd802696dcabf466f7d3e5457d7882f176e17bf2f92",
+  "bootstrap_budget": {
+    "max_actions": 32,
+    "max_http_requests": 32,
+    "max_model_calls": 0,
+    "max_total_tokens": 0,
+    "max_wall_seconds": 120
+  },
+  "cells": [
+    {
+      "arm_order": [
+        "continuation",
+        "fresh"
+      ],
+      "build_id": "fa357be6-cdb3-5a7f-b4a7-2f1162030e60",
+      "cell_id": "ea840bd7ff4c2cb0",
+      "experiment_sha256": "634616dd4ea41755e9e3bad82891ab7dea687e79e6d116786ff09bd4a90c1617",
+      "order": 1,
+      "pair_id": "988ee0f6-c065-5dbf-aee2-b5806d682b98",
+      "range_seed": 793024,
+      "variant": "vulnerable"
+    },
+    {
+      "arm_order": [
+        "continuation",
+        "fresh"
+      ],
+      "build_id": "4e6dc48a-9c62-52b4-aa38-48454c53a850",
+      "cell_id": "36be9ab0d4a7709d",
+      "experiment_sha256": "e50c150bb607ef787c039fd57ecd2c2d1917949805efe15cd4bed346a7848904",
+      "order": 2,
+      "pair_id": "9aaf0ecc-d597-5c5e-976c-35ad35140cd2",
+      "range_seed": 526804,
+      "variant": "vulnerable"
+    },
+    {
+      "arm_order": [
+        "continuation",
+        "fresh"
+      ],
+      "build_id": "a31f2c77-6947-5c44-bc28-b7f5e99f37b3",
+      "cell_id": "e7e01ecc6d4e6822",
+      "experiment_sha256": "abe1c93e2b7dabfcccc26c2e86964094ecfce8f8ab5aff44cd0832c9e198fec6",
+      "order": 3,
+      "pair_id": "d80e938f-7752-5d54-9872-38657f578a2b",
+      "range_seed": 675598,
+      "variant": "vulnerable"
+    },
+    {
+      "arm_order": [
+        "continuation",
+        "fresh"
+      ],
+      "build_id": "5706c247-4187-5310-8d8c-8118116f54b5",
+      "cell_id": "4576114a9878f33c",
+      "experiment_sha256": "948de9944c20d52d896531a2824eb8ddc7f2bb614ed64ea99e0c144647454305",
+      "order": 4,
+      "pair_id": "d7155b76-0393-5cf7-9ce7-9dfedbde9a56",
+      "range_seed": 964759,
+      "variant": "patched"
+    },
+    {
+      "arm_order": [
+        "fresh",
+        "continuation"
+      ],
+      "build_id": "51d451b5-9b68-5196-bcb1-bb2a03c82ca7",
+      "cell_id": "b3954b70d3be1494",
+      "experiment_sha256": "f4a7e19a5bcbea8d5da04112fe7136509e2ff7d0d24ad690702fd21c2c674460",
+      "order": 5,
+      "pair_id": "3d5077a2-e721-56ec-88df-4d0c2500d6f7",
+      "range_seed": 782247,
+      "variant": "patched"
+    },
+    {
+      "arm_order": [
+        "fresh",
+        "continuation"
+      ],
+      "build_id": "2a61594d-2f15-5f0a-b327-42387841a524",
+      "cell_id": "7cbb08f90fd06f48",
+      "experiment_sha256": "5e30bcf9a82c3c27a29a08bf5af37493f182fb0a548ac8847bcf21fdaf637041",
+      "order": 6,
+      "pair_id": "4610ab19-c7b3-560f-9b9a-2e8bce2e1703",
+      "range_seed": 916208,
+      "variant": "patched"
+    },
+    {
+      "arm_order": [
+        "continuation",
+        "fresh"
+      ],
+      "build_id": "84e7eda7-d3d7-5e39-a6bf-966e3809240b",
+      "cell_id": "c44efe9347dc3d3a",
+      "experiment_sha256": "6ed51831a1740c57646001ba34d527bf4d3c13c6ca76467b3b6402f57978edad",
+      "order": 7,
+      "pair_id": "3d5077a2-e721-56ec-88df-4d0c2500d6f7",
+      "range_seed": 782247,
+      "variant": "vulnerable"
+    },
+    {
+      "arm_order": [
+        "continuation",
+        "fresh"
+      ],
+      "build_id": "c718d1bf-dc53-5ba2-8c17-2cdfd2022c6f",
+      "cell_id": "60b76bd40634300a",
+      "experiment_sha256": "8f2b85f16da474f4facafb20822e51fefcd544fee2af6436d0c418d0e2a355ed",
+      "order": 8,
+      "pair_id": "2509303d-136d-5905-b8d0-9d677bab9662",
+      "range_seed": 21191,
+      "variant": "vulnerable"
+    },
+    {
+      "arm_order": [
+        "fresh",
+        "continuation"
+      ],
+      "build_id": "b7db0969-3685-57b5-bb67-7c4dd865cc2d",
+      "cell_id": "33cc9378ca791d7c",
+      "experiment_sha256": "d9f7bdd86d87fc767fc2e07268b3ab15886ab354c17b9e256d04827ddaad1a3d",
+      "order": 9,
+      "pair_id": "c4e9d331-4085-5db0-8f69-7da28f4aa605",
+      "range_seed": 395662,
+      "variant": "patched"
+    },
+    {
+      "arm_order": [
+        "fresh",
+        "continuation"
+      ],
+      "build_id": "f961b7ea-100f-50a1-b33f-56f4817df497",
+      "cell_id": "1c1891e273f772a6",
+      "experiment_sha256": "2386274b72f6e3d0a3c67c6e013474cdd98f4bc6c7991daebcda86182c4c19db",
+      "order": 10,
+      "pair_id": "b4da80a5-b44a-5f0c-88f0-3862110bfd78",
+      "range_seed": 289384,
+      "variant": "vulnerable"
+    },
+    {
+      "arm_order": [
+        "continuation",
+        "fresh"
+      ],
+      "build_id": "31956440-cdb2-5972-93ea-ceea2fd0424c",
+      "cell_id": "50c0d821bbae9166",
+      "experiment_sha256": "60a58ba0498eab4f30b8be3ed1fe797756452f4d1089764e7289339a2eae40de",
+      "order": 11,
+      "pair_id": "d80e938f-7752-5d54-9872-38657f578a2b",
+      "range_seed": 675598,
+      "variant": "patched"
+    },
+    {
+      "arm_order": [
+        "fresh",
+        "continuation"
+      ],
+      "build_id": "2ab8ecda-4c28-5bf8-94ad-733b29ae24a7",
+      "cell_id": "5200cc7dc41958bd",
+      "experiment_sha256": "8933e95997176d19f1574012805c01f2a547974cd6b40b91ac69a408e04a8de1",
+      "order": 12,
+      "pair_id": "cc6326b0-8cf5-5b09-b036-3b617a90074b",
+      "range_seed": 172542,
+      "variant": "patched"
+    },
+    {
+      "arm_order": [
+        "fresh",
+        "continuation"
+      ],
+      "build_id": "6dac1b98-1c89-5a52-9cfb-5f7571acbc65",
+      "cell_id": "c9e04c3266bb8bb2",
+      "experiment_sha256": "9bc3cab3d0dd9db85ea7018e5e6f83f7e977ce6a58c55e9782df1c4f768c48bc",
+      "order": 13,
+      "pair_id": "25b8d92b-e88f-51a7-b1fe-25e4c94ed9e8",
+      "range_seed": 831941,
+      "variant": "vulnerable"
+    },
+    {
+      "arm_order": [
+        "continuation",
+        "fresh"
+      ],
+      "build_id": "514388b8-5268-52f1-bf4b-35ace129b4a3",
+      "cell_id": "42c45262aa38412e",
+      "experiment_sha256": "a252e99b8c93ec3042efa06d8e711f0196718480b249954eb0ce557c4319ce9d",
+      "order": 14,
+      "pair_id": "6553d6ee-8c38-5138-8b94-97131273a8f2",
+      "range_seed": 29639,
+      "variant": "vulnerable"
+    },
+    {
+      "arm_order": [
+        "fresh",
+        "continuation"
+      ],
+      "build_id": "017e10fe-48d0-5596-8991-4979fc8cc782",
+      "cell_id": "2660dc8683d6d7a1",
+      "experiment_sha256": "fc77e527e59d3a1ee8548ba2adbf63051417e1f469ab8055af43d5f29ef6ba51",
+      "order": 15,
+      "pair_id": "75956abc-9ec5-529c-91aa-5b9320d2e581",
+      "range_seed": 747590,
+      "variant": "vulnerable"
+    },
+    {
+      "arm_order": [
+        "fresh",
+        "continuation"
+      ],
+      "build_id": "832cec7c-2f7a-5761-be67-ca6c8f924b11",
+      "cell_id": "d68ec416469f9812",
+      "experiment_sha256": "9775d8964ffde5e8fc043f7c56a62490ca7870f68ca31b1af70dc0fb23f7b238",
+      "order": 16,
+      "pair_id": "8f6e4e29-bb3d-5649-95fd-d4409d9717bf",
+      "range_seed": 657193,
+      "variant": "vulnerable"
+    },
+    {
+      "arm_order": [
+        "fresh",
+        "continuation"
+      ],
+      "build_id": "59971edf-51a2-573a-a226-ef33c9122c8a",
+      "cell_id": "d8f6d2237052a75e",
+      "experiment_sha256": "35ea64b018ebfe0d152116260405f9bcbaa1ffa757975ec2c0f678a5c4c084bb",
+      "order": 17,
+      "pair_id": "9d2184f7-480d-5d0f-bdac-e2857730b913",
+      "range_seed": 564816,
+      "variant": "vulnerable"
+    },
+    {
+      "arm_order": [
+        "fresh",
+        "continuation"
+      ],
+      "build_id": "340b6a04-6fa7-5638-84d3-e8342d9d90f4",
+      "cell_id": "e2dfd6c2463de7dc",
+      "experiment_sha256": "e66e0132fa1da1dba10d51cce78f4a3a863353676baa94f2e4e67855af057f7d",
+      "order": 18,
+      "pair_id": "070f8ed4-f651-5e51-a9bf-739601c6215b",
+      "range_seed": 281491,
+      "variant": "vulnerable"
+    },
+    {
+      "arm_order": [
+        "fresh",
+        "continuation"
+      ],
+      "build_id": "61e91bb5-d674-5925-8efa-0c174ba3ae9d",
+      "cell_id": "ba0968a96d1463c0",
+      "experiment_sha256": "1d0d43fca4cd02233d4791c65f234259ad8a80672e221c18038188b208dba2e7",
+      "order": 19,
+      "pair_id": "88596bce-c1c5-59ea-91e6-30eb19b3f8c3",
+      "range_seed": 374244,
+      "variant": "patched"
+    },
+    {
+      "arm_order": [
+        "fresh",
+        "continuation"
+      ],
+      "build_id": "52e435a7-e76a-59c4-ba60-291d7bfdb550",
+      "cell_id": "c888fc77bb379ef9",
+      "experiment_sha256": "768c24453afbc4b4eacce45dfa6230faf31ec2944de0bc16becc3b3eaa0d0869",
+      "order": 20,
+      "pair_id": "25b8d92b-e88f-51a7-b1fe-25e4c94ed9e8",
+      "range_seed": 831941,
+      "variant": "patched"
+    },
+    {
+      "arm_order": [
+        "continuation",
+        "fresh"
+      ],
+      "build_id": "5d46fd79-1812-5012-967e-076085fefe0f",
+      "cell_id": "f6f39ae814dad1cd",
+      "experiment_sha256": "f64627933d94073d8f2120a7433e0a79db54a938285f071e27067f9e3d67205d",
+      "order": 21,
+      "pair_id": "4610ab19-c7b3-560f-9b9a-2e8bce2e1703",
+      "range_seed": 916208,
+      "variant": "vulnerable"
+    },
+    {
+      "arm_order": [
+        "continuation",
+        "fresh"
+      ],
+      "build_id": "c5be5e60-00e6-5f05-b1de-45a93e0dedd6",
+      "cell_id": "fb0f62d9bbed1b03",
+      "experiment_sha256": "8a3656944eabecd68f780cf9246e1bce0a63b601e49cd4326b8cbc4cf1bc35e7",
+      "order": 22,
+      "pair_id": "111661b9-7346-5ac9-9ff9-7d7da08a67de",
+      "range_seed": 55310,
+      "variant": "vulnerable"
+    },
+    {
+      "arm_order": [
+        "fresh",
+        "continuation"
+      ],
+      "build_id": "6d796e72-f955-57c4-a151-2435764d4d93",
+      "cell_id": "a8993d49a2cda967",
+      "experiment_sha256": "6e08272b52d6c3c8564ac368fa90d04843dadff5d5731364b1f8974a86bd7fe5",
+      "order": 23,
+      "pair_id": "682fe235-c0de-5550-8e2e-1997251449fc",
+      "range_seed": 749139,
+      "variant": "patched"
+    },
+    {
+      "arm_order": [
+        "fresh",
+        "continuation"
+      ],
+      "build_id": "f3b7b8b7-cc7a-5d55-b470-78605549a36f",
+      "cell_id": "d621d71398eef25c",
+      "experiment_sha256": "118f8fdb402049ec06c8f35ae933fff4b71d72a1cbfcdfb3b335492a0b2d7055",
+      "order": 24,
+      "pair_id": "111661b9-7346-5ac9-9ff9-7d7da08a67de",
+      "range_seed": 55310,
+      "variant": "patched"
+    },
+    {
+      "arm_order": [
+        "fresh",
+        "continuation"
+      ],
+      "build_id": "25bec08a-f5c5-5701-9c75-3dd19cff81e9",
+      "cell_id": "1024a86376b29b4b",
+      "experiment_sha256": "b454959404cbbac00e64674e1866f41d9f5b3c07eb2a737ecfe0f3edbdb7bba1",
+      "order": 25,
+      "pair_id": "6f3dfc12-691c-537b-9c00-674702861bae",
+      "range_seed": 125907,
+      "variant": "patched"
+    },
+    {
+      "arm_order": [
+        "fresh",
+        "continuation"
+      ],
+      "build_id": "206231dc-f319-5b1d-b970-6421f58abde3",
+      "cell_id": "b9b4bfdc8af53671",
+      "experiment_sha256": "a7099018fce009d8e4ad2f19dded03d0b81aeb91d15d9b716fd17497dac8ee19",
+      "order": 26,
+      "pair_id": "070f8ed4-f651-5e51-a9bf-739601c6215b",
+      "range_seed": 281491,
+      "variant": "patched"
+    },
+    {
+      "arm_order": [
+        "fresh",
+        "continuation"
+      ],
+      "build_id": "d6a76510-04f9-56d0-99b0-638fb2b41097",
+      "cell_id": "55d0b2c5f783f5f7",
+      "experiment_sha256": "44dd303fe0cf0279706e787b8e530f88f573c3a277c860ebb29690f078df3570",
+      "order": 27,
+      "pair_id": "682fe235-c0de-5550-8e2e-1997251449fc",
+      "range_seed": 749139,
+      "variant": "vulnerable"
+    },
+    {
+      "arm_order": [
+        "fresh",
+        "continuation"
+      ],
+      "build_id": "95dd0dcf-ffc9-546b-8602-97f1fbdc662b",
+      "cell_id": "e6a056f979296159",
+      "experiment_sha256": "163a98b32dd3e06c2bf348bfb32cd6763cb42d84cd7d8a190da9621329e3f252",
+      "order": 28,
+      "pair_id": "9aaf0ecc-d597-5c5e-976c-35ad35140cd2",
+      "range_seed": 526804,
+      "variant": "patched"
+    },
+    {
+      "arm_order": [
+        "fresh",
+        "continuation"
+      ],
+      "build_id": "a2849641-c057-564f-aef6-bb65c545faa1",
+      "cell_id": "d3f4f86f51b0835b",
+      "experiment_sha256": "bf2a13bf633e8b58e1d9cf1ad84a7a9c8714628a8ef2d37c0db69894d6369520",
+      "order": 29,
+      "pair_id": "8f6e4e29-bb3d-5649-95fd-d4409d9717bf",
+      "range_seed": 657193,
+      "variant": "patched"
+    },
+    {
+      "arm_order": [
+        "continuation",
+        "fresh"
+      ],
+      "build_id": "5014dffa-657e-5f2f-acdf-a32748cd993e",
+      "cell_id": "517de2b2f2190af8",
+      "experiment_sha256": "c2bd3e7253ff70be03b5517c496f3a2de918545206c91611e6298c91489a626e",
+      "order": 30,
+      "pair_id": "9d2184f7-480d-5d0f-bdac-e2857730b913",
+      "range_seed": 564816,
+      "variant": "patched"
+    },
+    {
+      "arm_order": [
+        "continuation",
+        "fresh"
+      ],
+      "build_id": "8601c489-c278-54c4-aaf0-829d9bead44a",
+      "cell_id": "719162b911051006",
+      "experiment_sha256": "9cb8f57b52d18fca777a8c32bc48fa631dbb982da42ecf697788c05b5cc3710c",
+      "order": 31,
+      "pair_id": "88596bce-c1c5-59ea-91e6-30eb19b3f8c3",
+      "range_seed": 374244,
+      "variant": "vulnerable"
+    },
+    {
+      "arm_order": [
+        "continuation",
+        "fresh"
+      ],
+      "build_id": "6e307f46-a8c9-5fbd-9557-ffb50018cfbb",
+      "cell_id": "0ca9b665a682a587",
+      "experiment_sha256": "d71033305697a0636bdad5ecff91d32bc0a9695b0e1217c924cee0404a08ad46",
+      "order": 32,
+      "pair_id": "6553d6ee-8c38-5138-8b94-97131273a8f2",
+      "range_seed": 29639,
+      "variant": "patched"
+    },
+    {
+      "arm_order": [
+        "continuation",
+        "fresh"
+      ],
+      "build_id": "731bccd4-c26f-5a4e-b931-72953154534f",
+      "cell_id": "553a43108b8af2aa",
+      "experiment_sha256": "fa8c8170fb81d712f4f9f0308916977e2d26a9affe0658b8e571f6252d098770",
+      "order": 33,
+      "pair_id": "75956abc-9ec5-529c-91aa-5b9320d2e581",
+      "range_seed": 747590,
+      "variant": "patched"
+    },
+    {
+      "arm_order": [
+        "continuation",
+        "fresh"
+      ],
+      "build_id": "47b4b20f-c513-5af5-b738-f778045b408e",
+      "cell_id": "d36ef188a640c791",
+      "experiment_sha256": "20204454698b67e2e3e2705d20cb18cf2abcd228d151176b153ee62d4459c7a7",
+      "order": 34,
+      "pair_id": "cc6326b0-8cf5-5b09-b036-3b617a90074b",
+      "range_seed": 172542,
+      "variant": "vulnerable"
+    },
+    {
+      "arm_order": [
+        "fresh",
+        "continuation"
+      ],
+      "build_id": "ac1244e9-58bc-5f1c-a14a-c8bab5382f3e",
+      "cell_id": "1def600a65637b48",
+      "experiment_sha256": "78da145b1357d13d3e9b426d8d80dc4871988a81ddfe016a148870d8721c3bc5",
+      "order": 35,
+      "pair_id": "d7155b76-0393-5cf7-9ce7-9dfedbde9a56",
+      "range_seed": 964759,
+      "variant": "vulnerable"
+    },
+    {
+      "arm_order": [
+        "fresh",
+        "continuation"
+      ],
+      "build_id": "74a23772-391b-5796-b33f-17bb22771401",
+      "cell_id": "f6c161b58ee21042",
+      "experiment_sha256": "d7c0454e067b2df18f96518ce927b82e2c0851b220b13e7056c53cdae00e6c48",
+      "order": 36,
+      "pair_id": "97c4f665-b984-535d-93d1-fa23e0623e58",
+      "range_seed": 520511,
+      "variant": "vulnerable"
+    },
+    {
+      "arm_order": [
+        "continuation",
+        "fresh"
+      ],
+      "build_id": "faeb391e-0fdd-5aff-8aa3-6e195802f673",
+      "cell_id": "cb76e56f12028a68",
+      "experiment_sha256": "f124991dd74f3134e3b4e5db42d94d930c9c77ed4511af8d4e2bebb539eb3c08",
+      "order": 37,
+      "pair_id": "ebea7229-37ee-5cb3-b766-cd8e6d79bf70",
+      "range_seed": 600854,
+      "variant": "patched"
+    },
+    {
+      "arm_order": [
+        "continuation",
+        "fresh"
+      ],
+      "build_id": "b7f36ff0-9d9b-5a91-bde7-dc63d6ff17b2",
+      "cell_id": "161063495fc148be",
+      "experiment_sha256": "5242fd9774423ae2f56d9af63a0e7fe2c0d21e3c8b7a59b70d99b095ebc17c63",
+      "order": 38,
+      "pair_id": "ebea7229-37ee-5cb3-b766-cd8e6d79bf70",
+      "range_seed": 600854,
+      "variant": "vulnerable"
+    },
+    {
+      "arm_order": [
+        "continuation",
+        "fresh"
+      ],
+      "build_id": "8603714a-e847-5e1f-8de9-7a718260074e",
+      "cell_id": "4b1fd4f3940c5616",
+      "experiment_sha256": "1c738cb97d57a18700cc66716bb9f7b3e82ff373ababacf45dbcc8f4546d5001",
+      "order": 39,
+      "pair_id": "988ee0f6-c065-5dbf-aee2-b5806d682b98",
+      "range_seed": 793024,
+      "variant": "patched"
+    },
+    {
+      "arm_order": [
+        "continuation",
+        "fresh"
+      ],
+      "build_id": "3b93e2f6-41c9-5faa-a2fc-c8cfb561411c",
+      "cell_id": "85d42349a4b845e7",
+      "experiment_sha256": "ff2f522e937188627fbc2c5c55b9a1270ae32f107902b8fcde942cf40d73e4fc",
+      "order": 40,
+      "pair_id": "85f0afbf-98d1-51b9-9abd-cb4a6e7f7a30",
+      "range_seed": 300417,
+      "variant": "patched"
+    },
+    {
+      "arm_order": [
+        "continuation",
+        "fresh"
+      ],
+      "build_id": "a51ca98a-f471-5c7f-804b-8fca5a67420d",
+      "cell_id": "80dbf5246b14d21a",
+      "experiment_sha256": "b344c4cd12c8584a1f7e8ffd0c7217944cb79cfa7d5470684aeebc135984eea9",
+      "order": 41,
+      "pair_id": "97c4f665-b984-535d-93d1-fa23e0623e58",
+      "range_seed": 520511,
+      "variant": "patched"
+    },
+    {
+      "arm_order": [
+        "fresh",
+        "continuation"
+      ],
+      "build_id": "0476a00a-b404-583a-a337-f9fe9ab75708",
+      "cell_id": "762ec0fc8d9562c6",
+      "experiment_sha256": "755d39e63b916549a211e6429d8a65aebc1c77cbbebb058bbfaad323773e8b4a",
+      "order": 42,
+      "pair_id": "85f0afbf-98d1-51b9-9abd-cb4a6e7f7a30",
+      "range_seed": 300417,
+      "variant": "vulnerable"
+    },
+    {
+      "arm_order": [
+        "fresh",
+        "continuation"
+      ],
+      "build_id": "75599532-6be4-527d-b89b-b28a7fc9b1a3",
+      "cell_id": "233b434ff2600ed7",
+      "experiment_sha256": "9ce9aa9e4b908f4af123a374b8597d7ff97181ded8586f404f41280d996af5ed",
+      "order": 43,
+      "pair_id": "2509303d-136d-5905-b8d0-9d677bab9662",
+      "range_seed": 21191,
+      "variant": "patched"
+    },
+    {
+      "arm_order": [
+        "continuation",
+        "fresh"
+      ],
+      "build_id": "fecb4e34-0c45-5f3e-acf2-dfec4171c350",
+      "cell_id": "db998c1d352ce814",
+      "experiment_sha256": "01238f4b82ec8d0c7264a73013637a3a6ba8efa348b56932ea5ccd014963136a",
+      "order": 44,
+      "pair_id": "b4da80a5-b44a-5f0c-88f0-3862110bfd78",
+      "range_seed": 289384,
+      "variant": "patched"
+    },
+    {
+      "arm_order": [
+        "fresh",
+        "continuation"
+      ],
+      "build_id": "55013ff9-5314-5952-8c09-b65fe9eb27fd",
+      "cell_id": "76232922fb8b57ed",
+      "experiment_sha256": "3a68efd45530e9e0c42e757dc52b8ec2e980f0d1f4872c47431ef68a59f93898",
+      "order": 45,
+      "pair_id": "6f3dfc12-691c-537b-9c00-674702861bae",
+      "range_seed": 125907,
+      "variant": "vulnerable"
+    },
+    {
+      "arm_order": [
+        "continuation",
+        "fresh"
+      ],
+      "build_id": "4739f05e-e6ab-529b-a952-3eb22fca1658",
+      "cell_id": "0b30f128a788409a",
+      "experiment_sha256": "f8c1cbbe34fd755a323dacee1abcf18aede735087a75bbb421ac9e8ca02a63ea",
+      "order": 46,
+      "pair_id": "c4e9d331-4085-5db0-8f69-7da28f4aa605",
+      "range_seed": 395662,
+      "variant": "vulnerable"
+    },
+    {
+      "arm_order": [
+        "fresh",
+        "continuation"
+      ],
+      "build_id": "284f7cef-41db-5301-8a0e-65e873dafe83",
+      "cell_id": "be3cf612865e6ef7",
+      "experiment_sha256": "f8dd3ff92f2577d120c9c28f19f78be64886d548ab41f54ccdf7e9176657757d",
+      "order": 47,
+      "pair_id": "d0941bfd-3a32-583a-902b-1f164bf8ba5e",
+      "range_seed": 970327,
+      "variant": "patched"
+    },
+    {
+      "arm_order": [
+        "fresh",
+        "continuation"
+      ],
+      "build_id": "bff37f8f-6040-521f-ac66-d920f05871a2",
+      "cell_id": "bc663c8b0eb84f3a",
+      "experiment_sha256": "f5a8eab40507e10245ec06d4644f2cfce6b7ff21a0c0fedc7ea1771ddce69a0e",
+      "order": 48,
+      "pair_id": "d0941bfd-3a32-583a-902b-1f164bf8ba5e",
+      "range_seed": 970327,
+      "variant": "vulnerable"
+    }
+  ],
+  "checkpoint_after_model_calls": 10,
+  "checkpoint_semantics": "m652-post-tool-carry-v1",
+  "context_treatment": "same-read-only-reporter-with-authentic-post-tool-probe-carry-v1",
+  "cumulative_estimated_cost_stop_usd": 108.0,
+  "expected_selected_endpoint": {
+    "revision": "moonshotai/kimi-k3-20260715",
+    "upstream_provider": "Moonshot AI"
+  },
+  "maximum_estimated_token_cost_usd": 106.380288,
+  "model_request": {
+    "input_reservation_bytes_per_token": 2.0,
+    "input_reservation_margin_tokens": 1024,
+    "input_usd_per_million_tokens": null,
+    "name": "moonshotai/kimi-k3",
+    "output_usd_per_million_tokens": null,
+    "provider": "openrouter",
+    "reasoning": "high",
+    "upstream_provider": "moonshotai"
+  },
+  "order_seed": 6534454207359861463,
+  "per_cell_cost_ceiling_usd": 2.216256,
+  "pilot_gates": [
+    "both reporting arms issue at least one request",
+    "first requests reconstruct byte for byte from checkpoint and frozen packet",
+    "source and both arm scores valid; selected endpoint fixed",
+    "no gateway actions after split; event and artifact replay clean"
+  ],
+  "planned_live_cells": 48,
+  "price_snapshot": {
+    "checked_utc_date": "2026-10-04",
+    "input_usd_per_million": 3.0,
+    "metadata_url": "https://openrouter.ai/api/v1/models/moonshotai/kimi-k3/endpoints",
+    "output_usd_per_million": 15.0
+  },
+  "primary_eligibility": "source_complete_proof_and_no_source_validated_root",
+  "probe_budget": {
+    "max_actions": 60,
+    "max_concurrency": 1,
+    "max_cost_usd": null,
+    "max_http_requests": 60,
+    "max_model_calls": 10,
+    "max_output_tokens_per_call": 8192,
+    "max_total_tokens": 120000,
+    "max_wall_seconds": 900,
+    "max_workers": 6
+  },
+  "probe_config": {
+    "path": "experiments/configs/kimi-k3-m652-probe.yaml",
+    "sha256": "3dca2ab1013fa61b6b5756a0c9be3d2f1d188c5eb6d57831ad699d88ad2624d6"
+  },
+  "protocol": "m652-reporting-context-v1",
+  "provider_failure_policy": "retain_without_retry_and_stop_collection",
+  "range_compiler_version": "tenant-boundary-v2/compiler-1",
+  "range_pairs": {
+    "125907": {
+      "fixture_sha256": "198da93799383af52e522811aa2e2a174e6cc90f57c0177b11f489401eb5ed1f",
+      "pair_id": "6f3dfc12-691c-537b-9c00-674702861bae",
+      "patched_build_id": "25bec08a-f5c5-5701-9c75-3dd19cff81e9",
+      "vulnerable_build_id": "55013ff9-5314-5952-8c09-b65fe9eb27fd"
+    },
+    "172542": {
+      "fixture_sha256": "0ee8c95011ae3b9916a13ab885d1ce63d4f1e8a01bf3263df5dbec1f6b405bd3",
+      "pair_id": "cc6326b0-8cf5-5b09-b036-3b617a90074b",
+      "patched_build_id": "2ab8ecda-4c28-5bf8-94ad-733b29ae24a7",
+      "vulnerable_build_id": "47b4b20f-c513-5af5-b738-f778045b408e"
+    },
+    "21191": {
+      "fixture_sha256": "eee1c4d14ac1b0e8c7ea7025f1c3f0e5716d4a9ac848b49e843d3be75112491d",
+      "pair_id": "2509303d-136d-5905-b8d0-9d677bab9662",
+      "patched_build_id": "75599532-6be4-527d-b89b-b28a7fc9b1a3",
+      "vulnerable_build_id": "c718d1bf-dc53-5ba2-8c17-2cdfd2022c6f"
+    },
+    "281491": {
+      "fixture_sha256": "fb8bcfd7b04235b5742d6894a00b5f476083936628d05be05a25091629eb5174",
+      "pair_id": "070f8ed4-f651-5e51-a9bf-739601c6215b",
+      "patched_build_id": "206231dc-f319-5b1d-b970-6421f58abde3",
+      "vulnerable_build_id": "340b6a04-6fa7-5638-84d3-e8342d9d90f4"
+    },
+    "289384": {
+      "fixture_sha256": "d98a224ef100249ef0112490b235553dabb03b6f4f5ec042c9492d8b8683aedf",
+      "pair_id": "b4da80a5-b44a-5f0c-88f0-3862110bfd78",
+      "patched_build_id": "fecb4e34-0c45-5f3e-acf2-dfec4171c350",
+      "vulnerable_build_id": "f961b7ea-100f-50a1-b33f-56f4817df497"
+    },
+    "29639": {
+      "fixture_sha256": "a35c49ff7df1351ebf0c51f088dac12d4dac50805e3634dfdef64c9591b23540",
+      "pair_id": "6553d6ee-8c38-5138-8b94-97131273a8f2",
+      "patched_build_id": "6e307f46-a8c9-5fbd-9557-ffb50018cfbb",
+      "vulnerable_build_id": "514388b8-5268-52f1-bf4b-35ace129b4a3"
+    },
+    "300417": {
+      "fixture_sha256": "0ea740541eafc5d66bcb219fd098ff8f298e7925719bdc3af957856b2878a2d1",
+      "pair_id": "85f0afbf-98d1-51b9-9abd-cb4a6e7f7a30",
+      "patched_build_id": "3b93e2f6-41c9-5faa-a2fc-c8cfb561411c",
+      "vulnerable_build_id": "0476a00a-b404-583a-a337-f9fe9ab75708"
+    },
+    "374244": {
+      "fixture_sha256": "5d99f9e22a264fe7c5a760fa383639b77b55b2f19488640dbdbc07ece39a6888",
+      "pair_id": "88596bce-c1c5-59ea-91e6-30eb19b3f8c3",
+      "patched_build_id": "61e91bb5-d674-5925-8efa-0c174ba3ae9d",
+      "vulnerable_build_id": "8601c489-c278-54c4-aaf0-829d9bead44a"
+    },
+    "395662": {
+      "fixture_sha256": "4eb0b1fb4490c11ba07a4dda57c007e874d76c65b4c4f28e7183ec606c439db2",
+      "pair_id": "c4e9d331-4085-5db0-8f69-7da28f4aa605",
+      "patched_build_id": "b7db0969-3685-57b5-bb67-7c4dd865cc2d",
+      "vulnerable_build_id": "4739f05e-e6ab-529b-a952-3eb22fca1658"
+    },
+    "520511": {
+      "fixture_sha256": "efa9a707c3d88f128f59be503b5b07b658179ad010b067c5383511214e6eedec",
+      "pair_id": "97c4f665-b984-535d-93d1-fa23e0623e58",
+      "patched_build_id": "a51ca98a-f471-5c7f-804b-8fca5a67420d",
+      "vulnerable_build_id": "74a23772-391b-5796-b33f-17bb22771401"
+    },
+    "526804": {
+      "fixture_sha256": "dbc8252de54c8de70b53c8e45939da5ef5574c53de23e75780cfd20cb3901e78",
+      "pair_id": "9aaf0ecc-d597-5c5e-976c-35ad35140cd2",
+      "patched_build_id": "95dd0dcf-ffc9-546b-8602-97f1fbdc662b",
+      "vulnerable_build_id": "4e6dc48a-9c62-52b4-aa38-48454c53a850"
+    },
+    "55310": {
+      "fixture_sha256": "d9fe49a73eb1b6845d041b6e75d190eeb13334abdee82fbfb5e8d3e26925c55a",
+      "pair_id": "111661b9-7346-5ac9-9ff9-7d7da08a67de",
+      "patched_build_id": "f3b7b8b7-cc7a-5d55-b470-78605549a36f",
+      "vulnerable_build_id": "c5be5e60-00e6-5f05-b1de-45a93e0dedd6"
+    },
+    "564816": {
+      "fixture_sha256": "bc685b4a15d2d4c393703a6437e692413f80e5b222991ccd2c283b18822e9d8d",
+      "pair_id": "9d2184f7-480d-5d0f-bdac-e2857730b913",
+      "patched_build_id": "5014dffa-657e-5f2f-acdf-a32748cd993e",
+      "vulnerable_build_id": "59971edf-51a2-573a-a226-ef33c9122c8a"
+    },
+    "600854": {
+      "fixture_sha256": "50e6f26d36d81761265a16fdcbf0e71f9178a6691ec07b2cd8e458a29c3b72a2",
+      "pair_id": "ebea7229-37ee-5cb3-b766-cd8e6d79bf70",
+      "patched_build_id": "faeb391e-0fdd-5aff-8aa3-6e195802f673",
+      "vulnerable_build_id": "b7f36ff0-9d9b-5a91-bde7-dc63d6ff17b2"
+    },
+    "657193": {
+      "fixture_sha256": "a466143822a0cf7ec91ffa177dcb045d5ee0968954730b371c6ddbfb132aea6f",
+      "pair_id": "8f6e4e29-bb3d-5649-95fd-d4409d9717bf",
+      "patched_build_id": "a2849641-c057-564f-aef6-bb65c545faa1",
+      "vulnerable_build_id": "832cec7c-2f7a-5761-be67-ca6c8f924b11"
+    },
+    "675598": {
+      "fixture_sha256": "35782115e3e9e4e76c79021efd3842957dfbf8f992c42247f9db704f78a0dd51",
+      "pair_id": "d80e938f-7752-5d54-9872-38657f578a2b",
+      "patched_build_id": "31956440-cdb2-5972-93ea-ceea2fd0424c",
+      "vulnerable_build_id": "a31f2c77-6947-5c44-bc28-b7f5e99f37b3"
+    },
+    "747590": {
+      "fixture_sha256": "617c8ccafeec1d0563745869105aa16a4e4f5144eb479b8653e6b80cb204d520",
+      "pair_id": "75956abc-9ec5-529c-91aa-5b9320d2e581",
+      "patched_build_id": "731bccd4-c26f-5a4e-b931-72953154534f",
+      "vulnerable_build_id": "017e10fe-48d0-5596-8991-4979fc8cc782"
+    },
+    "749139": {
+      "fixture_sha256": "fa3e638806480e37b576a4d2785c951286ce383001a20c019786884836cf8991",
+      "pair_id": "682fe235-c0de-5550-8e2e-1997251449fc",
+      "patched_build_id": "6d796e72-f955-57c4-a151-2435764d4d93",
+      "vulnerable_build_id": "d6a76510-04f9-56d0-99b0-638fb2b41097"
+    },
+    "782247": {
+      "fixture_sha256": "7fd8ca61279d35cf343e41ba66c87609b686aff06e6ab002f83099ef5dd8fdac",
+      "pair_id": "3d5077a2-e721-56ec-88df-4d0c2500d6f7",
+      "patched_build_id": "51d451b5-9b68-5196-bcb1-bb2a03c82ca7",
+      "vulnerable_build_id": "84e7eda7-d3d7-5e39-a6bf-966e3809240b"
+    },
+    "793024": {
+      "fixture_sha256": "d04c34dc99ee17dc577c7c2c79b93d5698dfa06fa7018fecb699f02a27cf80f8",
+      "pair_id": "988ee0f6-c065-5dbf-aee2-b5806d682b98",
+      "patched_build_id": "8603714a-e847-5e1f-8de9-7a718260074e",
+      "vulnerable_build_id": "fa357be6-cdb3-5a7f-b4a7-2f1162030e60"
+    },
+    "831941": {
+      "fixture_sha256": "5ef35b3858a15f05f2bcf33d92f535fdd770304a4dc30a63dff6656c83246083",
+      "pair_id": "25b8d92b-e88f-51a7-b1fe-25e4c94ed9e8",
+      "patched_build_id": "52e435a7-e76a-59c4-ba60-291d7bfdb550",
+      "vulnerable_build_id": "6dac1b98-1c89-5a52-9cfb-5f7571acbc65"
+    },
+    "916208": {
+      "fixture_sha256": "0e7e35664d4a4743d621e2e89bbf5ca0bcce0d0d74bfe8557c4a533f4652540a",
+      "pair_id": "4610ab19-c7b3-560f-9b9a-2e8bce2e1703",
+      "patched_build_id": "2a61594d-2f15-5f0a-b327-42387841a524",
+      "vulnerable_build_id": "5d46fd79-1812-5012-967e-076085fefe0f"
+    },
+    "964759": {
+      "fixture_sha256": "29d9d5f73e1eef9a33fd848ab0561ed4a81669273e21620f31158f4dcc00d09f",
+      "pair_id": "d7155b76-0393-5cf7-9ce7-9dfedbde9a56",
+      "patched_build_id": "5706c247-4187-5310-8d8c-8118116f54b5",
+      "vulnerable_build_id": "ac1244e9-58bc-5f1c-a14a-c8bab5382f3e"
+    },
+    "970327": {
+      "fixture_sha256": "74e4000d80fb21d0fb6406574fa416300ee86ff6574ced4b45cd310dea35eaf4",
+      "pair_id": "d0941bfd-3a32-583a-902b-1f164bf8ba5e",
+      "patched_build_id": "284f7cef-41db-5301-8a0e-65e873dafe83",
+      "vulnerable_build_id": "bff37f8f-6040-521f-ac66-d920f05871a2"
+    }
+  },
+  "reporter_budget_per_arm": {
+    "max_actions": null,
+    "max_concurrency": null,
+    "max_cost_usd": null,
+    "max_finding_submissions": 12,
+    "max_http_requests": null,
+    "max_model_calls": 4,
+    "max_output_tokens_per_call": 4096,
+    "max_retrieval_calls": 24,
+    "max_total_tokens": 80000,
+    "max_wall_seconds": 300,
+    "max_workers": null
+  },
+  "reporter_config": {
+    "path": "experiments/configs/kimi-k3-m652-reporting.yaml",
+    "sha256": "019f43d2747347d0056a6a8bfbe1cc43e76314203854fd7ed452043b7f018fd6"
+  },
+  "reporter_prompt_sha256": "795d55ef09e5ee75a8528a29333d159344568d88140e6f6a72652af88cca875c",
+  "reporter_tool_schema_sha256": "3cdbc12458673878964931ee0f8828bc3feac60f5461f79dbab42484f039e59a",
+  "requires_separate_paid_approval": true,
+  "schema_version": "1",
+  "seed_pair_bootstrap_replicates": 10000,
+  "seed_selection": {
+    "path": "experiments/manifests/m652-reporting-context-seeds-v1.json",
+    "sha256": "9e4775dabd5ed76561f4ef44ffa32bbe8387fdf76caae099d2eeeede0df1ee36"
+  },
+  "seed_set": [
+    964759,
+    749139,
+    300417,
+    21191,
+    520511,
+    657193,
+    793024,
+    600854,
+    172542,
+    564816,
+    289384,
+    55310,
+    395662,
+    675598,
+    747590,
+    970327,
+    831941,
+    125907,
+    526804,
+    281491,
+    374244,
+    916208,
+    782247,
+    29639
+  ],
+  "shared_probe_spend_counted_once": true,
+  "source_commit": "dd3b1b0d1275a18647a6aaf0bf5b22a263bd172a",
+  "source_files": {
+    "migrations/versions/0008_reporting_branches.py": "054aa32bc910865688f7153ab8d4e2b623a3ff6876e8b64d70cd14795a0d81a5",
+    "research_ops/m652_postcheck.py": "a874864f4466db31096ee5545184d4554fc80fac6c01450bf206d49809b636d6",
+    "src/offsecgym/experiment/bootstrap.py": "f7e2daec507b7751e91c777791a5ea94a15546f72a117fef595cc61a1331ba9e",
+    "src/offsecgym/experiment/bootstrapped_monolithic.py": "e59bf9dda28acc2b5915acb53b49f0e565801bc2b7d992da58f3c6578b92f9d4",
+    "src/offsecgym/experiment/reporting_context.py": "33efaa5df0ba0ca03541e200acd3ad49e4fd042c45fabe80a37e43c9acb8a1dd",
+    "src/offsecgym/experiment/scripted.py": "be2e9019d257ad9e635a9b282d78bf40ba96885b7508a1564dbfe20192ef9455",
+    "src/offsecgym/experiment/workers.py": "0274a42e30e8fcf6d269a90bd43ef963a7c656bd81581e4e442d5fd09f9a618d",
+    "src/offsecgym/providers/artifacts.py": "a0bcddc04297815b4eac391beeb16bb5a08da854097240c773d0216dce886aa7",
+    "src/offsecgym/providers/openai.py": "f784ac292ce7b5b244029b0970266cbdd8a22be104c14736b3a55337b23e2c25",
+    "src/offsecgym/providers/openrouter.py": "a0bd200c272e0c887cdc8680ff8f5fe6343a72b8aaee559f1f0edc737a577e41",
+    "src/offsecgym/providers/token_budget.py": "aa8fba5fcdbe1e0b596a7a51a92e6d4f704761730a85a1ad8355f29d069680a3",
+    "src/offsecgym/research/m64_stage_ledger.py": "79a501fe4ed61849f6c58565f0c7667eb9bcb5d75e54cfe1dd8cecd95e403b19",
+    "src/offsecgym/research/m652_analysis.py": "f7938c18dfd078d25ac40dd802696dcabf466f7d3e5457d7882f176e17bf2f92",
+    "src/offsecgym/research/m652_audit.py": "cea086bb755e97dd025a8f2be30a43749915af0864c0006bd9321234f2b10210",
+    "src/offsecgym/research/m652_checkpoint.py": "563c8aa572e9bd53c46af2ed2b959ce6f7466544b1202b2a7ea584970e97f653",
+    "src/offsecgym/research/m652_execute.py": "37efbbfd3c4cdd4f0cb227b6308f54fdfdeb2fdce3c0cf513c085854e679ade7",
+    "src/offsecgym/research/m652_matrix.py": "8d3e5b6d4384fdbaf45d9dd508e9a1723f3a918a523551f3f7c63af970a5212d",
+    "src/offsecgym/research/m652_seed_selection.py": "c6e26a299aa03114f54c4f7abab918d66384d577ad6bbf85a20c6462aff5f3c1",
+    "src/offsecgym/research/m65_reporter.py": "a24eda1aa28eaf5ceb4d818eca3929a39d2ffdc686e1d651701667e55afa0651",
+    "src/offsecgym/research/m65_witness_matrix.py": "e0939726dd871ba474c4ec6a91fd953e0305506659f7654fde300d10fb65a2ff",
+    "src/offsecgym/research/m65_witness_packet.py": "8eec63996316ad36b63e566d745cbdb3bcd7b5233d1b1e673f9aec28cfd36b38",
+    "src/offsecgym/runtime/saas.py": "04898eb01598ca815c5430d1e2a36712efb4118f78c00abe0b185312e1600f91",
+    "src/offsecgym/schemas/events.py": "839138d4fa19f192c8f0c7b7e62234a585a57077a418e6d9ceeaab6d956642d4",
+    "src/offsecgym/schemas/specs.py": "9ebcaf8734e270ae40535e980e574149702f2791df620f4d344cce43211a7f5b",
+    "src/offsecgym/solver/bootstrap_context.py": "c0356fba534a76012d1890e7bb7f989f4d821180f449093dcaa581ff89ed4aa6",
+    "src/offsecgym/solver/monolithic.py": "920a9d63b3f0ee2308445491f8e4128967bc3e2658dea4dcc26c12634c21c5bd",
+    "src/offsecgym/storage/reporting_branch.py": "29317c6d3ea5c22d5d20fb93dc3e51a48e7a7020613322a1a137f34a3cebf521",
+    "src/offsecgym/validation/deterministic.py": "5f36f008e579c6a43022a360995400622de12da086e1a2c7bdb8735de3a27053"
+  },
+  "status": "paid_approval_pending",
+  "stopping_rules": [
+    "one source probe and two reporting branches per cell; no silent retry",
+    "stop on interrupted or score-invalid prefix or arm",
+    "stop on selected endpoint, source, or price snapshot drift",
+    "stop on checkpoint, request, artifact, bootstrap, or event replay failure",
+    "stop before a next cell whose reserved worst-case cost exceeds the threshold"
+  ],
+  "validator_sha256": "5f36f008e579c6a43022a360995400622de12da086e1a2c7bdb8735de3a27053"
+}

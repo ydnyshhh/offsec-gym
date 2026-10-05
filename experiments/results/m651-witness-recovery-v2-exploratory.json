@@ -1,0 +1,90 @@
+{
+  "calls_per_cell": {
+    "1": 1,
+    "2": 2,
+    "3": 6,
+    "4": 11
+  },
+  "cited_evidence_ids_without_exact_retrieval": 13,
+  "cumulative_incremental_roots_by_call": [
+    {
+      "call": 1,
+      "cells_reaching_call": 20,
+      "cumulative_incremental_roots": 0,
+      "new_incremental_roots": 0,
+      "rejected_submissions": 0,
+      "retrievals": 97,
+      "root_duplicate_validated_submissions": 0,
+      "submissions": 0,
+      "validated_submissions": 0
+    },
+    {
+      "call": 2,
+      "cells_reaching_call": 19,
+      "cumulative_incremental_roots": 0,
+      "new_incremental_roots": 0,
+      "rejected_submissions": 1,
+      "retrievals": 93,
+      "root_duplicate_validated_submissions": 0,
+      "submissions": 1,
+      "validated_submissions": 0
+    },
+    {
+      "call": 3,
+      "cells_reaching_call": 17,
+      "cumulative_incremental_roots": 0,
+      "new_incremental_roots": 0,
+      "rejected_submissions": 3,
+      "retrievals": 26,
+      "root_duplicate_validated_submissions": 12,
+      "submissions": 15,
+      "validated_submissions": 12
+    },
+    {
+      "call": 4,
+      "cells_reaching_call": 11,
+      "cumulative_incremental_roots": 4,
+      "new_incremental_roots": 4,
+      "rejected_submissions": 8,
+      "retrievals": 2,
+      "root_duplicate_validated_submissions": 10,
+      "submissions": 22,
+      "validated_submissions": 14
+    }
+  ],
+  "denominator_cells": 20,
+  "exact_retrieved_evidence_ids": 212,
+  "exact_retrieved_evidence_ids_never_cited": 157,
+  "first_incremental_finding": [
+    {
+      "call": 4,
+      "retrievals_before": 20
+    }
+  ],
+  "fraction_call_budget": 0.3,
+  "incremental_distinct_roots": 4,
+  "interpretation_limits": [
+    "This post hoc analysis does not change the frozen primary estimator.",
+    "Call attribution follows each reporter finding's causation event; validation occurs later.",
+    "A root duplicate may cite a different valid witness, and is not necessarily an exact repeat.",
+    "Exact evidence retrieval excludes search and entity lookups; citation without exact retrieval does not prove the reporter ignored evidence."
+  ],
+  "novel_roots_per_100k_reporter_tokens": 0.390173480883938,
+  "rejected_reporter_reason_codes": {
+    "proof_missing": 5,
+    "property_unmatched": 7
+  },
+  "reporter_candidate_submissions": 38,
+  "reporter_tokens": 1025185,
+  "reporter_tokens_per_incremental_root": 256296.25,
+  "status": "exploratory_post_hoc_not_predeclared",
+  "submission_novelty_rate": 0.10526315789473684,
+  "terminal_reasons": {
+    "completed": 5,
+    "invalid_reporter_tools": 1,
+    "model_token_budget_exhausted": 1,
+    "reporter_call_budget": 6,
+    "reporter_preflight": 7
+  },
+  "validated_reporter_submissions": 26
+}
