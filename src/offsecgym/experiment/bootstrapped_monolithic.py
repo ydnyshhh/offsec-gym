@@ -2,8 +2,9 @@
 
 from offsecgym.experiment.scripted import BoundFindingSink
 from offsecgym.experiment.workers import WorkerExperimentRunner
+from offsecgym.runtime.enterprise import FAMILY as ENTERPRISE_FAMILY
 from offsecgym.schemas.specs import ExperimentSpec
-from offsecgym.solver.monolithic import MonolithicSaasAgent
+from offsecgym.solver.monolithic import MonolithicSecurityAgent
 
 
 class BootstrappedMonolithicExperimentRunner(WorkerExperimentRunner):
@@ -11,7 +12,7 @@ class BootstrappedMonolithicExperimentRunner(WorkerExperimentRunner):
 
     def _supported(self, spec: ExperimentSpec) -> bool:
         return (
-            spec.range.family == "saas"
+            spec.range.family in {"saas", ENTERPRISE_FAMILY}
             and spec.orchestrator == "bootstrapped_monolithic"
             and spec.memory == "structured"
             and spec.validation == "deterministic"
@@ -23,7 +24,7 @@ class BootstrappedMonolithicExperimentRunner(WorkerExperimentRunner):
     def _agent(self, findings_store: BoundFindingSink, spec: ExperimentSpec):
         if spec.model is None:
             raise ValueError("bootstrapped monolithic control requires a model")
-        return MonolithicSaasAgent(
+        return MonolithicSecurityAgent(
             self.provider,
             spec.model,
             findings_store,

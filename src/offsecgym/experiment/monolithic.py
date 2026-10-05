@@ -1,4 +1,4 @@
-"""Run a single model agent through the established SaaS experiment lifecycle."""
+"""Run a single model agent through the audited experiment lifecycle."""
 
 from __future__ import annotations
 
@@ -6,8 +6,9 @@ from offsecgym.experiment.scripted import BoundFindingSink, ScriptedExperimentRu
 from offsecgym.interfaces import EventStore
 from offsecgym.providers.base import ModelProvider
 from offsecgym.runtime.compose import ComposeRangeRuntime
+from offsecgym.runtime.enterprise import FAMILY as ENTERPRISE_FAMILY
 from offsecgym.schemas.specs import ExperimentSpec
-from offsecgym.solver.monolithic import MonolithicSaasAgent
+from offsecgym.solver.monolithic import MonolithicSecurityAgent
 
 
 class MonolithicExperimentRunner(ScriptedExperimentRunner):
@@ -19,7 +20,7 @@ class MonolithicExperimentRunner(ScriptedExperimentRunner):
 
     def _supported(self, spec: ExperimentSpec) -> bool:
         return (
-            spec.range.family == "saas"
+            spec.range.family in {"saas", ENTERPRISE_FAMILY}
             and spec.orchestrator == "monolithic"
             and spec.memory in {"transcript", "structured"}
             and spec.validation == "deterministic"
@@ -30,7 +31,7 @@ class MonolithicExperimentRunner(ScriptedExperimentRunner):
     def _agent(self, findings_store: BoundFindingSink, spec: ExperimentSpec):
         if spec.model is None:
             raise ValueError("monolithic agent requires a model")
-        return MonolithicSaasAgent(
+        return MonolithicSecurityAgent(
             self.provider,
             spec.model,
             findings_store,
