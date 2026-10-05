@@ -1,12 +1,17 @@
-# M6.5.2 design: equal-compute reporting context
+# M6.5.2: equal-compute reporting context
 
-**Status:** the paired runner, exact-request audit, fixed-budget collector,
-read-only postcheck, 24-seed sample manifest, and separate non-sample pilot
-manifest are committed. Exact-head CI and paid-call approval remain. Neither
-pilot nor sample has run.
-[M6.5.1](diagnostics/m651-witness-recovery-v2-results.md) is
-complete and frozen. Its 4/9 recovery result used extra reporter inference;
-it cannot identify whether a fresh context helped relative to spending the
+**Status:** the separate feasibility pilot and 48-cell/24-seed-pair sample
+are complete. The [audited result](diagnostics/m652-reporting-context-v1-results.md)
+found fresh recovery of 11/19 eligible roots versus continuation recovery
+of 15/19, a fresh-minus-continuation difference of −21.1 percentage
+points with a seed-pair bootstrap interval of −62.5 to +8.3 points. The
+sample required documented post-start budget-prefix and provider-attrition
+amendments; the estimate is conditional on valid reporting prefixes.
+The original design and frozen protocol are recorded below.
+
+[M6.5.1](diagnostics/m651-witness-recovery-v2-results.md) is complete and
+frozen. Its 4/9 recovery result used extra reporter inference; it could
+not identify whether a fresh context helped relative to spending the
 same inference on a continuation of the probing model.
 
 ## Question and estimand
@@ -74,8 +79,8 @@ the continuation arm receives the checkpoint carry. This is specifically a
 **reporting-context carryover** treatment, not a continuation of the probe's
 original instruction or tool set. Branch-specific model artifacts, findings,
 validation, and deterministic score replay are implemented. The checkpoint
-artifact is verified against its event, but a production pilot still needs a
-frozen manifest and an audit of exact continuation-request reconstruction.
+artifact and exact continuation-request reconstruction passed the separate
+feasibility pilot and final sample audit.
 
 ## Equal compute and reachable compute
 

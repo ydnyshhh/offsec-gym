@@ -137,12 +137,15 @@
   preserve the failed v1 pilot, v2 feasibility recheck, $14.978964 estimated
   sample cost, zero patched reporter false findings, and budget-censored
   reporter behavior without retuning the frozen protocol.
-- M6.5.2 now has an opt-in post-tool probe checkpoint, immutable PostgreSQL
-  reporting branches, branch-specific model artifacts and findings, equal-cap
-  fresh/continuation reporting, score replay, a read-only boundary audit, and
-  paired proof-eligible analysis. Fake-provider/PostgreSQL tests exercise one
-  shared probe prefix and independent branch scores. No M6.5.2 model pilot
-  or sample has run.
+- M6.5.2 completed its separate feasibility pilot and all 48 reporting-
+  context cells on 24 new seed pairs. The read-only PostgreSQL audit passed.
+  Fresh context recovered 11/19 proof-eligible missed roots versus 15/19
+  for continuation; the seed-pair bootstrap interval for the −21.1-point
+  fresh-minus-continuation difference includes zero. The
+  [results](diagnostics/m652-reporting-context-v1-results.md) preserve
+  two unscored provider failures, nine other reporting-ineligible prefixes,
+  post-start operational amendments, patched finding submissions, and
+  $36.821124 estimated token cost.
 - M6.6 now has an opt-in event-derived temporal witness ledger, typed model
   tools, bounded active reminder, and seed-block policy analysis. The ledger
   observes state transitions without asserting a security verdict. No M6.6
@@ -171,9 +174,6 @@
 - A managed artifact store and full experiment run manifests remain future controller work.
 - The model-turn protocol still uses OpenAI Responses item shapes. Normalize model output
   and opaque continuation state before adding a second provider.
-- M6.5.2 still needs a frozen costed manifest, exact continuation-request
-  audit at a live endpoint, collection reconciliation, and a separately
-  approved pilot before any confirmatory sample.
 - M6.6 still needs a full paired fake-range parity test, frozen trace-stage
   extraction and costed protocol, and a second state-changing range family
   before testing generalization.
@@ -195,11 +195,12 @@ are complete and frozen. The control's historical architecture comparison
 remains noncausal. The recovery assay shows that extra read-only inference
 can report some proof-capable roots missed by a probe, while refund often
 lacks a complete ordered witness and the recovery estimate is concentrated
-in one seed. The [M6.5.2 equal-compute context study](milestone-6.5.2.md)
-and [M6.6 witness-oriented exploration study](milestone-6.6.md) now have
-opt-in execution and analysis primitives. They separate proof-to-finding from
-action-to-proof questions. Both await frozen costed protocols, further preflight
-gates, and live-call approval; neither retunes a completed sample.
+in one seed. The [M6.5.2 equal-compute context study](diagnostics/m652-reporting-context-v1-results.md)
+is complete. Its observed continuation advantage has a wide paired interval,
+and post-start attrition limits interpretation. The [M6.6 witness-oriented
+exploration study](milestone-6.6.md) remains the proposed action-to-proof
+test; it awaits a frozen costed protocol, further preflight gates, and
+live-call approval.
 
 ## Known architectural debt
 

@@ -38,30 +38,33 @@ For refund, the probe often executed the unauthorized transition but rarely
 constructed a complete ordered before/action/after witness. This assay is
 frozen; its failed v1 pilot and bounded v2 results remain separate records.
 
+The [M6.5.2 reporting-context study](diagnostics/m652-reporting-context-v1-results.md)
+completed 48 cells on 24 new seed pairs after a separate feasibility pilot.
+From the same frozen probe prefixes, fresh reporting recovered 11/19
+proof-eligible missed roots versus 15/19 for continued context. The
+fresh-minus-continuation paired interval spans −62.5 to +8.3 points; no
+winner is established. Eleven prefixes lacked both valid reporting arms,
+including two unscored provider failures. Post-start, versioned no-retry
+attrition amendments and possible nonrandom missingness limit the
+conditional estimate. The final PostgreSQL postcheck replayed all scores,
+traces, and the predeclared analysis.
+
 ## Next questions
 
-1. [M6.5.2](milestone-6.5.2.md) should test a fresh context against an
-   equally funded continuation from the **same immutable probing prefix**.
-   Give both arms the same read-only evidence and reporting tools; preserve
-   the exact probe carry state only in the continuation arm. This targets
-   proof-to-finding conversion without changing exploration or adding
-   compute to just one arm. Opt-in branch isolation, replayable checkpoints,
-   and paired audit/analysis code are implemented; freeze a costed protocol
-   and pass the remaining endpoint preflight before a pilot.
-2. [M6.6](milestone-6.6.md) should test a generic, event-backed
+1. [M6.6](milestone-6.6.md) should test a generic, event-backed
    before/action/after witness ledger against the same exploration policy
    without that scaffold. This targets successful-action-to-complete-proof
    conversion, especially for temporal authorization tests. Keep the
    intervention oracle-free and include patched false-finding checks. The
    event-derived ledger and policy runner are implemented; a full paired
    fake-range parity test and frozen collection protocol remain.
-3. Add a second state-changing range family before claiming the witness
+2. Add a second state-changing range family before claiming the witness
    mechanism generalizes beyond the current synthetic SaaS workflow.
 
 Keep model, bootstrap, validator, range visibility, budget, provider endpoint,
 and stopping rules explicit in every new manifest. Preserve distinct root
 recall, duplicate submissions, false findings, latency, token/cost use, and
-score-invalid failures separately. Both follow-ups are designs, not approved
-model collections. No new model collection starts without a costed, frozen
-protocol and approval. The engineering implementations above have made no
-paid model calls and have not changed either frozen dataset.
+score-invalid failures separately. M6.6 remains a design, not an approved
+model collection. No new collection starts without a costed, frozen
+protocol and approval. The completed M6.5.2 dataset remains separate from
+the earlier M6.4 and M6.5 collections.
