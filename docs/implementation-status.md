@@ -181,9 +181,10 @@
 - A managed artifact store and full experiment run manifests remain future controller work.
 - The model-turn protocol still uses OpenAI Responses item shapes. Normalize model output
   and opaque continuation state before adding a second provider.
-- M6.6 still needs a full paired fake-range parity test, frozen trace-stage
-  extraction and costed protocol, and a second state-changing range family
-  before testing generalization.
+- M6.6 now has a second state-changing family and a real-Compose fake-provider
+  control/witness pair on vulnerable and patched builds. It still needs frozen
+  trace-stage extraction, a costed protocol, and an approved paid pilot before
+  testing model-behavior generalization.
 
 ## Next milestone
 
@@ -206,8 +207,9 @@ in one seed. The [M6.5.2 equal-compute context study](diagnostics/m652-reporting
 is complete. Its observed continuation advantage has a wide paired interval,
 and post-start attrition limits interpretation. The [M6.6 witness-oriented
 exploration study](milestone-6.6.md) remains the proposed action-to-proof
-test; it awaits a frozen costed protocol, further preflight gates, and
-live-call approval.
+test. [Range B preflight](diagnostics/m66-range-b-readiness.md) now covers
+model-runner parity and broad no-model qualification; M6.6 still awaits
+trace-stage extraction, a frozen costed protocol, and live-call approval.
 
 ## Known architectural debt
 

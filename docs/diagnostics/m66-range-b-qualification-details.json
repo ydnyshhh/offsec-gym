@@ -1,0 +1,920 @@
+{
+  "compiler_builds": [
+    {
+      "build_id": "c6a3be0f-226f-5204-94a4-e15354907acb",
+      "pair_id": "f43a2847-9240-564d-becf-b6ececbc23c3",
+      "seed": 0
+    },
+    {
+      "build_id": "f4185cbd-da7c-5366-8f9b-53881e801aca",
+      "pair_id": "4fac20d9-5e9a-50e0-8a5d-dd0801d664c1",
+      "seed": 1
+    },
+    {
+      "build_id": "6fc9419d-1546-5590-9567-ebfebb3ff043",
+      "pair_id": "37fb103f-7259-56f3-ad17-e09c6571ad29",
+      "seed": 2
+    },
+    {
+      "build_id": "47001fa2-8b33-5ae4-97e4-39340dd444f3",
+      "pair_id": "62b9e436-bf43-5fba-b437-d7d24c376640",
+      "seed": 3
+    },
+    {
+      "build_id": "d31f2f03-1f8f-5737-9b45-509a45d66f99",
+      "pair_id": "ac91c9e3-c115-5bdc-85a3-a10ff0d52d6f",
+      "seed": 4
+    },
+    {
+      "build_id": "c150f826-6fb5-532b-894a-21e9330b45be",
+      "pair_id": "89682cea-0522-55ec-89f6-7a6a49822a37",
+      "seed": 5
+    },
+    {
+      "build_id": "e7b8ab13-7fd8-564c-b80b-09bc64c140f4",
+      "pair_id": "5124a350-00ac-526e-ab7b-607fd89d4d9f",
+      "seed": 6
+    },
+    {
+      "build_id": "80508ff4-f2cb-5138-8d8b-ac03c7274233",
+      "pair_id": "9e84df5f-5390-524c-90c3-1be97d5b17c0",
+      "seed": 7
+    },
+    {
+      "build_id": "c979270d-91a0-56d5-b1c8-e3f67e9a3ae7",
+      "pair_id": "6ad0b366-5fae-5128-b7b5-e2fe4ce127ab",
+      "seed": 8
+    },
+    {
+      "build_id": "80f88db9-0795-5702-a670-14b47cf57361",
+      "pair_id": "4d2f9192-313f-5478-8ecf-e24627c59c68",
+      "seed": 9
+    },
+    {
+      "build_id": "8c3fcf61-d40a-5093-a338-0c07c8c205c7",
+      "pair_id": "a66b31e9-6ce6-5d39-954d-0ab72946dcc7",
+      "seed": 10
+    },
+    {
+      "build_id": "657caa9c-6653-502e-9fda-66f2f1c3042b",
+      "pair_id": "c893c0fe-f595-5257-ac51-cd8714f6cb07",
+      "seed": 11
+    },
+    {
+      "build_id": "5e8383d7-2627-56e1-8748-e4950795f4cb",
+      "pair_id": "60a80451-3b47-5005-9ce3-aee8981ef3f1",
+      "seed": 12
+    },
+    {
+      "build_id": "2586e8f8-0d56-5c16-9b46-c826155d1fc9",
+      "pair_id": "7578e3df-4fef-5fd3-b9f6-9080b7d76512",
+      "seed": 13
+    },
+    {
+      "build_id": "a2a6fa89-78aa-5fe5-8094-452a066492a1",
+      "pair_id": "cdec4bc7-d6ac-5105-b024-deff644fa7a2",
+      "seed": 14
+    },
+    {
+      "build_id": "ef018c49-06aa-5daf-a67b-c7cda187e3e0",
+      "pair_id": "0be1129e-d8b4-5bb4-ab96-e9ba97578eb5",
+      "seed": 15
+    },
+    {
+      "build_id": "a60b99bc-5327-57c5-a71e-0fce81b099fa",
+      "pair_id": "e69b43bb-b6d6-571e-b260-767a6c5fa77c",
+      "seed": 16
+    },
+    {
+      "build_id": "dd2337c8-5564-59ff-9a57-914647f3c9a3",
+      "pair_id": "cc7474b7-ac77-511f-875e-91dafb6ed7ab",
+      "seed": 17
+    },
+    {
+      "build_id": "9a344f54-5e03-5154-bb07-486f484c51a3",
+      "pair_id": "7ece319f-d5fd-5a9a-886b-eed55d5d0f0f",
+      "seed": 18
+    },
+    {
+      "build_id": "21064ff3-1fb2-5dc4-a568-41c2341876ed",
+      "pair_id": "571bb6ec-e228-5968-9d7b-42249ab23ef9",
+      "seed": 19
+    },
+    {
+      "build_id": "f6dd6fbd-3c26-58f5-a2f6-8530f759a1a3",
+      "pair_id": "80c800a9-15ac-50a0-a97b-c748eec82dc5",
+      "seed": 20
+    },
+    {
+      "build_id": "e6b435d1-0b85-5421-9ff9-98e447b3fb14",
+      "pair_id": "286e20fd-d2cb-5d70-ae3c-cb52a2b352fd",
+      "seed": 21
+    },
+    {
+      "build_id": "1fdf2081-692c-5fa2-b57d-526af0db4bd1",
+      "pair_id": "b5c7b866-de92-5925-8ba5-af3f53b84de1",
+      "seed": 22
+    },
+    {
+      "build_id": "b7f2cab9-52b7-5412-9bb0-8961e67adc45",
+      "pair_id": "5adf22f3-3a33-51a6-88eb-e8b6d10fa470",
+      "seed": 23
+    },
+    {
+      "build_id": "e1c31860-44f8-5e5f-bfaa-2a3b3fab9dfd",
+      "pair_id": "39bd2512-1a95-56e9-896a-8f1a0b9ed56b",
+      "seed": 24
+    },
+    {
+      "build_id": "01e19127-c270-5b20-b219-c92c06560dd7",
+      "pair_id": "62b3ba85-5679-5b04-8ff4-bb5183ecdc48",
+      "seed": 25
+    },
+    {
+      "build_id": "d477c536-3242-5881-bf53-9472e73d0c89",
+      "pair_id": "e3da00f7-8b5b-533c-bfc8-4b162a043389",
+      "seed": 26
+    },
+    {
+      "build_id": "99d16680-063c-521e-9aa4-cb39a96a4115",
+      "pair_id": "5a9ab970-99f5-5e17-9628-2f7250c8053b",
+      "seed": 27
+    },
+    {
+      "build_id": "f47969fb-5b70-5dca-893d-3cb8cad0752f",
+      "pair_id": "f4fb684e-7721-5724-8091-6d6f73de2834",
+      "seed": 28
+    },
+    {
+      "build_id": "177333d4-3585-5370-8d68-511262b37eff",
+      "pair_id": "2c410a62-3487-5953-8faa-cc47437a52de",
+      "seed": 29
+    },
+    {
+      "build_id": "7461993b-255d-544e-982e-6a5c91120011",
+      "pair_id": "630f2ab6-0c3e-5499-862e-73a2d2384556",
+      "seed": 30
+    },
+    {
+      "build_id": "6161bdf3-6f6a-5072-8b1a-72297b4d7c5d",
+      "pair_id": "b85957b1-92dc-5968-97d2-4d695810c462",
+      "seed": 31
+    },
+    {
+      "build_id": "b7edc924-fc3e-596f-8912-806ba1117041",
+      "pair_id": "ad7506d6-8542-5c61-8b2f-3c607e64ec7a",
+      "seed": 32
+    },
+    {
+      "build_id": "94125d23-5110-5087-b9f4-330704266619",
+      "pair_id": "45c59859-0c88-5bf5-a15d-0c4599f8139a",
+      "seed": 33
+    },
+    {
+      "build_id": "deae71dd-dfde-59a3-8131-c57424cc84a8",
+      "pair_id": "18294a84-6a5d-5549-9926-0e899966ef93",
+      "seed": 34
+    },
+    {
+      "build_id": "44a0f9a7-3760-5072-854c-800d5d664ecb",
+      "pair_id": "fc745c72-c68f-5faf-931e-6f5e3b5f9d16",
+      "seed": 35
+    },
+    {
+      "build_id": "946484ef-a0aa-5b7b-baef-e9bd517a8c21",
+      "pair_id": "d1127d75-2d19-5e41-957e-94ee8553e981",
+      "seed": 36
+    },
+    {
+      "build_id": "7af94ade-d9c4-55fd-95b0-ee8070cd0b42",
+      "pair_id": "92389bc3-6e93-55f1-9630-f28c00fb85bc",
+      "seed": 37
+    },
+    {
+      "build_id": "137c2aa8-7cbc-5b79-b236-e781629c4316",
+      "pair_id": "7061960b-f6a5-5d2c-b3b1-fb462892c647",
+      "seed": 38
+    },
+    {
+      "build_id": "e3d8b469-f07b-54b7-963f-201adcff2edc",
+      "pair_id": "49fc18ef-c145-5d32-9c8c-c27e8612785b",
+      "seed": 39
+    },
+    {
+      "build_id": "e22e9dd4-f1de-56a1-ad76-6a39df9591e7",
+      "pair_id": "28961a72-f319-5243-b255-e1c81268d97f",
+      "seed": 40
+    },
+    {
+      "build_id": "7f30ac4f-5d3a-5587-9d39-be82131ff466",
+      "pair_id": "8d146fe1-d666-5ae1-aefb-c7c32ee91140",
+      "seed": 41
+    },
+    {
+      "build_id": "db31f666-ec16-562c-abbd-47d0a37d39d5",
+      "pair_id": "2eae2892-18aa-5282-8466-26bcd6fd1f6b",
+      "seed": 42
+    },
+    {
+      "build_id": "a36cfb99-78af-595d-817c-a9eca57c2808",
+      "pair_id": "1718e93c-4cfd-5d3e-a237-2eed45dee519",
+      "seed": 43
+    },
+    {
+      "build_id": "4b6aeed0-64f6-58b6-b29a-55d2dc6b862c",
+      "pair_id": "83eaf7f3-4804-5122-a9bc-bf52665516bd",
+      "seed": 44
+    },
+    {
+      "build_id": "a97b7d74-9228-5eda-8fec-97d3cc1c9de3",
+      "pair_id": "61a94b51-8394-5104-9e98-4a3b5d7fe1ab",
+      "seed": 45
+    },
+    {
+      "build_id": "bb985fdf-e842-530c-97b0-d2f569d8b905",
+      "pair_id": "df7c9234-fbc9-538e-825c-a3dbb9c0e188",
+      "seed": 46
+    },
+    {
+      "build_id": "f8e2fceb-65b8-5b40-aa65-cb9dd58c37eb",
+      "pair_id": "2721c21b-5311-5424-9df9-4cc6929befe0",
+      "seed": 47
+    },
+    {
+      "build_id": "8ddbc4a0-1977-541c-8a5b-af9a9e020518",
+      "pair_id": "d36ba09e-598e-5529-b8ce-77b84ac5261f",
+      "seed": 48
+    },
+    {
+      "build_id": "c3d166d0-7f50-5071-825d-efaa700d5bda",
+      "pair_id": "d994b121-cf24-515c-bea2-603e8ab1057f",
+      "seed": 49
+    },
+    {
+      "build_id": "17b81063-21d6-5d19-a076-a55f5130355c",
+      "pair_id": "52404f7a-684c-5683-8272-52877f96a3ff",
+      "seed": 50
+    },
+    {
+      "build_id": "eaeb9d48-6df6-585a-aa12-d163426f79bd",
+      "pair_id": "2cd7d485-2829-56ee-a161-aa7e4b5d5dd1",
+      "seed": 51
+    },
+    {
+      "build_id": "5e6411e1-096b-51a5-b293-eb5e3509740f",
+      "pair_id": "da7b2a02-3437-5f7f-b0d1-be0bfe836a3e",
+      "seed": 52
+    },
+    {
+      "build_id": "27892f13-5882-5d9d-82ea-80afe0448612",
+      "pair_id": "441d6224-326e-5c38-b658-317b3d2cfee2",
+      "seed": 53
+    },
+    {
+      "build_id": "d27a64a5-be72-5f6b-b3a3-a31a36fe2ed9",
+      "pair_id": "d16a7be6-67e3-5a84-a17e-0711d5dec4df",
+      "seed": 54
+    },
+    {
+      "build_id": "bbdb5ca6-b010-5864-9822-889b36258d28",
+      "pair_id": "e8fdd554-9118-527d-b054-9cdbec2d6753",
+      "seed": 55
+    },
+    {
+      "build_id": "772a8074-566d-575f-b079-e4d3f3e9d133",
+      "pair_id": "ef0fede5-8e9b-5095-a75d-e43a00db6203",
+      "seed": 56
+    },
+    {
+      "build_id": "90ba676a-bd69-50cf-b655-bbb92e62f49a",
+      "pair_id": "c4faa8c6-e15e-5b15-a8a6-5f1c3aaaca9b",
+      "seed": 57
+    },
+    {
+      "build_id": "7e41bf0e-6c96-58dd-9a79-68d30c431649",
+      "pair_id": "14143f80-ab56-52d9-9cde-11a1747baa92",
+      "seed": 58
+    },
+    {
+      "build_id": "18bfaa39-e813-5062-9b19-308294e37b2a",
+      "pair_id": "f6becf3e-4c05-5686-a5f3-cead79963f53",
+      "seed": 59
+    },
+    {
+      "build_id": "4e866edd-2555-5afb-bd51-ffa59d33aba2",
+      "pair_id": "992fba00-793d-53ed-919d-158a9f98fd4f",
+      "seed": 60
+    },
+    {
+      "build_id": "bf884ffe-c6fe-5f91-ac4c-c7fdfc3d2e0f",
+      "pair_id": "ab39401f-a278-51f3-822b-3149a9c812fe",
+      "seed": 61
+    },
+    {
+      "build_id": "8e25146f-afde-5fea-9626-f5d0e45889d6",
+      "pair_id": "e7d8a0ef-4d88-5dfd-90a6-90516efb2f1d",
+      "seed": 62
+    },
+    {
+      "build_id": "3568626e-0626-5b8c-ba1f-58d5533b31da",
+      "pair_id": "aecb33b4-6039-52cf-8946-33cf126fece8",
+      "seed": 63
+    },
+    {
+      "build_id": "abb1fb53-d50d-5164-bedc-ca92acea071a",
+      "pair_id": "72ac1003-aa9c-55c3-9fa6-9c37a15a5c43",
+      "seed": 64
+    },
+    {
+      "build_id": "17e7e666-1d30-57a2-b9a9-5e0724be6a53",
+      "pair_id": "2c2275f9-4f1e-5f2a-b18f-a9e9f558f360",
+      "seed": 65
+    },
+    {
+      "build_id": "705ca6f3-24eb-5f2d-ae54-d4f3ed1804b8",
+      "pair_id": "42053f26-cf96-5703-94bb-937806fbaa56",
+      "seed": 66
+    },
+    {
+      "build_id": "f25a7153-b1c0-551e-9dc0-45e0f597ce77",
+      "pair_id": "b4b9fa70-acc5-5af9-9045-46ea1add56dc",
+      "seed": 67
+    },
+    {
+      "build_id": "1bcae08a-df5b-5841-b41e-7f5d7c3fb4ee",
+      "pair_id": "f56bd2e6-5c36-5265-b516-4cf123b82b9b",
+      "seed": 68
+    },
+    {
+      "build_id": "2f4859ce-1881-5114-9426-9719d12c5d91",
+      "pair_id": "704484d9-f15d-553c-a25c-9c668e28c130",
+      "seed": 69
+    },
+    {
+      "build_id": "2c6391d4-81b2-5bfa-ae4d-507f3efa98f3",
+      "pair_id": "1d875456-ae92-5c64-b69b-2211732fe90d",
+      "seed": 70
+    },
+    {
+      "build_id": "42fced1a-5380-533d-8afb-f36eeabcf6e3",
+      "pair_id": "094d044b-dd5c-5cc1-859d-3a684943a624",
+      "seed": 71
+    },
+    {
+      "build_id": "cc98e96c-1092-568f-85b5-a699b8a92cc4",
+      "pair_id": "a1e62da3-500d-570f-93c0-ff3645e8e0f1",
+      "seed": 72
+    },
+    {
+      "build_id": "60a1dad6-bce7-5a05-8efe-25b1ed96f14d",
+      "pair_id": "7d294530-9fa4-5cd4-85b3-54c12dd7eed7",
+      "seed": 73
+    },
+    {
+      "build_id": "f0e88b8a-eac5-5464-ac54-b7198975be5c",
+      "pair_id": "46d72cc8-efa4-59fc-9913-577cafcb95de",
+      "seed": 74
+    },
+    {
+      "build_id": "7879d272-6242-594d-a870-24d6fa492505",
+      "pair_id": "d3ff94d0-d1f6-5d60-a9aa-b1a5faca837e",
+      "seed": 75
+    },
+    {
+      "build_id": "84d6c50e-5470-51b0-83e8-10edcc4816ba",
+      "pair_id": "31db53b0-5c44-5518-950c-56ad12db7a92",
+      "seed": 76
+    },
+    {
+      "build_id": "fbda1cc7-4563-5b3a-9034-db1764add3f0",
+      "pair_id": "d03b385b-249a-50f8-8542-4bd569990cfc",
+      "seed": 77
+    },
+    {
+      "build_id": "aa17a1f4-9248-5fb8-81a9-69f6383de9ba",
+      "pair_id": "ef0c67ef-e5bb-59ff-a360-db9d498cfd6d",
+      "seed": 78
+    },
+    {
+      "build_id": "f1ad2c07-35a0-550c-902e-68393b776a06",
+      "pair_id": "90f55e47-cd19-5f8f-9c24-aae5ca8147a6",
+      "seed": 79
+    },
+    {
+      "build_id": "dae5ff4b-1b5f-53c7-8574-05a1408940a6",
+      "pair_id": "f9beb14a-cbac-5a97-821c-2932aedf9e1d",
+      "seed": 80
+    },
+    {
+      "build_id": "af24a3cc-6497-547e-921d-ce4a9f3233ea",
+      "pair_id": "1d1515bb-c26b-5612-8052-08ba59b8aad1",
+      "seed": 81
+    },
+    {
+      "build_id": "0a906400-c044-5dea-88e5-d8637004d695",
+      "pair_id": "dc63f60a-6bf5-5cbd-be24-520e4b8b5bff",
+      "seed": 82
+    },
+    {
+      "build_id": "6d701d2c-281c-588e-a2c9-b419c4bd5a86",
+      "pair_id": "f4b9007b-340a-5068-ad16-3b2cffd67cfe",
+      "seed": 83
+    },
+    {
+      "build_id": "fb892fc3-001d-5b5b-88bd-3ccd04e5a617",
+      "pair_id": "41cef1ad-830e-5e33-9aaf-ffe66bd01b26",
+      "seed": 84
+    },
+    {
+      "build_id": "79eb1351-c33b-5644-b29b-c88ff82a40cb",
+      "pair_id": "42e3c34a-4f25-54fe-8fcf-f78fda34cab2",
+      "seed": 85
+    },
+    {
+      "build_id": "7ca33cc1-e864-59f5-a19c-a92ca4692263",
+      "pair_id": "7ebc3186-5673-59b3-b376-9f9377dbb42d",
+      "seed": 86
+    },
+    {
+      "build_id": "ec023666-8d62-54b5-ae7c-dc96e85ecfd0",
+      "pair_id": "916a785c-605d-50ed-9527-4e4d99b4ee09",
+      "seed": 87
+    },
+    {
+      "build_id": "22df53b9-1995-595d-bff7-3135a0c74982",
+      "pair_id": "6c65d2c9-5416-53bc-a5c4-bf9cae861032",
+      "seed": 88
+    },
+    {
+      "build_id": "f35e13f8-64e4-5c4f-be13-9c8cb1aa68cd",
+      "pair_id": "bb5657d9-d507-54c3-b973-04ad20e85fe7",
+      "seed": 89
+    },
+    {
+      "build_id": "d0a54bc0-5815-558e-9d1a-1212456ea402",
+      "pair_id": "228ff28a-f0aa-53df-b340-211ba7e6dc80",
+      "seed": 90
+    },
+    {
+      "build_id": "26b637a5-088a-5561-8b60-14fe2915ca2f",
+      "pair_id": "d772beb7-70c8-58df-be2f-15177564a88a",
+      "seed": 91
+    },
+    {
+      "build_id": "27bf6a42-325e-57b0-b0d1-7a4cb4f31a19",
+      "pair_id": "e3b66e16-a9f8-5bf8-9faa-1b81d8d5883d",
+      "seed": 92
+    },
+    {
+      "build_id": "f92f492a-bbb5-566a-8862-b3415da6679b",
+      "pair_id": "4b6dce62-3fb2-5bcb-8d92-05e96d8f392e",
+      "seed": 93
+    },
+    {
+      "build_id": "241af5bf-8207-57ad-969c-79d2a87c0ebf",
+      "pair_id": "9381e9c3-b29c-5e88-897d-20deee15617a",
+      "seed": 94
+    },
+    {
+      "build_id": "59af7cf7-21f5-5670-b05a-b1c5e30d61a7",
+      "pair_id": "7b89bdfa-4fb5-591d-82a4-e74889c519ff",
+      "seed": 95
+    },
+    {
+      "build_id": "342ffe47-6e43-5d58-971a-48bb38e1a6d2",
+      "pair_id": "17d114d8-7c65-5d8e-bcda-1989869718ed",
+      "seed": 96
+    },
+    {
+      "build_id": "61c3a0f2-e96d-5373-bb9d-d3b63c5acb0e",
+      "pair_id": "320ca9fb-10e0-5e47-8ac2-15997c4c631a",
+      "seed": 97
+    },
+    {
+      "build_id": "c5cc5fad-1d8e-57be-9647-a37df66e46c3",
+      "pair_id": "1f2ea49c-1a61-5ed4-9d54-99ea53cfaa49",
+      "seed": 98
+    },
+    {
+      "build_id": "9edf3e02-ca10-5949-af65-82cfde67d157",
+      "pair_id": "7150f973-ab0a-5c15-a18c-35d20abd892f",
+      "seed": 99
+    }
+  ],
+  "compiler_seed_count": 100,
+  "compose_cells": [
+    {
+      "build_id": "c6a3be0f-226f-5204-94a4-e15354907acb",
+      "false_negatives": 0,
+      "false_positives": 0,
+      "seed": 0,
+      "true_positives": 3,
+      "variant": "vulnerable"
+    },
+    {
+      "build_id": "f38e1537-acdf-5843-bd82-72eb998a63a2",
+      "false_negatives": 0,
+      "false_positives": 0,
+      "seed": 0,
+      "true_positives": 0,
+      "variant": "patched"
+    },
+    {
+      "build_id": "a5423f68-afee-5fd6-92dd-e236f340909b",
+      "false_negatives": 0,
+      "false_positives": 0,
+      "seed": 0,
+      "true_positives": 2,
+      "variant": "patch-B1-SOD"
+    },
+    {
+      "build_id": "91b1d283-a441-5d2e-bdcb-3cb8a35283b3",
+      "false_negatives": 0,
+      "false_positives": 0,
+      "seed": 0,
+      "true_positives": 2,
+      "variant": "patch-B2-REVOKED-ROLE"
+    },
+    {
+      "build_id": "680233cd-1e0f-5c86-ba40-7f982434352e",
+      "false_negatives": 0,
+      "false_positives": 0,
+      "seed": 0,
+      "true_positives": 2,
+      "variant": "patch-B3-CANCELLED-JOB"
+    },
+    {
+      "build_id": "f4185cbd-da7c-5366-8f9b-53881e801aca",
+      "false_negatives": 0,
+      "false_positives": 0,
+      "seed": 1,
+      "true_positives": 3,
+      "variant": "vulnerable"
+    },
+    {
+      "build_id": "6ad51789-cfcc-52c0-be30-69ec3dda69db",
+      "false_negatives": 0,
+      "false_positives": 0,
+      "seed": 1,
+      "true_positives": 0,
+      "variant": "patched"
+    },
+    {
+      "build_id": "6da27909-8815-58ef-8a15-4c17ebdea396",
+      "false_negatives": 0,
+      "false_positives": 0,
+      "seed": 1,
+      "true_positives": 2,
+      "variant": "patch-B1-SOD"
+    },
+    {
+      "build_id": "e7d6723f-824b-5483-8787-8b921da97875",
+      "false_negatives": 0,
+      "false_positives": 0,
+      "seed": 1,
+      "true_positives": 2,
+      "variant": "patch-B2-REVOKED-ROLE"
+    },
+    {
+      "build_id": "6057d5cf-da35-5c74-81f8-5d304a87bd12",
+      "false_negatives": 0,
+      "false_positives": 0,
+      "seed": 1,
+      "true_positives": 2,
+      "variant": "patch-B3-CANCELLED-JOB"
+    },
+    {
+      "build_id": "6fc9419d-1546-5590-9567-ebfebb3ff043",
+      "false_negatives": 0,
+      "false_positives": 0,
+      "seed": 2,
+      "true_positives": 3,
+      "variant": "vulnerable"
+    },
+    {
+      "build_id": "04f4e8fc-2a29-5e23-9678-6eebad7e85ce",
+      "false_negatives": 0,
+      "false_positives": 0,
+      "seed": 2,
+      "true_positives": 0,
+      "variant": "patched"
+    },
+    {
+      "build_id": "ca74b554-a32f-524b-930b-56cb6af90329",
+      "false_negatives": 0,
+      "false_positives": 0,
+      "seed": 2,
+      "true_positives": 2,
+      "variant": "patch-B1-SOD"
+    },
+    {
+      "build_id": "32a3870a-2dfa-5685-b3b1-af5f7f4949a2",
+      "false_negatives": 0,
+      "false_positives": 0,
+      "seed": 2,
+      "true_positives": 2,
+      "variant": "patch-B2-REVOKED-ROLE"
+    },
+    {
+      "build_id": "f5aaf6fc-d159-5cb6-bca3-e75d01f59042",
+      "false_negatives": 0,
+      "false_positives": 0,
+      "seed": 2,
+      "true_positives": 2,
+      "variant": "patch-B3-CANCELLED-JOB"
+    },
+    {
+      "build_id": "47001fa2-8b33-5ae4-97e4-39340dd444f3",
+      "false_negatives": 0,
+      "false_positives": 0,
+      "seed": 3,
+      "true_positives": 3,
+      "variant": "vulnerable"
+    },
+    {
+      "build_id": "5f7c954f-272a-5c18-9135-c2393f7b8dff",
+      "false_negatives": 0,
+      "false_positives": 0,
+      "seed": 3,
+      "true_positives": 0,
+      "variant": "patched"
+    },
+    {
+      "build_id": "253beb1d-bd48-518e-ae1d-77cbce820c1c",
+      "false_negatives": 0,
+      "false_positives": 0,
+      "seed": 3,
+      "true_positives": 2,
+      "variant": "patch-B1-SOD"
+    },
+    {
+      "build_id": "e0e2b272-2e61-5da3-b75c-e27e1f4c473b",
+      "false_negatives": 0,
+      "false_positives": 0,
+      "seed": 3,
+      "true_positives": 2,
+      "variant": "patch-B2-REVOKED-ROLE"
+    },
+    {
+      "build_id": "3c57036c-7b26-51e5-9e9b-ebbfd68a712f",
+      "false_negatives": 0,
+      "false_positives": 0,
+      "seed": 3,
+      "true_positives": 2,
+      "variant": "patch-B3-CANCELLED-JOB"
+    },
+    {
+      "build_id": "d31f2f03-1f8f-5737-9b45-509a45d66f99",
+      "false_negatives": 0,
+      "false_positives": 0,
+      "seed": 4,
+      "true_positives": 3,
+      "variant": "vulnerable"
+    },
+    {
+      "build_id": "a402866a-6a0f-5d7e-bae5-1f91bba22ad0",
+      "false_negatives": 0,
+      "false_positives": 0,
+      "seed": 4,
+      "true_positives": 0,
+      "variant": "patched"
+    },
+    {
+      "build_id": "b6281a28-b838-54e3-9c34-f53f3369e6b4",
+      "false_negatives": 0,
+      "false_positives": 0,
+      "seed": 4,
+      "true_positives": 2,
+      "variant": "patch-B1-SOD"
+    },
+    {
+      "build_id": "58d7e96b-051d-5116-8e69-5e69771a1bf7",
+      "false_negatives": 0,
+      "false_positives": 0,
+      "seed": 4,
+      "true_positives": 2,
+      "variant": "patch-B2-REVOKED-ROLE"
+    },
+    {
+      "build_id": "9812da74-844d-5569-ad5c-dcf45e79f5ca",
+      "false_negatives": 0,
+      "false_positives": 0,
+      "seed": 4,
+      "true_positives": 2,
+      "variant": "patch-B3-CANCELLED-JOB"
+    },
+    {
+      "build_id": "c150f826-6fb5-532b-894a-21e9330b45be",
+      "false_negatives": 0,
+      "false_positives": 0,
+      "seed": 5,
+      "true_positives": 3,
+      "variant": "vulnerable"
+    },
+    {
+      "build_id": "9f44d73e-7189-5a95-86a9-8c5ae25bfa92",
+      "false_negatives": 0,
+      "false_positives": 0,
+      "seed": 5,
+      "true_positives": 0,
+      "variant": "patched"
+    },
+    {
+      "build_id": "a628daa3-63c5-5674-a989-2dab193d18bb",
+      "false_negatives": 0,
+      "false_positives": 0,
+      "seed": 5,
+      "true_positives": 2,
+      "variant": "patch-B1-SOD"
+    },
+    {
+      "build_id": "54e38d77-05f0-52a3-92eb-a7bdb8b43965",
+      "false_negatives": 0,
+      "false_positives": 0,
+      "seed": 5,
+      "true_positives": 2,
+      "variant": "patch-B2-REVOKED-ROLE"
+    },
+    {
+      "build_id": "3c4575bb-66ee-51f1-a362-af40db73ea71",
+      "false_negatives": 0,
+      "false_positives": 0,
+      "seed": 5,
+      "true_positives": 2,
+      "variant": "patch-B3-CANCELLED-JOB"
+    },
+    {
+      "build_id": "e7b8ab13-7fd8-564c-b80b-09bc64c140f4",
+      "false_negatives": 0,
+      "false_positives": 0,
+      "seed": 6,
+      "true_positives": 3,
+      "variant": "vulnerable"
+    },
+    {
+      "build_id": "c4181b40-b2fd-5c59-ba13-73903d5b5a6a",
+      "false_negatives": 0,
+      "false_positives": 0,
+      "seed": 6,
+      "true_positives": 0,
+      "variant": "patched"
+    },
+    {
+      "build_id": "8bc29b1e-8883-56cd-b23c-18b6f7f07597",
+      "false_negatives": 0,
+      "false_positives": 0,
+      "seed": 6,
+      "true_positives": 2,
+      "variant": "patch-B1-SOD"
+    },
+    {
+      "build_id": "d401fc02-f3d2-5d0c-83d8-b3ae9dfa29c6",
+      "false_negatives": 0,
+      "false_positives": 0,
+      "seed": 6,
+      "true_positives": 2,
+      "variant": "patch-B2-REVOKED-ROLE"
+    },
+    {
+      "build_id": "f07afbf4-db81-592d-93d9-0ba823e6331f",
+      "false_negatives": 0,
+      "false_positives": 0,
+      "seed": 6,
+      "true_positives": 2,
+      "variant": "patch-B3-CANCELLED-JOB"
+    },
+    {
+      "build_id": "80508ff4-f2cb-5138-8d8b-ac03c7274233",
+      "false_negatives": 0,
+      "false_positives": 0,
+      "seed": 7,
+      "true_positives": 3,
+      "variant": "vulnerable"
+    },
+    {
+      "build_id": "2c93cf80-5338-59e3-8751-4e0e79595239",
+      "false_negatives": 0,
+      "false_positives": 0,
+      "seed": 7,
+      "true_positives": 0,
+      "variant": "patched"
+    },
+    {
+      "build_id": "b2a516b4-3029-5056-8476-5898c5a4ca8a",
+      "false_negatives": 0,
+      "false_positives": 0,
+      "seed": 7,
+      "true_positives": 2,
+      "variant": "patch-B1-SOD"
+    },
+    {
+      "build_id": "d979125c-864b-52b4-bd4f-533831d50792",
+      "false_negatives": 0,
+      "false_positives": 0,
+      "seed": 7,
+      "true_positives": 2,
+      "variant": "patch-B2-REVOKED-ROLE"
+    },
+    {
+      "build_id": "e47fba77-0e3b-5024-a0b4-1019eb309ab2",
+      "false_negatives": 0,
+      "false_positives": 0,
+      "seed": 7,
+      "true_positives": 2,
+      "variant": "patch-B3-CANCELLED-JOB"
+    },
+    {
+      "build_id": "c979270d-91a0-56d5-b1c8-e3f67e9a3ae7",
+      "false_negatives": 0,
+      "false_positives": 0,
+      "seed": 8,
+      "true_positives": 3,
+      "variant": "vulnerable"
+    },
+    {
+      "build_id": "222e3465-b423-5edd-862b-329c59b58d6e",
+      "false_negatives": 0,
+      "false_positives": 0,
+      "seed": 8,
+      "true_positives": 0,
+      "variant": "patched"
+    },
+    {
+      "build_id": "c60ad298-068a-5786-82aa-29bd3d0e1c62",
+      "false_negatives": 0,
+      "false_positives": 0,
+      "seed": 8,
+      "true_positives": 2,
+      "variant": "patch-B1-SOD"
+    },
+    {
+      "build_id": "d0d7db10-9f56-52a7-8b9b-dc5e9ce01628",
+      "false_negatives": 0,
+      "false_positives": 0,
+      "seed": 8,
+      "true_positives": 2,
+      "variant": "patch-B2-REVOKED-ROLE"
+    },
+    {
+      "build_id": "da24f742-9045-5496-a48c-c279c0f3ad8b",
+      "false_negatives": 0,
+      "false_positives": 0,
+      "seed": 8,
+      "true_positives": 2,
+      "variant": "patch-B3-CANCELLED-JOB"
+    },
+    {
+      "build_id": "db31f666-ec16-562c-abbd-47d0a37d39d5",
+      "false_negatives": 0,
+      "false_positives": 0,
+      "seed": 42,
+      "true_positives": 3,
+      "variant": "vulnerable"
+    },
+    {
+      "build_id": "a05e7e51-8a8e-5098-ac21-6e3bf58566c8",
+      "false_negatives": 0,
+      "false_positives": 0,
+      "seed": 42,
+      "true_positives": 0,
+      "variant": "patched"
+    },
+    {
+      "build_id": "cbfe2b36-2c9e-515f-9fdd-67794e7dc052",
+      "false_negatives": 0,
+      "false_positives": 0,
+      "seed": 42,
+      "true_positives": 2,
+      "variant": "patch-B1-SOD"
+    },
+    {
+      "build_id": "c9df32ff-7200-593e-a6b0-e70efc7c0f46",
+      "false_negatives": 0,
+      "false_positives": 0,
+      "seed": 42,
+      "true_positives": 2,
+      "variant": "patch-B2-REVOKED-ROLE"
+    },
+    {
+      "build_id": "1220c5b8-2894-554e-b25c-e424dad9472e",
+      "false_negatives": 0,
+      "false_positives": 0,
+      "seed": 42,
+      "true_positives": 2,
+      "variant": "patch-B3-CANCELLED-JOB"
+    }
+  ],
+  "compose_seeds": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    42
+  ],
+  "qualified": true
+}
