@@ -52,6 +52,8 @@ class PrerequisiteBootstrap:
                 visible_identity_count=len(identities),
             )
         )
+        if context.range.family == "enterprise_change_control_v1":
+            return await self._enterprise(context, tools, budget, started.event_id)
         checked: list[tuple[str, str, str | None]] = []
         workspace_choices: dict[UUID, list[tuple[int, UUID]]] = {}
 
@@ -134,5 +136,109 @@ class PrerequisiteBootstrap:
                 ticket_count=len(entities["ticket"]),
                 action_count=len(checked),
                 http_request_count=len(checked),
+            )
+        )
+
+    async def _enterprise(
+        self,
+        context: AgentContext,
+        tools: BoundGatewayTools,
+        budget: BootstrapBudget,
+        started_id: UUID,
+    ) -> PrerequisiteBootstrapCompleted:
+        assert context.range is not None
+        checked: list[tuple[str, str, str | None]] = []
+        representatives: dict[UUID, UUID] = {}
+
+        async def read(path: str, identity_id: UUID) -> tuple[WorldFact, ...]:
+            if len(checked) >= budget.max_actions:
+                raise ExperimentInfrastructureError("bootstrap_action_budget_exhausted")
+            action = ActionRequest(
+                run_id=context.run_id,
+                source_phase="bootstrap",
+                identity_id=identity_id,
+                kind="http_request",
+                destination="enterprise_change_control_v1",
+                method="GET",
+                path=path,
+            )
+            result = await tools.execute(action)
+            if (
+                result.status != "completed"
+                or result.http_status != 200
+                or result.evidence_id is None
+            ):
+                raise ExperimentInfrastructureError(
+                    f"bootstrap_request_failed:{result.reason_code or result.http_status}"
+                )
+            facts = await self.world.record_response(action, result)
+            checked.append(("GET", path, str(identity_id)))
+            return facts
+
+        for identity_id in sorted(context.range.identity_ids):
+            facts = await read("/api/me", identity_id)
+            org = next(
+                (
+                    fact.object_value.entity_id
+                    for fact in facts
+                    if fact.subject.entity_id == identity_id
+                    and fact.predicate == "belongs_to_organization"
+                    and isinstance(fact.object_value, EntityRef)
+                ),
+                None,
+            )
+            if org is not None:
+                representatives.setdefault(org, identity_id)
+        for identity_id in representatives.values():
+            for path in (
+                "/api/organizations",
+                "/api/projects",
+                "/api/access-requests",
+                "/api/changes",
+                "/api/environments",
+            ):
+                await read(path, identity_id)
+
+        facts = await self.world.query(context.run_id)
+        normalized = sorted(
+            (_normalized_fact(fact) for fact in facts),
+            key=lambda item: json.dumps(item, sort_keys=True, ensure_ascii=False),
+        )
+        snapshot = json.dumps(
+            {"facts": normalized, "checked_actions": checked},
+            sort_keys=True,
+            separators=(",", ":"),
+            ensure_ascii=False,
+        )
+        counts: dict[str, set[UUID]] = {
+            kind: set()
+            for kind in (
+                "identity",
+                "organization",
+                "project",
+                "role_assignment",
+                "access_request",
+                "change_request",
+                "environment",
+            )
+        }
+        for fact in facts:
+            if fact.subject.entity_type in counts:
+                counts[fact.subject.entity_type].add(fact.subject.entity_id)
+        return await self.events.append(
+            PrerequisiteBootstrapCompleted(
+                run_id=context.run_id,
+                actor="controller",
+                causation_id=started_id,
+                snapshot_hash=hashlib.sha256(snapshot.encode()).hexdigest(),
+                identity_count=len(counts["identity"]),
+                workspace_count=0,
+                document_count=0,
+                invoice_count=0,
+                ticket_count=0,
+                action_count=len(checked),
+                http_request_count=len(checked),
+                range_family="enterprise_change_control_v1",
+                entity_counts={name: len(items) for name, items in counts.items()},
             )
         )
