@@ -39,7 +39,7 @@ from offsecgym.schemas.ground_truth import (
 from offsecgym.schemas.specs import RangeSpec
 
 FAMILY = "enterprise_change_control_v1"
-COMPILER_VERSION = "enterprise-change-control-v1/compiler-1"
+COMPILER_VERSION = "enterprise-change-control-v1/compiler-2"
 ENTITY_NAMESPACE = UUID("c8b1b0b4-4ea7-48be-aab4-998b2be6d135")
 PROPERTY_SLUGS = frozenset({"B1-SOD", "B2-REVOKED-ROLE", "B3-CANCELLED-JOB"})
 VULNERABILITIES = frozenset(
@@ -373,6 +373,8 @@ def fixture_for_seed(seed: int) -> tuple[dict[str, object], dict[str, str]]:
             "status": ("SUCCEEDED", "FAILED")[i % 2],
             "queued_tick": 0,
             "due_tick": 0,
+            "queued_change_revision": changes[i]["revision"],
+            "queued_authorized": True,
             "started_tick": 0,
             "finished_tick": 0,
             "created_at": stamp(-80 + i),

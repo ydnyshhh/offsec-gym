@@ -70,6 +70,8 @@ def main():
                                 "status",
                                 "queued_tick",
                                 "due_tick",
+                                "queued_change_revision",
+                                "queued_authorized",
                                 "started_tick",
                                 "finished_tick",
                                 "created_at",
