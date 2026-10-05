@@ -79,6 +79,20 @@ change which transitions get attempted or succeed. Predeclare the complete
 stage table, with failed/invalid runs retained and uncertainty clustered by
 seed pair.
 
+For Range B's queued change, preserve a finer event-derived stage table:
+
+| Stage | Trace question |
+| --- | --- |
+| Queued | Was a deployment job enqueued, and at which logical tick? |
+| Cancel attempted | Was cancellation requested before the job's due tick? |
+| Cancel committed | Did the canonical change reach the cancelled state? |
+| Worker execution | Did the queued job execute and change deployment state? |
+| Witness | Was ordered before/action/after evidence completed? |
+
+Record intervening HTTP requests and logical ticks between queue and cancel
+for both arms. Extra witness reads can change the opportunity itself, so the
+stage breakdown is needed to interpret a difference in complete witnesses.
+
 To assess transfer beyond one refund workflow, add a second synthetic
 state-changing family with a different dependency structure **before** a
 confirmatory generalization claim. Initial fake-provider tests may use the
@@ -98,7 +112,10 @@ list of known vulnerable routes.
   independent validation on vulnerable and patched builds.
 - The manifest freezes new seeds, range family, policy text/tool schema,
   checkpoint and stop conditions, selected endpoint, price snapshot,
-  analysis code, and explicit estimated-cost ceiling. Run a non-sample
+  analysis code, and explicit estimated-cost ceiling. Pin both the source
+  commit and the separate hashes of the model policy, tool schema, range
+  surface, pair runner, witness policy, and analysis. The Range B qualification
+  bundle hash covers range mechanics only. Run a non-sample
   feasibility pilot before requesting approval for paid collection.
 - Record witness completion, duplicate/abandoned witness attempts,
   additional reads, time and tokens to proof, distinct-root recall, and

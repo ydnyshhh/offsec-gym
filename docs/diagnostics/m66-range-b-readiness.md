@@ -8,9 +8,13 @@ result or a confirmatory M6.6 protocol. No paid model call was made.
 `MonolithicSecurityAgent` now selects an agent-visible `RangeSurface` from the
 range family. SaaS keeps its existing route list and finding tools. Enterprise
 change control exposes its own route list, entity lookup types, gateway
-destination, and one typed workflow-finding tool. The enterprise tool maps
-each supported transition to the exact independent-validator family and
-expectation. It never exposes fixture anchors or hidden property IDs.
+destination, and one generic workflow-finding tool. The agent supplies a
+public mutating route, role, resource, state transition, expected behavior,
+observed behavior, and ordered citations. The model-facing schema does not
+enumerate the three scored transitions. Private dispatch derives a candidate
+validator family from the public route; the independent validator still
+requires an exact property match and trusted temporal proof. Fixture anchors
+and hidden property IDs remain private.
 
 The bootstrapped monolithic control and opt-in witness policy runner accept
 both supported families. `WitnessPlanningPairRunner` executes both arms from
@@ -67,16 +71,20 @@ rejected it. The B2 regression observed `approve` in the vulnerable rendered
 actions even after role revocation. The B3 regression confirmed the selective
 patch still executes an uncancelled queued job after operator-role revocation.
 
-The qualification was run on the final working-tree source before these
-changes were committed. Its content hash binds all Range B runtime templates,
-compiler, scripted solver, validator, and qualification code. Git commit
-identity is not a substitute for that content hash in this precommit run.
+The qualification was run on the final working-tree Range B mechanics before
+those changes were committed. Its content hash binds the Range B runtime
+templates, compiler, scripted solver, validator, and qualification code. It
+does not bind the monolithic model policy, tool schema, range surface, pair
+runner, witness policy, or analysis. A pilot manifest must pin its source
+commit and separate hashes for those model-facing and analysis components.
 
 The deterministic worker advances its logical clock after each gateway HTTP
 request. A witness policy can therefore affect the time between queueing and
 cancellation by making extra reads. A paid M6.6 protocol must predeclare
 per-arm HTTP requests and logical ticks between queue and cancel, in addition
 to complete witnesses, validated roots, false findings, tokens, and cost.
+Its B3 stage table must record, in order: queued; cancellation attempted before
+the due tick; cancellation committed; worker execution; and complete witness.
 
 ## Pilot boundary
 
