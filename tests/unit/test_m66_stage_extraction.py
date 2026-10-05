@@ -15,7 +15,14 @@ from offsecgym.research.m66_pilot_analysis import (
     extract_pilot_stages,
 )
 from offsecgym.runtime.enterprise import FAMILY, fixture_for_seed, oracle_for_fixture
-from offsecgym.schemas.events import RangeStarted, RunCompleted, RunStarted
+from offsecgym.schemas.domain import CandidateFinding, EvidenceRef, ValidationResult
+from offsecgym.schemas.events import (
+    FindingSubmitted,
+    FindingValidated,
+    RangeStarted,
+    RunCompleted,
+    RunStarted,
+)
 from offsecgym.schemas.evidence import Evidence, RequestArtifact
 from offsecgym.validation.deterministic import ProofAction
 
@@ -275,3 +282,83 @@ def test_b2_dependency_stages_require_bound_role_and_change_evidence() -> None:
     assert not _b2_stages(prop, [a for a in actions if a.sequence != 8], requests)[
         "complete_witness"
     ]
+
+
+def test_patched_false_findings_count_submissions_including_inconclusive() -> None:
+    fixture, props, oracle = _oracle()
+    prop = props["B1-SOD"]
+    actor = prop.subject.identity_id
+    assert actor is not None
+    evidence = _proof(3, "GET", "/api/me", actor, {"id": str(actor)})
+    findings = [
+        CandidateFinding(
+            finding_id=uuid4(),
+            run_id=RUN_ID,
+            range_instance_id=INSTANCE_ID,
+            range_generation=0,
+            claim=f"patched claim {index}",
+            family=prop.family,
+            asset_id=prop.object.object_id,
+            security_property=prop.expectation,
+            evidence=(
+                EvidenceRef(
+                    evidence_id=evidence.evidence.evidence_id,
+                    action_id=evidence.request.action_id,
+                    description="identity response",
+                ),
+            ),
+        )
+        for index in range(2)
+    ]
+    trace = [
+        RunStarted(run_id=RUN_ID, sequence_number=1, actor="test", experiment_hash="x"),
+        RangeStarted(
+            run_id=RUN_ID,
+            sequence_number=2,
+            actor="test",
+            build_id=oracle.build_id,
+            range_instance_id=INSTANCE_ID,
+            range_generation=0,
+        ),
+    ]
+    trace.extend(
+        FindingSubmitted(run_id=RUN_ID, sequence_number=3 + index, actor="test", finding=finding)
+        for index, finding in enumerate(findings)
+    )
+    trace.extend(
+        FindingValidated(
+            run_id=RUN_ID,
+            sequence_number=5 + index,
+            actor="validator",
+            result=ValidationResult(
+                run_id=RUN_ID,
+                finding_id=finding.finding_id,
+                status=status,
+            ),
+        )
+        for index, (finding, status) in enumerate(
+            zip(findings, ("rejected", "inconclusive"), strict=True)
+        )
+    )
+    trace.append(
+        RunCompleted(run_id=RUN_ID, sequence_number=7, actor="test", status="environment_failed")
+    )
+    result = extract_pilot_stages(
+        trace,
+        [evidence],
+        [],
+        oracle,
+        fixture,
+        family=FAMILY,
+        variant="patched",
+        arm="control",
+        seed=42,
+        arm_order=("control", "witness"),
+        tool_names=[],
+        witness_statuses=[],
+        reminder_bytes=0,
+    )
+    assert result["patched_submitted_findings"] == 2
+    assert result["patched_rejected_findings"] == 1
+    assert result["patched_inconclusive_findings"] == 1
+    assert result["patched_false_findings"] == 2

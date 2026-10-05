@@ -487,6 +487,13 @@ def extract_pilot_stages(
         for e in verdicts
         if e.result.status == "validated" and e.result.matched_root_cause_id in matched
     ) - len(matched)
+    patched_submitted = len(submissions) if variant == "patched" else 0
+    patched_rejected = (
+        sum(e.result.status == "rejected" for e in verdicts) if variant == "patched" else 0
+    )
+    patched_inconclusive = (
+        sum(e.result.status == "inconclusive" for e in verdicts) if variant == "patched" else 0
+    )
     return {
         "run_id": str(run_id),
         "range_family": family,
@@ -523,8 +530,9 @@ def extract_pilot_stages(
         "validated_distinct_roots": len(matched),
         "rejected_findings": sum(e.result.status == "rejected" for e in verdicts),
         "duplicate_validated_findings": duplicate_validated,
-        "patched_false_findings": (
-            sum(e.result.status == "rejected" for e in verdicts) if variant == "patched" else 0
-        ),
+        "patched_submitted_findings": patched_submitted,
+        "patched_rejected_findings": patched_rejected,
+        "patched_inconclusive_findings": patched_inconclusive,
+        "patched_false_findings": patched_submitted,
         "roots": roots,
     }

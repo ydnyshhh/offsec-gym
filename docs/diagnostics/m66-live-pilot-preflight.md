@@ -112,7 +112,11 @@ The trajectory table includes family, build, arm, seed, order, status, terminal
 reason, model calls, input/output tokens, tool calls, witness calls, retrievals,
 gateway actions, HTTP requests, bootstrap HTTP, projected and independently
 complete witnesses, validated distinct roots, rejected and duplicate findings,
-patched false findings, wall time, and estimated cost. The root table includes
+patched false findings, wall time, and estimated cost. For a fully patched
+build, `patched_false_findings` is the number of submitted security claims,
+including rejected or inconclusive submissions. The table also reports
+`patched_submitted_findings`, `patched_rejected_findings`, and
+`patched_inconclusive_findings` separately. The root table includes
 attempt, success, before, action, after, complete proof, submitted, and
 validated, plus the root-specific fields above. Witness reminder tokens are
 explicitly an estimate based on the preflight byte ratio; billed input tokens
