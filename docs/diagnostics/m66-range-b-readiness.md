@@ -89,7 +89,7 @@ the due tick; cancellation committed; worker execution; and complete witness.
 ## Pilot boundary
 
 An excluded live pilot remains unrun. It needs one frozen Range A seed, one
-Range B seed, the same model and selected endpoint, the same control/witness
-compute and action limits, explicit reporter allowance, a cost ceiling, a
-price check, and separate user approval for paid calls. A later sample must
-also freeze trace-stage extraction and arm order before collection.
+Range B seed, the same model and selected endpoint, identical control/witness
+model-call, token, action, HTTP, output-token, and wall-time allowances, a cost
+ceiling, a price check, and separate user approval for paid calls. A later
+sample must also freeze trace-stage extraction and arm order before collection.
