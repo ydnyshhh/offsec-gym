@@ -1,0 +1,114 @@
+{
+  "bootstrap_replicates": 10000,
+  "invalid_prefixes": [
+    {
+      "continuation_status": "not_run_prefix_rejected",
+      "fresh_status": "not_run_prefix_rejected",
+      "seed": 281491,
+      "source_valid": true,
+      "variant": "vulnerable"
+    },
+    {
+      "continuation_status": "not_run_prefix_rejected",
+      "fresh_status": "not_run_prefix_rejected",
+      "seed": 289384,
+      "source_valid": true,
+      "variant": "vulnerable"
+    },
+    {
+      "continuation_status": "not_run_prefix_rejected",
+      "fresh_status": "not_run_prefix_rejected",
+      "seed": 300417,
+      "source_valid": true,
+      "variant": "vulnerable"
+    },
+    {
+      "continuation_status": "not_run_prefix_rejected",
+      "fresh_status": "not_run_prefix_rejected",
+      "seed": 395662,
+      "source_valid": true,
+      "variant": "vulnerable"
+    },
+    {
+      "continuation_status": "not_run_prefix_rejected",
+      "fresh_status": "not_run_prefix_rejected",
+      "seed": 520511,
+      "source_valid": true,
+      "variant": "vulnerable"
+    },
+    {
+      "continuation_status": "not_run_prefix_rejected",
+      "fresh_status": "not_run_prefix_rejected",
+      "seed": 526804,
+      "source_valid": true,
+      "variant": "vulnerable"
+    },
+    {
+      "continuation_status": "not_run_prefix_rejected",
+      "fresh_status": "not_run_prefix_rejected",
+      "seed": 657193,
+      "source_valid": false,
+      "variant": "vulnerable"
+    },
+    {
+      "continuation_status": "not_run_prefix_rejected",
+      "fresh_status": "not_run_prefix_rejected",
+      "seed": 747590,
+      "source_valid": true,
+      "variant": "patched"
+    },
+    {
+      "continuation_status": "not_run_prefix_rejected",
+      "fresh_status": "not_run_prefix_rejected",
+      "seed": 749139,
+      "source_valid": false,
+      "variant": "vulnerable"
+    },
+    {
+      "continuation_status": "not_run_prefix_rejected",
+      "fresh_status": "not_run_prefix_rejected",
+      "seed": 793024,
+      "source_valid": true,
+      "variant": "patched"
+    },
+    {
+      "continuation_status": "not_run_prefix_rejected",
+      "fresh_status": "not_run_prefix_rejected",
+      "seed": 970327,
+      "source_valid": true,
+      "variant": "patched"
+    }
+  ],
+  "primary": {
+    "continuation_only": 5,
+    "continuation_recovered": 15,
+    "difference_per_eligible_root": -0.21052631578947367,
+    "eligible_roots": 19,
+    "fresh_only": 1,
+    "fresh_recovered": 11,
+    "seed_bootstrap_95pct": [
+      -0.625,
+      0.08333333333333333
+    ]
+  },
+  "protocol": "m652-reporting-context-v1",
+  "resampling_unit": "seed pair",
+  "resources_and_patched_controls": {
+    "continuation_input_tokens": 1755788,
+    "continuation_model_calls": 96,
+    "continuation_only": 5,
+    "continuation_output_tokens": 155824,
+    "continuation_patched_false_findings": 4,
+    "continuation_preflight_failures": 33,
+    "continuation_recovered": 15,
+    "eligible_roots": 19,
+    "fresh_input_tokens": 1809045,
+    "fresh_model_calls": 129,
+    "fresh_only": 1,
+    "fresh_output_tokens": 173893,
+    "fresh_patched_false_findings": 2,
+    "fresh_preflight_failures": 18,
+    "fresh_recovered": 11
+  },
+  "seed_pairs": 24
+}
