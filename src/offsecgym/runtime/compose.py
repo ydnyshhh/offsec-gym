@@ -14,6 +14,18 @@ from pathlib import Path
 from uuid import UUID, uuid4
 
 from offsecgym.runtime.compiler import HelloRangeCompiler
+from offsecgym.runtime.enterprise import (
+    FAMILY as ENTERPRISE_FAMILY,
+)
+from offsecgym.runtime.enterprise import (
+    PROPERTY_SLUGS as ENTERPRISE_PROPERTIES,
+)
+from offsecgym.runtime.enterprise import (
+    EnterpriseRangeCompiler,
+)
+from offsecgym.runtime.enterprise import (
+    patched_properties as enterprise_patched_properties,
+)
 from offsecgym.runtime.manifests import InstanceManifest, StateStore, utc_now
 from offsecgym.runtime.saas import PROPERTY_SLUGS, SaasRangeCompiler, patched_properties
 from offsecgym.schemas.common import JsonValue
@@ -120,6 +132,7 @@ class ComposeRangeRuntime:
         self.state = StateStore(state_dir)
         self.compiler = HelloRangeCompiler(self.state)
         self.saas_compiler = SaasRangeCompiler(self.state)
+        self.enterprise_compiler = EnterpriseRangeCompiler(self.state)
         self._instance_locks: dict[UUID, asyncio.Lock] = {}
 
     def get_instance_guard(self, instance_id: UUID) -> _InstanceGuard:
@@ -135,6 +148,8 @@ class ComposeRangeRuntime:
             return self.compiler.build(spec).build_id
         if spec.family == "saas":
             return self.saas_compiler.build(spec).build_id
+        if spec.family == ENTERPRISE_FAMILY:
+            return self.enterprise_compiler.build(spec).build_id
         raise ValueError(f"unsupported range family: {spec.family}")
 
     def _compose_command(self, instance: InstanceManifest, *arguments: str) -> list[str]:
@@ -301,12 +316,29 @@ class ComposeRangeRuntime:
         )
         records = _parse_compose_ps(output)
         services = {record.get("Service"): record for record in records}
-        target = services.get("hello" if build.spec.family == "hello" else "saas", {})
+        target_service = (
+            "hello"
+            if build.spec.family == "hello"
+            else "change"
+            if build.spec.family == ENTERPRISE_FAMILY
+            else "saas"
+        )
+        target = services.get(target_service, {})
         gateway = services.get("gateway", {})
+        dependencies_healthy = (
+            all(
+                services.get(name, {}).get("State") == "running"
+                and services.get(name, {}).get("Health") == "healthy"
+                for name in ("postgres", "cache", "identity", "worker")
+            )
+            if build.spec.family == ENTERPRISE_FAMILY
+            else True
+        )
         if (
             target.get("State") == "running"
             and target.get("Health") == "healthy"
             and gateway.get("State") == "running"
+            and dependencies_healthy
         ):
             state = "healthy"
         elif any(record.get("State") == "running" for record in records):
@@ -340,14 +372,27 @@ class ComposeRangeRuntime:
         instance = self.state.load_instance(instance_id)
         build = self.state.verify_build_integrity(instance.build_id)
         status = await self.instance_status(instance_id)
-        patch_set = patched_properties(build.spec) if build.spec.family == "saas" else frozenset()
+        patch_set = (
+            patched_properties(build.spec)
+            if build.spec.family == "saas"
+            else enterprise_patched_properties(build.spec)
+            if build.spec.family == ENTERPRISE_FAMILY
+            else frozenset()
+        )
+        all_properties = (
+            PROPERTY_SLUGS
+            if build.spec.family == "saas"
+            else ENTERPRISE_PROPERTIES
+            if build.spec.family == ENTERPRISE_FAMILY
+            else frozenset()
+        )
         security_variant = (
             None
-            if build.spec.family != "saas"
+            if build.spec.family not in {"saas", ENTERPRISE_FAMILY}
             else "vulnerable"
             if not patch_set
             else "patched"
-            if patch_set == PROPERTY_SLUGS
+            if patch_set == all_properties
             else "selective"
         )
         return RangeControllerMetadata(
@@ -376,12 +421,12 @@ class ComposeRangeRuntime:
 
     def _public_accounts(self, build_id: UUID) -> list[dict[str, str | None]]:
         build = self.state.verify_build_integrity(build_id)
-        if build.spec.family != "saas":
+        if build.spec.family not in {"saas", ENTERPRISE_FAMILY}:
             return []
         fixture = json.loads(
             (self.state.build_dir(build_id) / "fixture.json").read_text(encoding="utf-8")
         )
-        return fixture["accounts"]
+        return fixture["accounts"] if build.spec.family == "saas" else fixture["users"]
 
     def identity_credentials(self, instance_id: UUID, identity_id: UUID) -> dict[str, str]:
         instance = self.state.load_instance(instance_id)
@@ -454,6 +499,35 @@ class ComposeRangeRuntime:
         build = self.state.verify_build_integrity(instance.build_id)
         if build.spec.family != "saas":
             raise ValueError("range is not a SaaS build")
+        if (await self.instance_status(range_id)).state != "healthy":
+            raise DockerCommandError("range is not healthy")
+        identity = self.identity_credentials(range_id, identity_id) if identity_id else None
+        result = await self._compose(
+            instance,
+            "exec",
+            "-T",
+            "gateway",
+            "python",
+            "/app/http_worker.py",
+            input_bytes=json.dumps(
+                {"method": method, "path": path, "json_body": json_body, "identity": identity}
+            ).encode(),
+            timeout_seconds=15,
+        )
+        return json.loads(result)
+
+    async def execute_enterprise_http(
+        self,
+        range_id: UUID,
+        method: str,
+        path: str,
+        json_body: dict[str, JsonValue] | None,
+        identity_id: UUID | None,
+    ) -> dict[str, object]:
+        instance = self.state.load_instance(range_id)
+        build = self.state.verify_build_integrity(instance.build_id)
+        if build.spec.family != ENTERPRISE_FAMILY:
+            raise ValueError("range is not an enterprise build")
         if (await self.instance_status(range_id)).state != "healthy":
             raise DockerCommandError("range is not healthy")
         identity = self.identity_credentials(range_id, identity_id) if identity_id else None

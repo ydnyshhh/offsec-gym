@@ -30,10 +30,32 @@ EXPECTED_BUNDLE_FILES = {
             "saas_service.py",
         }
     ),
+    "enterprise_change_control_v1": frozenset(
+        {
+            "Dockerfile",
+            "compose.yaml",
+            "fixture.json",
+            "implementation.json",
+            "schema.sql",
+            "init_db.py",
+            "service_common.py",
+            "pg_client.py",
+            "cache_client.py",
+            "cache_service.py",
+            "identity_service.py",
+            "change_service.py",
+            "worker_service.py",
+            "gateway_idle.py",
+            "http_worker.py",
+        }
+    ),
 }
 EXPECTED_ORACLE_FILES = {
     "hello": frozenset(),
     "saas": frozenset({"ground_truth.json", "attack_graph.json"}),
+    "enterprise_change_control_v1": frozenset(
+        {"ground_truth.json", "attack_graph.json", "topology.json", "provenance.json"}
+    ),
 }
 
 
