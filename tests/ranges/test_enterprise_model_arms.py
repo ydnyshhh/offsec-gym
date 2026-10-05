@@ -87,6 +87,8 @@ class OneReadProvider:
                             "resource_type": "access_request",
                             "from_state": "PENDING",
                             "to_state": "APPLIED",
+                            "expected_behavior": "Approval should be denied",
+                            "observed_behavior": "Only an identity read was observed",
                         }
                     ),
                 },

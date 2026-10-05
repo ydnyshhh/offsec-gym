@@ -36,9 +36,11 @@ SURFACES = {
     ENTERPRISE_FAMILY: RangeSurface(
         family=ENTERPRISE_FAMILY,
         objective=(
-            "Probe separation of duties, authorization after role revocation, and "
-            "execution of cancelled queued changes. Establish ordered before/action/after "
-            "state evidence before submitting a finding"
+            "Assess the enterprise change-control system for authorization, "
+            "workflow-integrity, and state-transition security issues. Test whether "
+            "actions permitted at one point remain valid after changes in identity, "
+            "authorization, or workflow state. Submit only findings supported by "
+            "exact observed evidence"
         ),
         routes=ENTERPRISE_ROUTES,
         entity_types=(
