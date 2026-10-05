@@ -14,6 +14,7 @@ from offsecgym.gateway.compose import ComposeActionGateway
 from offsecgym.interfaces import EventStore
 from offsecgym.providers.base import ProviderFailure, ProviderRequestError
 from offsecgym.runtime.compose import ComposeRangeRuntime, DockerCommandError
+from offsecgym.runtime.enterprise import FAMILY as ENTERPRISE_FAMILY
 from offsecgym.runtime.manifests import BuildIntegrityError
 from offsecgym.runtime.oracle import StateOracleStore
 from offsecgym.schemas.actions import ActionRequest, ActionResult
@@ -38,6 +39,7 @@ from offsecgym.schemas.events import (
     RunStarted,
 )
 from offsecgym.schemas.specs import Budget, ExperimentSpec
+from offsecgym.solver.enterprise_scripted import ScriptedEnterpriseSolver
 from offsecgym.solver.scripted import (
     AgentBudgetExhausted,
     ExperimentInfrastructureError,
@@ -162,16 +164,36 @@ class ScriptedExperimentRunner:
         self.events = events
 
     def _agent(self, findings_store: BoundFindingSink, spec: ExperimentSpec):
-        return ScriptedSaasSolver(findings_store)
+        return (
+            ScriptedEnterpriseSolver(findings_store)
+            if spec.range.family == ENTERPRISE_FAMILY
+            else ScriptedSaasSolver(findings_store)
+        )
 
     def _supported(self, spec: ExperimentSpec) -> bool:
         return (
-            spec.range.family == "saas"
+            spec.range.family in {"saas", ENTERPRISE_FAMILY}
             and spec.orchestrator == "scripted"
             and spec.validation == "deterministic"
         )
 
     def _controller_budget(self, spec: ExperimentSpec) -> Budget:
+        if spec.range.family == ENTERPRISE_FAMILY and spec.bootstrap_budget is not None:
+            return Budget.model_validate(
+                {
+                    **spec.budget.model_dump(),
+                    "max_actions": (
+                        spec.budget.max_actions + spec.bootstrap_budget.max_actions
+                        if spec.budget.max_actions is not None
+                        else None
+                    ),
+                    "max_http_requests": (
+                        spec.budget.max_http_requests + spec.bootstrap_budget.max_http_requests
+                        if spec.budget.max_http_requests is not None
+                        else None
+                    ),
+                }
+            )
         return spec.budget
 
     def _experiment_hash(self, spec: ExperimentSpec) -> str:
@@ -183,6 +205,13 @@ class ScriptedExperimentRunner:
         context: AgentContext,
         tools: BoundGatewayTools,
     ) -> None:
+        if spec.range.family == ENTERPRISE_FAMILY and spec.bootstrap_budget is not None:
+            from offsecgym.experiment.bootstrap import PrerequisiteBootstrap
+
+            await asyncio.wait_for(
+                PrerequisiteBootstrap(self.events).run(context, tools, spec.bootstrap_budget),
+                timeout=spec.bootstrap_budget.max_wall_seconds,
+            )
         return None
 
     async def _after_agent(
@@ -200,7 +229,9 @@ class ScriptedExperimentRunner:
         self, spec: ExperimentSpec, *, run_id: UUID | None = None
     ) -> ScriptedExperimentOutcome:
         if not self._supported(spec):
-            raise ValueError("runner requires a supported deterministic SaaS experiment")
+            raise ValueError(
+                "runner requires a supported deterministic SaaS or enterprise experiment"
+            )
         run_id = run_id or uuid4()
         instance_id: UUID | None = None
         build_id: UUID | None = None
@@ -245,8 +276,8 @@ class ScriptedExperimentRunner:
             agent = self._agent(findings_store, spec)
             task = AgentTask(
                 task_id=uuid4(),
-                goal="Test SaaS authorization and data exposure boundaries",
-                allowed_services=("saas",),
+                goal="Test the synthetic range's documented security boundaries",
+                allowed_services=(spec.range.family,),
                 budget=spec.budget,
             )
             agent_context = AgentContext(

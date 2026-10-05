@@ -1,0 +1,23 @@
+schema_version: "1"
+family: enterprise_change_control_v1
+scenario: enterprise_change_control_v1
+seed: 42
+patched: false
+topology:
+  identity: true
+  change: true
+  worker: true
+  postgres: true
+  cache: true
+identities:
+  users: 18
+vulnerabilities:
+  - family: workflow_authorization
+    component: access
+    variant: self_approval
+  - family: temporal_authorization
+    component: change
+    variant: revoked_role_cache
+  - family: queued_execution
+    component: worker
+    variant: cancelled_change

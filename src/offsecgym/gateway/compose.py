@@ -224,6 +224,14 @@ class ComposeActionGateway:
                     response = await self.runtime.execute_hello_http(
                         context.range_instance_id, action.path
                     )
+                elif build.spec.family == "enterprise_change_control_v1":
+                    response = await self.runtime.execute_enterprise_http(
+                        context.range_instance_id,
+                        action.method,
+                        action.path,
+                        action.json_body,
+                        action.identity_id,
+                    )
                 else:
                     response = await self.runtime.execute_saas_http(
                         context.range_instance_id,
@@ -341,10 +349,10 @@ class ComposeActionGateway:
         reason = scope_reason(action, context, build.spec.family)
         if reason:
             return reason
-        if build.spec.family not in {"hello", "saas"}:
+        if build.spec.family not in {"hello", "saas", "enterprise_change_control_v1"}:
             return "range_out_of_scope"
         if (
-            build.spec.family == "saas"
+            build.spec.family in {"saas", "enterprise_change_control_v1"}
             and action.identity_id is not None
             and all(
                 account["id"] != str(action.identity_id)

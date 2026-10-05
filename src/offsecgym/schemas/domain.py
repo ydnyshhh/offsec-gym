@@ -313,8 +313,11 @@ class RangeControllerMetadata(StrictModel):
             raise ValueError("patched property slugs must be distinct")
         if self.family == "hello" and self.security_variant is not None:
             raise ValueError("hello range has no security variant")
-        if self.family == "saas" and self.security_variant is None:
-            raise ValueError("saas range requires a security variant")
+        if (
+            self.family in {"saas", "enterprise_change_control_v1"}
+            and self.security_variant is None
+        ):
+            raise ValueError(f"{self.family} range requires a security variant")
         if self.security_variant is None and self.patched_properties:
             raise ValueError("patched properties require a security variant")
         if self.security_variant == "vulnerable" and self.patched_properties:

@@ -6,6 +6,15 @@ from uuid import UUID
 
 from pydantic import ValidationError
 
+from offsecgym.runtime.enterprise import (
+    FAMILY as ENTERPRISE_FAMILY,
+)
+from offsecgym.runtime.enterprise import (
+    PROPERTY_SLUGS as ENTERPRISE_PROPERTIES,
+)
+from offsecgym.runtime.enterprise import (
+    patched_properties as enterprise_patched_properties,
+)
 from offsecgym.runtime.manifests import BuildIntegrityError, StateStore
 from offsecgym.runtime.saas import PROPERTY_SLUGS, patched_properties
 from offsecgym.schemas.domain import ValidationContext
@@ -26,19 +35,24 @@ class StateOracleStore:
 
     def _load_ground_truth(self, build_id: UUID) -> GroundTruthManifest:
         build = self.state.verify_build_integrity(build_id)
-        if build.spec.family != "saas":
+        if build.spec.family not in {"saas", ENTERPRISE_FAMILY}:
             raise InvalidGroundTruthError("this range family has no security oracle")
         path = self.state.root / "oracles" / build_id.hex / "ground_truth.json"
         try:
             oracle = GroundTruthManifest.model_validate_json(path.read_bytes())
         except (OSError, ValidationError) as exc:
             raise InvalidGroundTruthError("hidden ground truth is invalid") from exc
-        patch_set = patched_properties(build.spec)
+        patch_set = (
+            patched_properties(build.spec)
+            if build.spec.family == "saas"
+            else enterprise_patched_properties(build.spec)
+        )
+        all_properties = PROPERTY_SLUGS if build.spec.family == "saas" else ENTERPRISE_PROPERTIES
         variant = (
             "vulnerable"
             if not patch_set
             else "patched"
-            if patch_set == PROPERTY_SLUGS
+            if patch_set == all_properties
             else "selective"
         )
         if (

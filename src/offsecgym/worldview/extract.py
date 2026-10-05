@@ -17,6 +17,16 @@ _PREVIEW = re.compile(r"^/api/public/invoices/([^/]+)/preview$")
 _REFUND = re.compile(r"^/api/invoices/([^/]+)/refund$")
 _INVOICE_MENTION = re.compile(r"\binvoice ([0-9a-fA-F-]{36})\b")
 _ENTITY_TYPES = {"documents": "document", "invoices": "invoice", "tickets": "ticket"}
+ENTERPRISE_FAMILY = "enterprise_change_control_v1"
+_ENTERPRISE_COLLECTIONS = {
+    "/api/organizations": "organization",
+    "/api/projects": "project",
+    "/api/users": "identity",
+    "/api/access-requests": "access_request",
+    "/api/changes": "change_request",
+    "/api/jobs": "job",
+    "/api/environments": "environment",
+}
 MAX_BODY_EXCERPT = 512
 
 
@@ -47,7 +57,7 @@ class ResponseFactExtractor:
 
     def extract(self, request: ActionRequest, result: ActionResult) -> tuple[ExtractedFact, ...]:
         if (
-            request.destination != "saas"
+            request.destination not in {"saas", ENTERPRISE_FAMILY}
             or result.status != "completed"
             or result.http_status != 200
             or result.truncated
@@ -64,6 +74,8 @@ class ResponseFactExtractor:
             return ()
         if not isinstance(body, dict):
             return ()
+        if request.destination == ENTERPRISE_FAMILY:
+            return self._enterprise(request, body)
         if request.method == "GET" and request.path == "/api/me":
             return self._identity(request, body)
         if request.method == "GET" and (match := _WORKSPACE_LIST.fullmatch(request.path)):
@@ -81,6 +93,112 @@ class ResponseFactExtractor:
             ):
                 return (ExtractedFact("observation", invoice, "status", "refunded"),)
         return ()
+
+    def _enterprise(
+        self, request: ActionRequest, body: dict[str, object]
+    ) -> tuple[ExtractedFact, ...]:
+        """Use only complete, route-bound GET observations; no policy verdicts."""
+        if request.method != "GET":
+            return ()
+        path = request.path.split("?", 1)[0]
+        if path == "/api/me":
+            subject = _entity("identity", body.get("id"))
+            if subject is None or subject.entity_id != request.identity_id:
+                return ()
+            facts = list(self._enterprise_item(subject, body))
+            for assignment in body.get("roles", []):
+                if isinstance(assignment, dict):
+                    ref = _entity("role_assignment", assignment.get("id"))
+                    if ref:
+                        facts.extend(self._enterprise_item(ref, assignment))
+            return tuple(facts)
+        collection = _ENTERPRISE_COLLECTIONS.get(path)
+        if collection:
+            items = body.get("items")
+            if not isinstance(items, list) or len(items) > 20:
+                return ()
+            facts: list[ExtractedFact] = []
+            for item in items:
+                if isinstance(item, dict) and (ref := _entity(collection, item.get("id"))):
+                    facts.extend(self._enterprise_item(ref, item))
+            return tuple(facts)
+        parts = path.split("/")
+        if len(parts) >= 4 and parts[1] == "api":
+            if len(parts) == 5 and parts[2] == "projects" and parts[4] == "roles":
+                items = body.get("items")
+                if not isinstance(items, list) or len(items) > 20 or _uuid(parts[3]) is None:
+                    return ()
+                facts = []
+                for item in items:
+                    if (
+                        isinstance(item, dict)
+                        and item.get("project_id") == parts[3]
+                        and (ref := _entity("role_assignment", item.get("id")))
+                    ):
+                        facts.extend(self._enterprise_item(ref, item))
+                return tuple(facts)
+            kind = {
+                "projects": "project",
+                "users": "identity",
+                "access-requests": "access_request",
+                "changes": "change_request",
+                "jobs": "job",
+                "environments": "environment",
+            }.get(parts[2])
+            if len(parts) == 4 and kind and _uuid(parts[3]) == _uuid(body.get("id")):
+                return self._enterprise_item(
+                    EntityRef(entity_type=kind, entity_id=UUID(parts[3])), body
+                )
+        return ()
+
+    @staticmethod
+    def _enterprise_item(ref: EntityRef, body: dict[str, object]) -> tuple[ExtractedFact, ...]:
+        facts: list[ExtractedFact] = []
+        relation_fields = {
+            "organization_id": ("organization", "belongs_to_organization"),
+            "project_id": ("project", "belongs_to_project"),
+            "environment_id": ("environment", "targets_environment"),
+            "user_id": ("identity", "assigned_to_user"),
+            "requester_id": ("identity", "requested_by"),
+            "target_user_id": ("identity", "targets_user"),
+            "approver_id": ("identity", "approved_by"),
+            "initiator_id": ("identity", "initiated_by"),
+            "change_id": ("change_request", "executes_change"),
+            "job_id": ("job", "has_job"),
+        }
+        for field, (kind, predicate) in relation_fields.items():
+            target = _entity(kind, body.get(field))
+            if target:
+                facts.append(ExtractedFact("relationship", ref, predicate, target))
+                if ref.entity_type == "role_assignment" and field == "project_id":
+                    user = _entity("identity", body.get("user_id"))
+                    if user:
+                        facts.append(
+                            ExtractedFact("relationship", user, "has_role_in_project", target)
+                        )
+        scalar_fields = (
+            "name",
+            "username",
+            "display_name",
+            "team",
+            "role",
+            "requested_role",
+            "status",
+            "summary",
+            "revision",
+            "active",
+            "queued_tick",
+            "due_tick",
+            "started_tick",
+            "finished_tick",
+        )
+        for field in scalar_fields:
+            value = body.get(field)
+            if type(value) in (str, int, bool) and (
+                not isinstance(value, str) or 0 < len(value) <= 2048
+            ):
+                facts.append(ExtractedFact("observation", ref, field, value))
+        return tuple(facts)
 
     def _identity(
         self, request: ActionRequest, body: dict[str, object]

@@ -212,7 +212,9 @@ class ExperimentSpec(StrictModel):
                 and self.budget.max_total_tokens is None
             ):
                 raise ValueError("budgeted workers require an explicit total token limit")
-        elif self.bootstrap_budget is not None:
+        elif self.bootstrap_budget is not None and not (
+            self.orchestrator == "scripted" and self.range.family == "enterprise_change_control_v1"
+        ):
             raise ValueError("bootstrap budget is only valid for bootstrapped runs")
         if self.orchestrator == "scripted" and self.surface_visibility is not None:
             raise ValueError("surface_visibility is only supported for model orchestrators")
