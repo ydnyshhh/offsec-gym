@@ -121,6 +121,9 @@ normal-flow test measured 16.59 seconds to start one instance, 48.23 seconds
 to reset it, and 31.25 seconds to tear it down. The five-variant scripted
 comparison plus normal-flow test took 7 minutes 47 seconds in total. These are
 single-run operational measurements, not benchmark latency estimates.
+The prior GitHub full-suite job took about 26½ minutes; Range B adds roughly
+eight minutes of local Docker acceptance work. The shared CI job deadline is
+45 minutes so it can retain the full suite with bounded headroom.
 
 ## Scope and limitations
 
