@@ -67,8 +67,9 @@ oracle score validity do not erase earlier witnessed actions; this includes
 audited. The collector or postcheck must verify fixture/pair bindings,
 contiguous authoritative events, action/evidence identities, response
 artifacts, trace hashes, and terminal boundary before passing a record to
-`m66_confirmatory_analysis.py`. The analyzer requires one record per assigned
-cell, including unstarted cells after a global stop.
+`m66_confirmatory_analysis.py`. Pass the complete frozen manifest assignment
+keys as a separate argument; the analyzer rejects any omitted or extra cell,
+including an unstarted cell after a global stop.
 
 Primary contrasts are witness minus control per **all assigned vulnerable
 root opportunities**, separately for Range A and Range B. Range B also reports

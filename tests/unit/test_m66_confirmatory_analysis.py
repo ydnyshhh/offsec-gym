@@ -49,6 +49,15 @@ def _blocks(*, control_a=None, witness_a=None):
     )
 
 
+def _analyze(rows, *, assigned_rows=None):
+    expected = assigned_rows if assigned_rows is not None else rows
+    return analyze_confirmatory(
+        rows,
+        protocol="test",
+        assigned_keys=frozenset((r.range_family, r.seed, r.variant, r.arm) for r in expected),
+    )
+
+
 def test_provider_failed_auditable_witness_remains_in_itt() -> None:
     rows = _blocks(
         witness_a=_row(
@@ -61,7 +70,7 @@ def test_provider_failed_auditable_witness_remains_in_itt() -> None:
             valid=False,
         )
     )
-    result = analyze_confirmatory(rows, protocol="test")
+    result = _analyze(rows)
     assert result["primary_by_family"]["saas"]["difference_per_assigned_root"] == 1.0
     assert result["secondary_score_valid_matched"]["saas"]["matched_score_valid_pairs"] == 0
     assert result["primary_by_root"]["B1-SOD"]["difference_per_assigned_root"] == 1.0
@@ -80,7 +89,7 @@ def test_unauditable_arm_is_missing_with_all_assigned_denominator_and_bounds() -
             auditable=False,
         )
     )
-    result = analyze_confirmatory(rows, protocol="test")
+    result = _analyze(rows)
     primary = result["primary_by_family"]["saas"]
     assert primary["assigned_root_opportunities"] == 1
     assert primary["difference_per_assigned_root"] is None
@@ -90,7 +99,7 @@ def test_unauditable_arm_is_missing_with_all_assigned_denominator_and_bounds() -
 
 
 def test_family_key_allows_same_seed_and_patched_subset() -> None:
-    result = analyze_confirmatory(_blocks(), protocol="test")
+    result = _analyze(_blocks())
     assert result["vulnerable_assigned_pairs"] == 2
     assert (
         result["patched_findings"]["enterprise_change_control_v1"]["control"]["assigned_cells"] == 0
@@ -99,7 +108,9 @@ def test_family_key_allows_same_seed_and_patched_subset() -> None:
 
 def test_missing_arm_and_invalid_ontology_are_rejected() -> None:
     with pytest.raises(ValueError, match="missing an arm"):
-        analyze_confirmatory(_blocks()[:-1], protocol="test")
+        _analyze(_blocks()[:-1])
+    with pytest.raises(ValueError, match="differ from frozen assigned"):
+        _analyze(_blocks()[:-1], assigned_rows=_blocks())
     with pytest.raises(ValueError, match="ontology"):
         ConfirmatoryRecord(
             range_family="saas",

@@ -146,16 +146,22 @@ def _contrast(
 
 
 def analyze_confirmatory(
-    rows: tuple[ConfirmatoryRecord, ...], *, protocol: str
+    rows: tuple[ConfirmatoryRecord, ...],
+    *,
+    protocol: str,
+    assigned_keys: frozenset[tuple[str, int, str, str]],
 ) -> dict[str, object]:
     """Analyze the complete assignment ledger, including failed/unstarted cells.
 
-    The caller must verify each row against the frozen assignment manifest and
-    authoritative event stream before invoking this pure offline function.
+    The caller must derive ``assigned_keys`` from the frozen manifest and
+    verify rows against the authoritative event stream. An omitted failed or
+    unstarted cell cannot silently disappear from the assigned denominator.
     """
     keyed = {(r.range_family, r.seed, r.variant, r.arm): r for r in rows}
     if not rows or len(keyed) != len(rows):
         raise ValueError("assignment ledger is empty or has duplicate cells")
+    if set(keyed) != assigned_keys:
+        raise ValueError("analysis rows differ from frozen assigned cells")
     blocks = {(r.range_family, r.seed, r.variant) for r in rows}
     for family, seed, variant in blocks:
         if any((family, seed, variant, arm) not in keyed for arm in ("control", "witness")):
