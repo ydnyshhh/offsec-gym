@@ -22,13 +22,17 @@ remain available; any revision substitution is a new protocol decision.
 
 ## Assignment and sample
 
-The proposed cohort has **30 fresh vulnerable seed pairs in each family**:
-30 × 2 families × 2 randomized arms = 120 trajectories. A predeclared subset
-of 10 of those seeds in each family also gets both patched arms: 40 more
-trajectories. Total: **160 assigned cells**. Each family/seed/variant is one
+The proposed **smallest effect size of interest (SESOI) is 0.20**, a 20
+percentage-point improvement in complete witness probability per assigned
+root pair. This is a design threshold, not a result or a minimum effect the
+study promises to find. The proposed cohort has **60 fresh vulnerable seed
+pairs in each family**: 60 × 2 families × 2 randomized arms = 240
+trajectories. A predeclared subset of 10 of those seeds in each family also
+gets both patched arms: 40 more trajectories. Total: **280 assigned cells**.
+Each family/seed/variant is one
 pair with independently instantiated, fixture-matched control and witness
-arms. Randomize and freeze arm order per block before collection; balance
-first-arm counts within family and variant. A Range A seed and a Range B seed
+arms. Randomize and freeze arm order per block; balance first-arm counts
+within family and variant. A Range A seed and a Range B seed
 may share a numeric value because the assignment key is
 `(range_family, seed, variant, arm)`. The patched subset is selected without
 looking at fixtures or outcomes. Publish a versioned historical exclusion
@@ -36,23 +40,42 @@ snapshot and deterministic selection algorithm with the final manifest.
 No stopped or failed cell is retried or replaced, and no pilot seed enters the
 confirmatory cohort.
 
+Globally interleave families before collection. For epoch `j=1..60`, assign
+one vulnerable block from each family, with their A/B order from a frozen
+balanced randomized list (30 A-first, 30 B-first). If epoch `j` is in the
+preselected 10-epoch patched subset, insert the corresponding patched block
+for each family immediately afterward in the same A/B family order. Within
+each block, use a separate balanced randomized control/witness order. Thus
+there are two frozen randomizations: **family block order** and **arm order
+within block**. The global schedule has at most two consecutive blocks from
+one family, and patched blocks appear across the collection rather than at
+the end. Pin both pseudorandom seeds, the generated schedule, and its hash in
+the final manifest. Any early stop retains every unstarted assignment.
+
 The 20,000-replicate [hypothetical precision simulation](m66-confirmatory-precision-design.json)
-uses independent paired binary root outcomes and **no v1/v2 treatment
-outcomes**. With 30 pairs, median approximate total 95% interval width is
-0.392 under 30% discordance, versus 0.440 with 24 pairs. At 40% discordance
-the 30-pair median width is 0.458, slightly above the 0.45 design target.
-An exact paired test detects a hypothetical 10-point improvement in only
-about 9% of the 30-pair simulations. The design is useful for estimating large
-effects and documenting uncertainty; it cannot reliably rule out modest
-effects. Range B's three roots are correlated within seed. Its by-root
-precision is the one-root scenario; family estimates resample whole seeds.
+uses paired binary root outcomes and **no v1/v2 treatment outcomes**. Under
+the hypothetical witness-only 0.25 / control-only 0.05 discordance scenario,
+the two-sided exact McNemar test rejects at 0.05 in about **40% of 30-pair**,
+**70% of 50-pair**, and **80% of 60-pair** simulated samples. A hypothetical
+10-point improvement still has only about 22% detection probability at 60
+pairs. The 60-pair choice targets the stated 20-point SESOI under the stated
+scenario; other discordance structures change power. A nonsignificant result
+cannot establish that the ledger has no useful effect.
+
+Range B's three roots share one trajectory. The simulation also varies
+within-seed root correlation `ρ` over 0, 0.5, and 0.9, always computing the
+family interval from whole-seed averages. At 60 pairs, its hypothetical
+median total interval width ranges from about 0.147 to 0.248 across those
+scenarios; it never treats 180 roots as independent seeds. Each B root's
+individual precision follows the one-root scenario, and the final family
+bootstrap resamples whole seeds.
 The simulation's normal width is a sizing approximation, while final
 intervals use the predeclared seed-cluster bootstrap.
 
 For cost planning only, the stopped v2 pilot used $2.931390 estimated model
 tokens across seven started cells, about $0.42 each. That suggests roughly
-$67 for 160 cells under similar usage. The configured worst bound at 120k
-tokens all priced at the $15/M output rate is **$288**. Neither figure is an
+$118 for 280 cells under similar usage. The configured worst bound at 120k
+tokens all priced at the $15/M output rate is **$504**. Neither figure is an
 authorization or final stop cap. A live endpoint/price check and explicit
 cumulative cap must precede any paid collection.
 
@@ -71,9 +94,17 @@ artifacts, trace hashes, and terminal boundary before passing a record to
 `m66_confirmatory_analysis.py`. Pass the complete frozen manifest assignment
 keys as a separate argument; the analyzer rejects any omitted or extra cell,
 including an unstarted cell after a global stop.
+`m66_confirmatory_extract.py` clips trace events, completed gateway actions,
+and requests at `RunCompleted.sequence_number` before applying the frozen root
+predicates. A post-terminal after-read cannot complete a pre-terminal
+witness; the adversarial B1 test covers a `provider_failed` terminal between
+action and after-read.
 
-Primary contrasts are witness minus control per **all assigned vulnerable
-root opportunities**, separately for Range A and Range B. Range B also reports
+Primary contrasts are witness minus control per **assigned vulnerable root
+pair** (one root in both arms), separately for Range A and Range B. The
+denominator `assigned_root_pairs = N_seeds × N_roots` is per arm; the dataset
+contains `assigned_arm_root_outcomes = 2 × assigned_root_pairs`. Thus the
+contrast is `W_witness/N − W_control/N`. Range B also reports
 each of B1/B2/B3. No missing arm is silently removed or assigned zero. If all
 outcomes are auditable, report the point contrast and 10,000-replicate
 seed-cluster 95% bootstrap interval. If any outcome is truly unmeasurable,
@@ -110,7 +141,7 @@ Endpoint, selected revision, upstream provider, or price drift; auth/quota
 failures; trace integrity failure; and a cumulative cost-cap breach stop
 collection immediately. A pause requires a recorded operational amendment
 and review before any continuation. Never backfill an arm or replace a seed
-to restore balance. If collection closes early, keep all 160 assignments in
+to restore balance. If collection closes early, keep all 280 assignments in
 analysis with unstarted cells as missing and publish attrition bounds.
 
 ## Freeze gates before collection
@@ -122,11 +153,11 @@ analysis with unstarted cells as missing and publish attrition bounds.
    cases. Verify root ontology, Range B timing, patched verdicts, and no
    post-terminal evidence.
 3. Freeze one source commit, protocol commit, model revision, selected
-   endpoint, price receipt, file hashes, 160 ordered assignments, seed
+   endpoint, price receipt, file hashes, 280 ordered assignments, seed
    exclusion registry, configuration, offline extractor/analyzer, provider
    health rule, cost stop, and analysis output schema in a **new** manifest.
 4. Pass focused and exact-head full CI. Obtain separate approval for that
-   final manifest and cumulative paid-call cap. Run the 160 cells once in
+   final manifest and cumulative paid-call cap. Run the 280 cells once in
    frozen order only after approval.
 
 The current artifact implements the analysis contract and a design precision
