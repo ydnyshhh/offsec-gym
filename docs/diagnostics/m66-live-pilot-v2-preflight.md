@@ -58,3 +58,12 @@ four matched pairs, valid bootstrap and scores, selected endpoint and price,
 trace/event replay, stage extraction, complete no-retry accounting, and
 cost under the approved ceiling. Policy effect magnitude is not a pilot
 gate. Any failed cell is retained without outcome-based replacement.
+
+The first exact-head CI run for this protocol reached the prior 45-minute
+job limit during the full test step; lint, format, and migrations had passed.
+Recent comparable successful full runs took about 42–44 minutes, and the
+selected-seed Docker qualification takes about four additional minutes
+locally. The same single CI job and complete test command are retained, with
+a 55-minute job limit and a 50-minute test-step limit. This grants bounded
+headroom and leaves cleanup time; it does not skip tests or change any model
+request. The new exact-head run must pass before merging this protocol.
