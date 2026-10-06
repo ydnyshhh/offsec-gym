@@ -2,12 +2,13 @@
 
 **Status:** the opt-in oracle-free witness ledger and policy runner are
 implemented for SaaS and enterprise change control. The approved excluded
-eight-cell v1 pilot started, but [Range B bootstrap exhausted its frozen
-32-action cap](diagnostics/m66-pilot-v1-bootstrap-failure.md) before model
-work. Four Range A cells are score valid; two Range B vulnerable cells are
-score invalid and await no-retry journal reconciliation; the final patched
-pair remains unstarted. The v1 infrastructure gate failed. No confirmatory
-M6.6 sample has run.
+eight-cell v1 pilot [closed with failed infrastructure
+gates](diagnostics/m66-pilot-v1-results.md). Four Range A cells are score
+valid; two Range B vulnerable cells are score invalid after exhausting the
+frozen 32-action bootstrap cap; the final patched pair remains unstarted.
+The two failed runs were reconciled without retry. A separate v2 excluded
+pilot protocol is in preparation with fresh seeds and a 40-action Range B
+bootstrap cap. No v2 paid calls or confirmatory M6.6 sample have run.
 [M6.5.1](diagnostics/m651-witness-recovery-v2-results.md)
 found 19 successful unauthorized refund actions across ten vulnerable runs,
 yet only two runs held a complete ordered, same-identity paid-before /

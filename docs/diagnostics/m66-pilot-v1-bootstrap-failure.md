@@ -32,13 +32,14 @@ all 550 event identities per run, terminal status, 32 successful bootstrap
 actions, absence of model work and active reservations, and the unchanged
 manifest/approval and source/protocol checkouts. `--check-only` passed against
 the authoritative event store before this amendment was committed. After
-exact-head CI, the script may save each existing trace and mark cells 5 and 6
+exact-head CI, the script saved each existing trace and marked cells 5 and 6
 score invalid in the private journal. It cannot dispatch, reset, retry, or
-replace a cell. A receipt will preserve event and journal hashes.
+replace a cell. The receipt preserves event and journal hashes. The
+[closeout report](m66-pilot-v1-results.md) records the final audit.
 
 The v1 pilot **fails its infrastructure feasibility gate** and cannot support
-an eight-cell policy comparison. We will not start the deterministic-failure
-Range B patched pair under v1. A new protocol would need a separately hashed
+an eight-cell policy comparison. The deterministic-failure Range B patched
+pair was not started under v1. A new protocol needs a separately hashed
 manifest, a justified Range B bootstrap cap, fresh endpoint and price check,
 and separate approval before any paid model call. The v1 pilot remains
 excluded from confirmatory M6.6 analysis.
