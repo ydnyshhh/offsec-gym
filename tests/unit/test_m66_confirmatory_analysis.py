@@ -37,14 +37,14 @@ def _row(
     )
 
 
-def _blocks(*, control_a=None, witness_a=None):
+def _blocks(*, control_a=None, witness_a=None, patched_control_a=None):
     a, b = "saas", "enterprise_change_control_v1"
     return (
         control_a or _row(a, 7, "vulnerable", "control"),
         witness_a or _row(a, 7, "vulnerable", "witness", complete=("MEMBER-REFUND",)),
         _row(b, 7, "vulnerable", "control"),
         _row(b, 7, "vulnerable", "witness", complete=("B1-SOD",)),
-        _row(a, 7, "patched", "control", submitted=1),
+        patched_control_a or _row(a, 7, "patched", "control", submitted=1),
         _row(a, 7, "patched", "witness"),
     )
 
@@ -91,11 +91,21 @@ def test_unauditable_arm_is_missing_with_all_assigned_denominator_and_bounds() -
     )
     result = _analyze(rows)
     primary = result["primary_by_family"]["saas"]
-    assert primary["assigned_root_opportunities"] == 1
+    assert primary["assigned_root_pairs"] == 1
+    assert primary["assigned_arm_root_outcomes"] == 2
     assert primary["difference_per_assigned_root"] is None
     assert primary["worst_best_bounds"] == [0.0, 1.0]
     assert primary["seed_bootstrap_95pct"] is None
-    assert result["secondary_pooled"]["assigned_root_opportunities"] == 4
+    pooled = result["secondary_pooled"]
+    assert pooled["assigned_root_pairs"] == 4
+    assert pooled["assigned_arm_root_outcomes"] == 8
+    assert pooled["control_missing_root_outcomes"] == 1
+    assert pooled["control_observed_root_outcomes"] == 3
+    assert pooled["difference_per_assigned_root"] is None
+    assert (
+        result["secondary_score_valid_matched"]["saas"]["excluded_root_pairs_due_to_score_invalid"]
+        == 1
+    )
 
 
 def test_unstarted_arm_is_retained_as_missing() -> None:
@@ -111,7 +121,7 @@ def test_unstarted_arm_is_retained_as_missing() -> None:
         )
     )
     primary = _analyze(rows)["primary_by_family"]["saas"]
-    assert primary["assigned_root_opportunities"] == 1
+    assert primary["assigned_root_pairs"] == 1
     assert primary["witness_missing_root_outcomes"] == 1
     assert primary["worst_best_bounds"] == [0.0, 1.0]
 
@@ -122,6 +132,25 @@ def test_family_key_allows_same_seed_and_patched_subset() -> None:
     assert (
         result["patched_findings"]["enterprise_change_control_v1"]["control"]["assigned_cells"] == 0
     )
+
+
+def test_patched_unauditable_cell_has_explicit_missing_denominator() -> None:
+    rows = _blocks(
+        patched_control_a=_row(
+            "saas",
+            7,
+            "patched",
+            "control",
+            status="provider_failed",
+            auditable=False,
+            valid=False,
+        )
+    )
+    patched = _analyze(rows)["patched_findings"]["saas"]["control"]
+    assert patched["assigned_cells"] == 1
+    assert patched["auditable_cells"] == 0
+    assert patched["missing_cells"] == 1
+    assert patched["submitted_findings_observed"] == 0
 
 
 def test_missing_arm_and_invalid_ontology_are_rejected() -> None:

@@ -132,7 +132,10 @@ def _contrast(
             clusters.append((len(roots), difference))
     missing = missing_control + missing_witness
     return {
-        "assigned_root_opportunities": denominator,
+        "assigned_root_pairs": denominator,
+        "assigned_arm_root_outcomes": 2 * denominator,
+        "witness_observed_root_outcomes": denominator - missing_witness,
+        "control_observed_root_outcomes": denominator - missing_control,
         "witness_complete_observed": observed_witness,
         "control_complete_observed": observed_control,
         "witness_missing_root_outcomes": missing_witness,
@@ -212,7 +215,14 @@ def analyze_confirmatory(
     missing_witness = sum(x["witness_missing_root_outcomes"] for x in primary.values())
     missing_control = sum(x["control_missing_root_outcomes"] for x in primary.values())
     pooled = {
-        "assigned_root_opportunities": denominator,
+        "assigned_root_pairs": denominator,
+        "assigned_arm_root_outcomes": 2 * denominator,
+        "witness_observed_root_outcomes": denominator - missing_witness,
+        "control_observed_root_outcomes": denominator - missing_control,
+        "witness_complete_observed": observed_witness,
+        "control_complete_observed": observed_control,
+        "witness_missing_root_outcomes": missing_witness,
+        "control_missing_root_outcomes": missing_control,
         "difference_per_assigned_root": (
             (observed_witness - observed_control) / denominator
             if denominator and not (missing_witness or missing_control)
@@ -230,7 +240,19 @@ def analyze_confirmatory(
         valid = [(c, w) for c, w in pairs if c.score_valid and w.score_valid]
         eligible = len(valid) * len(ROOTS[family])
         conditional[family] = {
+            "assigned_root_pairs": len(pairs) * len(ROOTS[family]),
+            "assigned_arm_root_outcomes": 2 * len(pairs) * len(ROOTS[family]),
             "matched_score_valid_pairs": len(valid),
+            "matched_score_valid_root_pairs": eligible,
+            "excluded_pairs_due_to_score_invalid": len(pairs) - len(valid),
+            "excluded_root_pairs_due_to_score_invalid": (len(pairs) - len(valid))
+            * len(ROOTS[family]),
+            "witness_complete_in_matched_pairs": sum(
+                len(w.complete_witness_roots) for _, w in valid
+            ),
+            "control_complete_in_matched_pairs": sum(
+                len(c.complete_witness_roots) for c, _ in valid
+            ),
             "difference_per_assigned_root": (
                 sum(len(w.complete_witness_roots) - len(c.complete_witness_roots) for c, w in valid)
                 / eligible
@@ -262,6 +284,7 @@ def analyze_confirmatory(
             patched[family][arm] = {
                 "assigned_cells": len(items),
                 "auditable_cells": sum(r.trace_auditable for r in items),
+                "missing_cells": sum(not r.trace_auditable for r in items),
                 "submitted_findings_observed": sum(r.patched_submitted_findings for r in items),
                 "rejected_findings_observed": sum(r.patched_rejected_findings for r in items),
                 "inconclusive_findings_observed": sum(
@@ -272,13 +295,18 @@ def analyze_confirmatory(
     for arm in ("control", "witness"):
         arm_rows = [r for r in rows if r.arm == arm]
         failure_rates[arm] = {
-            status_name: sum(r.status == status_name for r in arm_rows) / len(arm_rows)
-            for status_name in ("provider_failed", "agent_failed", "environment_failed")
+            "assigned_cells": len(arm_rows),
+            "rates": {
+                status_name: sum(r.status == status_name for r in arm_rows) / len(arm_rows)
+                for status_name in ("provider_failed", "agent_failed", "environment_failed")
+            },
         }
     resources = {
         arm: {
             field: {
+                "assigned_cells": sum(r.arm == arm for r in rows),
                 "observed_total": sum(getattr(r, field) or 0 for r in rows if r.arm == arm),
+                "observed_cells": sum(getattr(r, field) is not None for r in rows if r.arm == arm),
                 "missing_cells": sum(getattr(r, field) is None for r in rows if r.arm == arm),
             }
             for field in ("http_actions", "input_tokens", "output_tokens")
