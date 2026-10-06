@@ -1,4 +1,4 @@
-# M6.6 v2 execution guard: prepared, not authorized
+# M6.6 v2 execution guard: authorized, not yet run
 
 The [frozen v2 pilot](m66-pilot-v2-freeze.md) remains unrun. Its manifest
 SHA-256 is
@@ -8,14 +8,16 @@ Model execution is pinned to source commit
 extraction are pinned to protocol commit
 `ea56685ff55d2bb20207edd8429562a793ed904f`.
 
-The [operational collector](../../research_ops/m66_collect_pilot_v2.py) is
-deliberately inoperable until a **new, explicit v2 approval** is recorded in
-a create-only artifact and its SHA-256 replaces the collector's
-`__POST_APPROVAL_SHA256__` sentinel. The artifact must bind the exact manifest,
-source and protocol commits, a $15 cumulative estimated model-token ceiling,
+The user explicitly approved this exact eight-cell excluded feasibility pilot
+with a $15 cumulative estimated model-token ceiling. A separate create-only,
+private approval artifact binds the manifest, source and protocol commits,
 `approval_scope: excluded_feasibility_pilot_only`, and
-`v1_approval_reused: false`. The frozen manifest itself keeps
-`paid_model_calls_authorized: false`. V1's approval cannot start v2.
+`v1_approval_reused: false`. Its SHA-256 is
+`5a894865c4a8e3a1ffc556ec5efa84d71dbcac94e57e48d6b1b8cb957685779f`
+and is pinned in the [operational collector](../../research_ops/m66_collect_pilot_v2.py).
+The frozen manifest itself keeps `paid_model_calls_authorized: false`. V1's
+approval does not start v2. Paid execution remains gated on exact-head CI and
+the live endpoint, price, and event-store preflight.
 
 Before dispatch, the collector checks both clean detached commit heads,
 manifest and config hashes, imported runtime path, approval hash and scope,

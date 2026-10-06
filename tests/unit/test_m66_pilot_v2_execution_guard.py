@@ -52,6 +52,7 @@ def test_frozen_manifest_and_cell_specs_remain_pinned() -> None:
 def test_approval_guard_rejects_missing_hash_and_v1_reuse(monkeypatch) -> None:
     manifest = json.loads(MANIFEST.read_bytes())
     approval = _approval()
+    monkeypatch.setattr(collector, "EXPECTED_APPROVAL_SHA256", "__POST_APPROVAL_SHA256__")
     with pytest.raises(ValueError, match="remains closed"):
         collector._execution_approval(manifest, _encoded(approval))
     monkeypatch.setattr(

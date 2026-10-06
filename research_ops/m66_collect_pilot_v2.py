@@ -44,8 +44,8 @@ from offsecgym.storage.event_store import PostgresEventStore
 from offsecgym.storage.projection import project_controller_events
 
 EXPECTED_MANIFEST_SHA256 = "b8dbdc28689e7299c4f5f099ce8e3f788483de7b558c0319043fae7ca43fe528"
-# Replace only after separate user approval and a create-only approval artifact.
-EXPECTED_APPROVAL_SHA256 = "__POST_APPROVAL_SHA256__"
+# Separate user approval for this exact frozen v2 manifest is recorded privately.
+EXPECTED_APPROVAL_SHA256 = "5a894865c4a8e3a1ffc556ec5efa84d71dbcac94e57e48d6b1b8cb957685779f"
 EXPECTED_SOURCE_COMMIT = "950bdb746e0d8ae9d68a324f58e5b763c7ddbc1d"
 EXPECTED_PROTOCOL_COMMIT = "ea56685ff55d2bb20207edd8429562a793ed904f"
 ENDPOINT_URL = "https://openrouter.ai/api/v1/models/moonshotai/kimi-k3/endpoints"
