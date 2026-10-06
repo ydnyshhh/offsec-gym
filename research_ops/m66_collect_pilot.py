@@ -17,6 +17,7 @@ from pathlib import Path
 from urllib.request import urlopen
 
 import yaml
+from m66_pilot_coverage import close_completed_monolithic_coverage
 from sqlalchemy.ext.asyncio import create_async_engine
 
 import offsecgym
@@ -398,6 +399,8 @@ async def collect(
             build = runtime.state.verify_build_integrity(pair.build_id)
             if build.pair_id is None or build.spec != spec.range:
                 raise ValueError("pair build or fixture binding differs")
+            for outcome in (pair.control, pair.witness):
+                await close_completed_monolithic_coverage(events, outcome.run_id)
             for offset, cell in enumerate((first, second), index + 1):
                 outcome = pair.control if cell["arm"] == "control" else pair.witness
                 trace = await events.read_run(outcome.run_id)
