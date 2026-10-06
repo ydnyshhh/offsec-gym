@@ -40,6 +40,7 @@ from offsecgym.storage.event_store import PostgresEventStore
 from offsecgym.storage.projection import project_controller_events
 
 EXPECTED_MANIFEST_SHA256 = "0bda0f40d75c8a683752f20da0cbf09ea8a5e7d1cd39eaaf6c77725bac8aabd8"
+EXPECTED_APPROVAL_SHA256 = "b0f90fdd727debd03b48051138904dcd8938034b873ca0915135e43ec1ed2552"
 EXPECTED_SOURCE_COMMIT = "950bdb746e0d8ae9d68a324f58e5b763c7ddbc1d"
 EXPECTED_PROTOCOL_COMMIT = "840992f760eae35e89ae4993f3283894e86b6fbe"
 ENDPOINT_URL = "https://openrouter.ai/api/v1/models/moonshotai/kimi-k3/endpoints"
@@ -51,6 +52,14 @@ CELL_WORST_USD = Decimal(MAX_CELL_TOKENS) * PRICE_OUT
 
 def _git_head(root: Path) -> str:
     return subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=root, text=True).strip()
+
+
+def _require_clean_checkout(root: Path) -> None:
+    status = subprocess.check_output(
+        ["git", "status", "--porcelain=v1", "--untracked-files=all"], cwd=root, text=True
+    )
+    if status:
+        raise ValueError("pinned checkout has local or untracked changes")
 
 
 def _source_bytes(root: Path, commit: str, path: str) -> bytes:
@@ -68,13 +77,18 @@ def _approval_and_manifest(
         raise ValueError("collection checkout is not the exact source_commit")
     if _git_head(protocol_root) != EXPECTED_PROTOCOL_COMMIT:
         raise ValueError("configuration checkout is not the exact protocol_commit")
+    _require_clean_checkout(source_root)
+    _require_clean_checkout(protocol_root)
     if not Path(offsecgym.__file__).resolve().is_relative_to((source_root / "src").resolve()):
         raise ValueError("imported runtime is outside the pinned source checkout")
     raw = manifest_path.read_bytes()
     if _sha256(raw) != EXPECTED_MANIFEST_SHA256:
         raise ValueError("frozen pilot manifest hash differs")
     manifest = json.loads(raw)
-    approval = json.loads(approval_path.read_text())
+    approval_bytes = approval_path.read_bytes()
+    if _sha256(approval_bytes) != EXPECTED_APPROVAL_SHA256:
+        raise ValueError("post-freeze approval artifact hash differs")
+    approval = json.loads(approval_bytes)
     if (
         manifest.get("protocol") != "m66-pilot-v1"
         or manifest.get("source_commit") != EXPECTED_SOURCE_COMMIT
