@@ -98,6 +98,24 @@ def test_unauditable_arm_is_missing_with_all_assigned_denominator_and_bounds() -
     assert result["secondary_pooled"]["assigned_root_opportunities"] == 4
 
 
+def test_unstarted_arm_is_retained_as_missing() -> None:
+    rows = _blocks(
+        witness_a=_row(
+            "saas",
+            7,
+            "vulnerable",
+            "witness",
+            status="unstarted",
+            valid=False,
+            auditable=False,
+        )
+    )
+    primary = _analyze(rows)["primary_by_family"]["saas"]
+    assert primary["assigned_root_opportunities"] == 1
+    assert primary["witness_missing_root_outcomes"] == 1
+    assert primary["worst_best_bounds"] == [0.0, 1.0]
+
+
 def test_family_key_allows_same_seed_and_patched_subset() -> None:
     result = _analyze(_blocks())
     assert result["vulnerable_assigned_pairs"] == 2

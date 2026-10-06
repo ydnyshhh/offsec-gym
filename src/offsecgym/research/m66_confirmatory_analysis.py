@@ -30,7 +30,16 @@ class ConfirmatoryRecord(StrictModel):
     seed: int = Field(ge=0)
     variant: Literal["vulnerable", "patched"]
     arm: Literal["control", "witness"]
-    status: str
+    status: Literal[
+        "completed",
+        "budget_exhausted",
+        "agent_failed",
+        "environment_failed",
+        "provider_failed",
+        "validation_failed",
+        "cancelled",
+        "unstarted",
+    ]
     score_valid: bool
     trace_auditable: bool
     assigned_roots: tuple[str, ...]
@@ -54,6 +63,8 @@ class ConfirmatoryRecord(StrictModel):
             raise ValueError("complete witness exceeds assigned roots")
         if self.score_valid and not self.trace_auditable:
             raise ValueError("score-valid cell requires an auditable trace")
+        if self.status == "unstarted" and (self.score_valid or self.trace_auditable):
+            raise ValueError("unstarted cell cannot be scored or audited")
         if not self.trace_auditable and (
             self.complete_witness_roots
             or self.patched_submitted_findings
