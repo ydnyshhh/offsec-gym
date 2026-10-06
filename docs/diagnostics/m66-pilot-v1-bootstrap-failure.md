@@ -43,6 +43,17 @@ manifest, a justified Range B bootstrap cap, fresh endpoint and price check,
 and separate approval before any paid model call. The v1 pilot remains
 excluded from confirmatory M6.6 analysis.
 
+A separate read-only extraction attempt on the first score-valid witness
+trace found an offline analysis defect. The frozen
+`research_ops/m66_extract_stages.py` passes the full run trace to
+`build_reporter_bundle`, but that helper rejects `FindingValidated` and
+`RunCompleted` events because it was designed for a pre-reporting source
+prefix. The live trace contains ten validation events and one run completion,
+so extraction stops before returning stages. The pinned v1 analysis code is
+unchanged; no v1 stage result is claimed. A future protocol must define a
+versioned read-only extraction fix and test it on a completed fake-provider
+trace before freezing a new pilot.
+
 The v1 model-token cost above comes from collector accounting using the
 frozen $3/$15 per-million input/output prices. Its experiment configs did not
 set per-token prices, so `ModelCallCompleted.estimated_cost_usd` and the
