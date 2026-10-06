@@ -7,8 +7,9 @@ gates](diagnostics/m66-pilot-v1-results.md). Four Range A cells are score
 valid; two Range B vulnerable cells are score invalid after exhausting the
 frozen 32-action bootstrap cap; the final patched pair remains unstarted.
 The two failed runs were reconciled without retry. A separate v2 excluded
-pilot protocol is in preparation with fresh seeds and a 40-action Range B
-bootstrap cap. No v2 paid calls or confirmatory M6.6 sample have run.
+pilot [is frozen but unrun](diagnostics/m66-pilot-v2-freeze.md) with fresh
+seeds and a 40-action Range B bootstrap cap. Its manifest does not authorize
+paid calls; no v2 paid call or confirmatory M6.6 sample has run.
 [M6.5.1](diagnostics/m651-witness-recovery-v2-results.md)
 found 19 successful unauthorized refund actions across ten vulnerable runs,
 yet only two runs held a complete ordered, same-identity paid-before /

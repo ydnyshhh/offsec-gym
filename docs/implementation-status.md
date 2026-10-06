@@ -159,7 +159,9 @@
   approved excluded eight-cell model pilot [closed with failed infrastructure
   gates](diagnostics/m66-pilot-v1-results.md). Four Range A cells are score
   valid; two Range B vulnerable cells exhausted the 32-action bootstrap cap
-  before model work, and the patched pair remains unstarted.
+  before model work, and the patched pair remains unstarted. The separate
+  [v2 feasibility pilot](diagnostics/m66-pilot-v2-freeze.md) is frozen but
+  unrun and requires its own paid-call approval.
 
 ## Partially implemented
 
@@ -187,8 +189,8 @@
 - M6.6 now has a second state-changing family and a real-Compose fake-provider
   control/witness pair on vulnerable and patched builds. The frozen v1 pilot
   exposed a deterministic Range B bootstrap budget shortfall and a pinned
-  offline stage-extraction defect. A corrected v2 excluded protocol is in
-  preparation; it needs a new manifest and approval before paid collection.
+  offline stage-extraction defect. The corrected v2 excluded protocol and
+  manifest are frozen; a separate approval is required before paid collection.
 
 ## Next milestone
 
