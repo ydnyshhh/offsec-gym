@@ -156,9 +156,10 @@
 - M6.6 now has an opt-in event-derived temporal witness ledger, typed model
   tools, bounded active reminder, and seed-block policy analysis. The ledger
   observes state transitions without asserting a security verdict. An
-  approved excluded eight-cell model pilot started. Four Range A cells are
-  score valid; the two Range B vulnerable cells exhausted the 32-action
-  bootstrap cap before model work. Its [v1 infrastructure gate failed](diagnostics/m66-pilot-v1-bootstrap-failure.md).
+  approved excluded eight-cell model pilot [closed with failed infrastructure
+  gates](diagnostics/m66-pilot-v1-results.md). Four Range A cells are score
+  valid; two Range B vulnerable cells exhausted the 32-action bootstrap cap
+  before model work, and the patched pair remains unstarted.
 
 ## Partially implemented
 
@@ -185,8 +186,9 @@
   and opaque continuation state before adding a second provider.
 - M6.6 now has a second state-changing family and a real-Compose fake-provider
   control/witness pair on vulnerable and patched builds. The frozen v1 pilot
-  exposed a deterministic Range B bootstrap budget shortfall. Any corrected
-  protocol needs a new manifest and approval before paid collection.
+  exposed a deterministic Range B bootstrap budget shortfall and a pinned
+  offline stage-extraction defect. A corrected v2 excluded protocol is in
+  preparation; it needs a new manifest and approval before paid collection.
 
 ## Next milestone
 
@@ -212,7 +214,7 @@ exploration study](milestone-6.6.md) remains the proposed action-to-proof
 test. [Range B preflight](diagnostics/m66-range-b-readiness.md) now covers
 model-runner parity and broad no-model qualification. The first frozen paid
 pilot did not reach Range B model behavior because of a bootstrap cap error;
-the [failure record](diagnostics/m66-pilot-v1-bootstrap-failure.md) is retained.
+the [audited v1 result](diagnostics/m66-pilot-v1-results.md) is retained.
 
 ## Known architectural debt
 
