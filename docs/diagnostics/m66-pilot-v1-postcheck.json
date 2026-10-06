@@ -1,0 +1,105 @@
+{
+  "authoritative_event_count_including_replays": 2931,
+  "cells": [
+    {
+      "bootstrap_actions": 17,
+      "cell_id": "8c0c378b543a8b70",
+      "estimated_cost_usd": 0.475335,
+      "event_count": 376,
+      "event_identity_sha256": "8586abc7dda3f8f0043c842ff93a61f33fca43c5d0fc5bf260dc5b26f930454e",
+      "model_calls": 12,
+      "run_id": "3e492a4e-704f-471d-a968-45aa4a383ab4",
+      "score_valid": true,
+      "status": "budget_exhausted",
+      "trace_sha256": "796ad5405c205533f37c326856216ccc2220fe1741c7927bb141b52d2d55dfcc"
+    },
+    {
+      "bootstrap_actions": 17,
+      "cell_id": "55e8cfa8bb10ab32",
+      "estimated_cost_usd": 0.464595,
+      "event_count": 402,
+      "event_identity_sha256": "1498ba0c9aa7258de390437889f9d4bf34ada379727b42c522418b92d1f6a857",
+      "model_calls": 12,
+      "run_id": "e11a07a5-4557-4b69-ab79-f807901d7a35",
+      "score_valid": true,
+      "status": "budget_exhausted",
+      "trace_sha256": "abe11ecdae2eec6fcf022974877bfbb16de9fc344782483493750c7bdfef7649"
+    },
+    {
+      "bootstrap_actions": 17,
+      "cell_id": "0fd8dc96ae32a181",
+      "estimated_cost_usd": 0.480336,
+      "event_count": 461,
+      "event_identity_sha256": "36dccbf54d2a00be3a702ae43baf3475de737f5df3b2a3023e8f65f9393d003c",
+      "model_calls": 11,
+      "run_id": "789cc987-6315-41d5-b39a-1b47bb71c4ed",
+      "score_valid": true,
+      "status": "budget_exhausted",
+      "trace_sha256": "cecb0463463b3dfbb15437358ff195bdc368f7339e8005bdbc8b92a07703118b"
+    },
+    {
+      "bootstrap_actions": 17,
+      "cell_id": "2952d1f2e5b386d3",
+      "estimated_cost_usd": 0.454272,
+      "event_count": 554,
+      "event_identity_sha256": "b537feb702f1527d813b56cd251f5cbb7b986239fedcf664ebf05488c0d7d9a2",
+      "model_calls": 11,
+      "run_id": "92ba0263-707f-4d3a-97c7-ecb82e681b2c",
+      "score_valid": true,
+      "status": "budget_exhausted",
+      "trace_sha256": "e9a842664a23d5e53a11bd835dcb2223d4a887a3a38105b0dca154957ae54634"
+    },
+    {
+      "bootstrap_actions": 32,
+      "cell_id": "97a887b210a204ce",
+      "estimated_cost_usd": 0.0,
+      "event_count": 550,
+      "event_identity_sha256": "cf3dfa41c11cee04dc6e5ef029d11fae28aa999f8de5c8c1f7fd89d5f602a688",
+      "model_calls": 0,
+      "run_id": "2a585437-aafc-44b8-8e8a-05b22f9df0ce",
+      "score_valid": false,
+      "status": "environment_failed",
+      "trace_sha256": "11d35627f750ab35578b878e227fe5ad1734d0f9c011360aead2d8fb410b6d00"
+    },
+    {
+      "bootstrap_actions": 32,
+      "cell_id": "b7d5e88f688119c6",
+      "estimated_cost_usd": 0.0,
+      "event_count": 550,
+      "event_identity_sha256": "c47fb2d8a05b3e6768af006e82a642768cb381be9a2a7b6d54ec1c5a8c41d95b",
+      "model_calls": 0,
+      "run_id": "b036e2b6-e434-4898-888d-cbdcd118bd43",
+      "score_valid": false,
+      "status": "environment_failed",
+      "trace_sha256": "b86d988cc155c6053654bcc33bef7ee60ad45446c5346d7e07f781f6c0773dc7"
+    }
+  ],
+  "estimated_model_token_cost_usd": 1.874538,
+  "final_journal_sha256": "74f12ec40b29bfb15aba77e6fded0431466d30028bd3a5eaa907586048150309",
+  "infrastructure_gate": "failed",
+  "journaled_cells": 6,
+  "manifest_sha256": "0bda0f40d75c8a683752f20da0cbf09ea8a5e7d1cd39eaaf6c77725bac8aabd8",
+  "planned_cells": 8,
+  "protocol": "m66-pilot-v1",
+  "reconciliation_receipt_sha256": "2558a69ce5fb9b5547aada57bdae3c74bd08567ff54f0a136484c02db72509c3",
+  "score_invalid_cells": 2,
+  "score_valid_cells": 4,
+  "stage_extraction_gate": "failed_in_frozen_v1_protocol",
+  "total_events": 2893,
+  "unstarted_cell_ids": [
+    "edf9d02fe36b9906",
+    "e748b76d87ab6bf1"
+  ],
+  "validator_replay_runs": [
+    {
+      "event_count": 19,
+      "event_identity_sha256": "41ee2a7aca4757643b2d02d5fd675fc13f86a2b810f594e368bfebfcbf6bb0b5",
+      "run_id": "7ac2f91f-4930-4db6-841e-3dc6a9409d58"
+    },
+    {
+      "event_count": 19,
+      "event_identity_sha256": "55a49b584707004214e2cf6b35605a202c9d3f9f9f49881025bc6057a971a8fc",
+      "run_id": "991dd276-614e-48ad-90c8-2e58f5934568"
+    }
+  ]
+}
