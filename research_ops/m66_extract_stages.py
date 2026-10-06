@@ -15,9 +15,12 @@ from offsecgym.research.m65_witness_packet import build_reporter_bundle
 from offsecgym.research.m66_pilot_analysis import ObservedRequest, extract_pilot_stages
 from offsecgym.schemas.events import (
     ActionRequested,
+    FindingValidated,
     ModelCallCompleted,
     ModelCallStarted,
     RangeStarted,
+    ReporterStarted,
+    RunCompleted,
     WitnessHypothesisStarted,
     parse_event,
 )
@@ -130,6 +133,15 @@ def _model_artifacts(trace: list, state_dir: Path) -> tuple[list[str], int, set[
     return names, reminder_bytes, tool_origins
 
 
+def _witness_source_trace(trace: list) -> list:
+    """Keep completed-run verdicts and terminal events out of source evidence."""
+    return [
+        event
+        for event in trace
+        if not isinstance(event, (FindingValidated, ReporterStarted, RunCompleted))
+    ]
+
+
 def extract(
     manifest_path: Path,
     cell_id: str,
@@ -192,7 +204,10 @@ def extract(
     hypotheses = [event for event in trace if isinstance(event, WitnessHypothesisStarted)]
     witness_statuses = []
     if hypotheses:
-        bundle = build_reporter_bundle(trace, state_dir, expected_run_id=trace[0].run_id)
+        # The evidence-bundle verifier accepts source events, not validation,
+        # reporter, or run-terminal events from the completed pilot trace.
+        source = _witness_source_trace(trace)
+        bundle = build_reporter_bundle(source, state_dir, expected_run_id=trace[0].run_id)
         witness_statuses = [project_witness(item, bundle).status for item in hypotheses]
     result = extract_pilot_stages(
         trace,
