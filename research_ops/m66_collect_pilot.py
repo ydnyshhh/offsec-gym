@@ -12,7 +12,6 @@ import hashlib
 import json
 import os
 import subprocess
-import time
 from decimal import Decimal
 from pathlib import Path
 from urllib.request import urlopen
@@ -202,7 +201,6 @@ def _record(
     trace: list,
     build: object,
     trace_path: Path,
-    duration_seconds: float,
 ) -> dict:
     if not trace or [event.sequence_number for event in trace] != list(range(1, len(trace) + 1)):
         raise ValueError("run trace sequence is not contiguous")
@@ -222,7 +220,8 @@ def _record(
     )
     if run_starts[0].experiment_hash != expected_hash:
         raise ValueError("run start does not bind the expected arm policy")
-    if len([event for event in trace if isinstance(event, RunCompleted)]) != 1:
+    run_ends = [event for event in trace if isinstance(event, RunCompleted)]
+    if len(run_ends) != 1:
         raise ValueError("run trace lacks one completion")
     ranges = [event for event in trace if isinstance(event, RangeStarted)]
     if len(ranges) != 1 or ranges[0].build_id != outcome.build_id:
@@ -298,7 +297,9 @@ def _record(
                 if isinstance(event, ActionRequested) and event.source_phase is None
             ]
         ),
-        "duration_seconds": round(duration_seconds, 3),
+        "duration_seconds": round(
+            (run_ends[0].occurred_at - run_starts[0].occurred_at).total_seconds(), 3
+        ),
         "trace_path": str(trace_path),
         "trace_sha256": trace_sha256,
     }
@@ -379,12 +380,10 @@ async def collect(
                         "at": _utc_now(),
                     }
                 )
-            start = time.monotonic()
             pair = await runner.run_pair(spec, arm_order=(first["arm"], second["arm"]))
             build = runtime.state.verify_build_integrity(pair.build_id)
             if build.pair_id is None or build.spec != spec.range:
                 raise ValueError("pair build or fixture binding differs")
-            duration = time.monotonic() - start
             for offset, cell in enumerate((first, second), index + 1):
                 outcome = pair.control if cell["arm"] == "control" else pair.witness
                 trace = await events.read_run(outcome.run_id)
@@ -396,7 +395,6 @@ async def collect(
                     trace=trace,
                     build=build,
                     trace_path=journal_path.parent / "traces" / f"{cell['cell_id']}.json",
-                    duration_seconds=duration,
                 )
                 journal.append(record)
                 journal.completed[cell["cell_id"]] = record
