@@ -14,7 +14,8 @@ the same monolithic structured agent without those tools? The source/model
 policy, `MonolithicSecurityAgent`, `start_witness`/`get_witness`, reminder,
 WorldState projection, range/validator semantics, known-routes visibility,
 120,000 total tokens and 20 model calls per run, Range A bootstrap 32, and
-Range B bootstrap 40 stay as qualified in the v2 source commit. This design
+Range B bootstrap 40 stay as qualified in the v2 source commit
+`950bdb746e0d8ae9d68a324f58e5b763c7ddbc1d`. This design
 changes assignment, failure handling, and offline analysis only. Before a
 freeze, confirm that the selected Kimi K3 revision and Moonshot AI endpoint
 remain available; any revision substitution is a new protocol decision.
