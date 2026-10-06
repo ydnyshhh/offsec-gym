@@ -1,0 +1,10 @@
+{
+  "protocol": "m66-pilot-v1",
+  "manifest_sha256": "0bda0f40d75c8a683752f20da0cbf09ea8a5e7d1cd39eaaf6c77725bac8aabd8",
+  "approved_at": "2026-10-06T09:31:52Z",
+  "cost_ceiling_usd": 15.0,
+  "approved_for_paid_calls": true,
+  "approval_basis": "User's explicit M6.6 pilot approval after the final manifest hash was presented",
+  "source_commit": "950bdb746e0d8ae9d68a324f58e5b763c7ddbc1d",
+  "protocol_commit": "840992f760eae35e89ae4993f3283894e86b6fbe"
+}
