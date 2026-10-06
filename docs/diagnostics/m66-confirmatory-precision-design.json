@@ -1,0 +1,95 @@
+{
+  "interval_method": "approximate paired-difference normal 95% width",
+  "power_method": "two-sided exact McNemar test at 0.05",
+  "purpose": "hypothetical design precision only; v1/v2 outcomes excluded",
+  "replicates": 20000,
+  "scenarios": {
+    "larger_witness_gain": {
+      "control_only_probability": 0.05,
+      "sample_sizes": {
+        "24": {
+          "median_total_95pct_width": 0.4073,
+          "probability_exact_test_rejects_zero": 0.2821,
+          "probability_width_at_most_target": 0.7518
+        },
+        "30": {
+          "median_total_95pct_width": 0.3607,
+          "probability_exact_test_rejects_zero": 0.4054,
+          "probability_width_at_most_target": 0.9645
+        }
+      },
+      "true_difference": 0.2,
+      "witness_only_probability": 0.25
+    },
+    "modest_witness_gain": {
+      "control_only_probability": 0.1,
+      "sample_sizes": {
+        "24": {
+          "median_total_95pct_width": 0.4294,
+          "probability_exact_test_rejects_zero": 0.0674,
+          "probability_width_at_most_target": 0.6093
+        },
+        "30": {
+          "median_total_95pct_width": 0.3798,
+          "probability_exact_test_rejects_zero": 0.0905,
+          "probability_width_at_most_target": 0.8921
+        }
+      },
+      "true_difference": 0.1,
+      "witness_only_probability": 0.2
+    },
+    "null_high_discordance": {
+      "control_only_probability": 0.2,
+      "sample_sizes": {
+        "24": {
+          "median_total_95pct_width": 0.4994,
+          "probability_exact_test_rejects_zero": 0.021,
+          "probability_width_at_most_target": 0.2114
+        },
+        "30": {
+          "median_total_95pct_width": 0.4578,
+          "probability_exact_test_rejects_zero": 0.0245,
+          "probability_width_at_most_target": 0.4637
+        }
+      },
+      "true_difference": 0.0,
+      "witness_only_probability": 0.2
+    },
+    "null_low_discordance": {
+      "control_only_probability": 0.1,
+      "sample_sizes": {
+        "24": {
+          "median_total_95pct_width": 0.3588,
+          "probability_exact_test_rejects_zero": 0.0075,
+          "probability_width_at_most_target": 0.9158
+        },
+        "30": {
+          "median_total_95pct_width": 0.3219,
+          "probability_exact_test_rejects_zero": 0.0132,
+          "probability_width_at_most_target": 0.9909
+        }
+      },
+      "true_difference": 0.0,
+      "witness_only_probability": 0.1
+    },
+    "null_moderate_discordance": {
+      "control_only_probability": 0.15,
+      "sample_sizes": {
+        "24": {
+          "median_total_95pct_width": 0.4401,
+          "probability_exact_test_rejects_zero": 0.0157,
+          "probability_width_at_most_target": 0.581
+        },
+        "30": {
+          "median_total_95pct_width": 0.392,
+          "probability_exact_test_rejects_zero": 0.022,
+          "probability_width_at_most_target": 0.8558
+        }
+      },
+      "true_difference": 0.0,
+      "witness_only_probability": 0.15
+    }
+  },
+  "simulation_seed": 660030,
+  "target_total_95pct_width": 0.45
+}
