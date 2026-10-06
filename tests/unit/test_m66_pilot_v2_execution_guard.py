@@ -124,6 +124,26 @@ async def test_response_guard_rejects_wrong_selected_upstream(monkeypatch) -> No
     assert guard.stopped is True
 
 
+@pytest.mark.asyncio
+async def test_response_guard_stops_on_unexpected_provider_error(monkeypatch) -> None:
+    async def unexpected_error(_self, _request):
+        raise RuntimeError("malformed provider response")
+
+    monkeypatch.setattr(collector.OpenRouterResponsesProvider, "complete", unexpected_error)
+    guard = collector.EndpointGuard(("moonshotai/kimi-k3-20260715", "Moonshot AI"))
+    provider = guard.provider("unused-test-key")
+    with pytest.raises(RuntimeError, match="malformed provider response"):
+        await provider.complete(
+            {
+                "model": "moonshotai/kimi-k3",
+                "provider": {"order": ["moonshotai"], "allow_fallbacks": False},
+                "reasoning": {"effort": "high"},
+                "store": False,
+            }
+        )
+    assert guard.stopped is True
+
+
 def test_live_endpoint_price_drift_is_rejected(monkeypatch) -> None:
     manifest = json.loads(MANIFEST.read_bytes())
     endpoint = {

@@ -245,12 +245,13 @@ class EndpointGuard:
                     raise ProviderRequestError("pilot_request_policy_drift")
                 try:
                     turn = await super().complete(request_payload)
-                except (ProviderFailure, ProviderRequestError):
+                    if selected_endpoint(turn.raw_response) != guard.expected:
+                        raise ProviderFailure(
+                            "pilot_endpoint_drift", raw_response=turn.raw_response
+                        )
+                except Exception:
                     guard.stopped = True
                     raise
-                if selected_endpoint(turn.raw_response) != guard.expected:
-                    guard.stopped = True
-                    raise ProviderFailure("pilot_endpoint_drift", raw_response=turn.raw_response)
                 return turn
 
         return GuardedOpenRouter(api_key)
