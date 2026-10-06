@@ -2,20 +2,73 @@
   "interval_method": "approximate paired-difference normal 95% width",
   "power_method": "two-sided exact McNemar test at 0.05",
   "purpose": "hypothetical design precision only; v1/v2 outcomes excluded",
+  "range_b_correlation_model": "Three root differences share one seed draw with probability rho; otherwise draws are independent. Each root has witness-only 0.25 and control-only 0.05. Intervals use seed means, never 3N independent roots.",
+  "range_b_correlation_sensitivity": {
+    "0.0": {
+      "30": {
+        "median_total_95pct_width": 0.2072,
+        "probability_width_at_most_target": 1.0
+      },
+      "60": {
+        "median_total_95pct_width": 0.1473,
+        "probability_width_at_most_target": 1.0
+      }
+    },
+    "0.5": {
+      "30": {
+        "median_total_95pct_width": 0.2934,
+        "probability_width_at_most_target": 0.9998
+      },
+      "60": {
+        "median_total_95pct_width": 0.2093,
+        "probability_width_at_most_target": 1.0
+      }
+    },
+    "0.9": {
+      "30": {
+        "median_total_95pct_width": 0.3493,
+        "probability_width_at_most_target": 0.9809
+      },
+      "60": {
+        "median_total_95pct_width": 0.2484,
+        "probability_width_at_most_target": 1.0
+      }
+    }
+  },
   "replicates": 20000,
   "scenarios": {
     "larger_witness_gain": {
       "control_only_probability": 0.05,
       "sample_sizes": {
+        "100": {
+          "median_total_95pct_width": 0.1987,
+          "probability_exact_test_rejects_zero": 0.9635,
+          "probability_width_at_most_target": 1.0
+        },
+        "200": {
+          "median_total_95pct_width": 0.141,
+          "probability_exact_test_rejects_zero": 0.9997,
+          "probability_width_at_most_target": 1.0
+        },
         "24": {
-          "median_total_95pct_width": 0.4073,
-          "probability_exact_test_rejects_zero": 0.2821,
-          "probability_width_at_most_target": 0.7518
+          "median_total_95pct_width": 0.403,
+          "probability_exact_test_rejects_zero": 0.2832,
+          "probability_width_at_most_target": 0.7524
         },
         "30": {
           "median_total_95pct_width": 0.3607,
-          "probability_exact_test_rejects_zero": 0.4054,
-          "probability_width_at_most_target": 0.9645
+          "probability_exact_test_rejects_zero": 0.4026,
+          "probability_width_at_most_target": 0.9655
+        },
+        "50": {
+          "median_total_95pct_width": 0.2809,
+          "probability_exact_test_rejects_zero": 0.7016,
+          "probability_width_at_most_target": 1.0
+        },
+        "60": {
+          "median_total_95pct_width": 0.2573,
+          "probability_exact_test_rejects_zero": 0.7952,
+          "probability_width_at_most_target": 1.0
         }
       },
       "true_difference": 0.2,
@@ -24,15 +77,35 @@
     "modest_witness_gain": {
       "control_only_probability": 0.1,
       "sample_sizes": {
+        "100": {
+          "median_total_95pct_width": 0.2107,
+          "probability_exact_test_rejects_zero": 0.3791,
+          "probability_width_at_most_target": 1.0
+        },
+        "200": {
+          "median_total_95pct_width": 0.1491,
+          "probability_exact_test_rejects_zero": 0.7003,
+          "probability_width_at_most_target": 1.0
+        },
         "24": {
           "median_total_95pct_width": 0.4294,
-          "probability_exact_test_rejects_zero": 0.0674,
-          "probability_width_at_most_target": 0.6093
+          "probability_exact_test_rejects_zero": 0.0633,
+          "probability_width_at_most_target": 0.6143
         },
         "30": {
           "median_total_95pct_width": 0.3798,
-          "probability_exact_test_rejects_zero": 0.0905,
-          "probability_width_at_most_target": 0.8921
+          "probability_exact_test_rejects_zero": 0.0972,
+          "probability_width_at_most_target": 0.8857
+        },
+        "50": {
+          "median_total_95pct_width": 0.2965,
+          "probability_exact_test_rejects_zero": 0.1762,
+          "probability_width_at_most_target": 1.0
+        },
+        "60": {
+          "median_total_95pct_width": 0.2715,
+          "probability_exact_test_rejects_zero": 0.2207,
+          "probability_width_at_most_target": 1.0
         }
       },
       "true_difference": 0.1,
@@ -41,15 +114,35 @@
     "null_high_discordance": {
       "control_only_probability": 0.2,
       "sample_sizes": {
+        "100": {
+          "median_total_95pct_width": 0.248,
+          "probability_exact_test_rejects_zero": 0.0348,
+          "probability_width_at_most_target": 1.0
+        },
+        "200": {
+          "median_total_95pct_width": 0.1753,
+          "probability_exact_test_rejects_zero": 0.0396,
+          "probability_width_at_most_target": 1.0
+        },
         "24": {
           "median_total_95pct_width": 0.4994,
-          "probability_exact_test_rejects_zero": 0.021,
-          "probability_width_at_most_target": 0.2114
+          "probability_exact_test_rejects_zero": 0.0219,
+          "probability_width_at_most_target": 0.208
         },
         "30": {
-          "median_total_95pct_width": 0.4578,
-          "probability_exact_test_rejects_zero": 0.0245,
-          "probability_width_at_most_target": 0.4637
+          "median_total_95pct_width": 0.45,
+          "probability_exact_test_rejects_zero": 0.0235,
+          "probability_width_at_most_target": 0.4662
+        },
+        "50": {
+          "median_total_95pct_width": 0.3513,
+          "probability_exact_test_rejects_zero": 0.0292,
+          "probability_width_at_most_target": 1.0
+        },
+        "60": {
+          "median_total_95pct_width": 0.321,
+          "probability_exact_test_rejects_zero": 0.0288,
+          "probability_width_at_most_target": 1.0
         }
       },
       "true_difference": 0.0,
@@ -58,6 +151,16 @@
     "null_low_discordance": {
       "control_only_probability": 0.1,
       "sample_sizes": {
+        "100": {
+          "median_total_95pct_width": 0.1755,
+          "probability_exact_test_rejects_zero": 0.0277,
+          "probability_width_at_most_target": 1.0
+        },
+        "200": {
+          "median_total_95pct_width": 0.124,
+          "probability_exact_test_rejects_zero": 0.0341,
+          "probability_width_at_most_target": 1.0
+        },
         "24": {
           "median_total_95pct_width": 0.3588,
           "probability_exact_test_rejects_zero": 0.0075,
@@ -67,6 +170,16 @@
           "median_total_95pct_width": 0.3219,
           "probability_exact_test_rejects_zero": 0.0132,
           "probability_width_at_most_target": 0.9909
+        },
+        "50": {
+          "median_total_95pct_width": 0.2494,
+          "probability_exact_test_rejects_zero": 0.022,
+          "probability_width_at_most_target": 1.0
+        },
+        "60": {
+          "median_total_95pct_width": 0.2257,
+          "probability_exact_test_rejects_zero": 0.0219,
+          "probability_width_at_most_target": 1.0
         }
       },
       "true_difference": 0.0,
@@ -75,15 +188,35 @@
     "null_moderate_discordance": {
       "control_only_probability": 0.15,
       "sample_sizes": {
+        "100": {
+          "median_total_95pct_width": 0.215,
+          "probability_exact_test_rejects_zero": 0.0319,
+          "probability_width_at_most_target": 1.0
+        },
+        "200": {
+          "median_total_95pct_width": 0.1518,
+          "probability_exact_test_rejects_zero": 0.0386,
+          "probability_width_at_most_target": 1.0
+        },
         "24": {
           "median_total_95pct_width": 0.4401,
-          "probability_exact_test_rejects_zero": 0.0157,
+          "probability_exact_test_rejects_zero": 0.0171,
           "probability_width_at_most_target": 0.581
         },
         "30": {
           "median_total_95pct_width": 0.392,
-          "probability_exact_test_rejects_zero": 0.022,
-          "probability_width_at_most_target": 0.8558
+          "probability_exact_test_rejects_zero": 0.0217,
+          "probability_width_at_most_target": 0.8537
+        },
+        "50": {
+          "median_total_95pct_width": 0.3049,
+          "probability_exact_test_rejects_zero": 0.0262,
+          "probability_width_at_most_target": 1.0
+        },
+        "60": {
+          "median_total_95pct_width": 0.2774,
+          "probability_exact_test_rejects_zero": 0.0286,
+          "probability_width_at_most_target": 1.0
         }
       },
       "true_difference": 0.0,
@@ -91,5 +224,6 @@
     }
   },
   "simulation_seed": 660030,
+  "smallest_effect_of_interest": 0.2,
   "target_total_95pct_width": 0.45
 }

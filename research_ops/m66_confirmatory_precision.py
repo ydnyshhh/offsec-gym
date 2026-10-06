@@ -9,7 +9,9 @@ from pathlib import Path
 
 REPLICATES = 20_000
 SIMULATION_SEED = 660_030
-SAMPLE_SIZES = (24, 30)
+SAMPLE_SIZES = (24, 30, 50, 60, 100, 200)
+RANGE_B_SAMPLE_SIZES = (30, 60)
+RANGE_B_CORRELATIONS = (0.0, 0.5, 0.9)
 SCENARIOS = {
     "null_low_discordance": (0.10, 0.10),
     "null_moderate_discordance": (0.15, 0.15),
@@ -28,7 +30,9 @@ def simulate() -> dict[str, object]:
         "interval_method": "approximate paired-difference normal 95% width",
         "power_method": "two-sided exact McNemar test at 0.05",
         "target_total_95pct_width": 0.45,
+        "smallest_effect_of_interest": 0.20,
         "scenarios": {},
+        "range_b_correlation_sensitivity": {},
     }
     results = output["scenarios"]
     assert isinstance(results, dict)
@@ -73,6 +77,39 @@ def simulate() -> dict[str, object]:
                 "probability_exact_test_rejects_zero": round(exclusions / REPLICATES, 4),
             }
         results[name] = scenario
+    correlation_results = output["range_b_correlation_sensitivity"]
+    assert isinstance(correlation_results, dict)
+    for rho in RANGE_B_CORRELATIONS:
+        by_size = {}
+        for n in RANGE_B_SAMPLE_SIZES:
+            widths = []
+            for _ in range(REPLICATES):
+                seed_means = []
+                for _ in range(n):
+                    if rng.random() < rho:
+                        shared = rng.random()
+                        draws = (shared, shared, shared)
+                    else:
+                        draws = (rng.random(), rng.random(), rng.random())
+                    differences = [1 if u < 0.25 else -1 if u < 0.30 else 0 for u in draws]
+                    seed_means.append(sum(differences) / 3)
+                mean = sum(seed_means) / n
+                second = sum(value * value for value in seed_means) / n
+                standard_error = math.sqrt(max(0.0, second - mean * mean) / (n - 1))
+                widths.append(2 * 1.96 * standard_error)
+            widths.sort()
+            by_size[str(n)] = {
+                "median_total_95pct_width": round(widths[REPLICATES // 2], 4),
+                "probability_width_at_most_target": round(
+                    sum(width <= 0.45 for width in widths) / REPLICATES, 4
+                ),
+            }
+        correlation_results[str(rho)] = by_size
+    output["range_b_correlation_model"] = (
+        "Three root differences share one seed draw with probability rho; "
+        "otherwise draws are independent. Each root has witness-only 0.25 "
+        "and control-only 0.05. Intervals use seed means, never 3N independent roots."
+    )
     return output
 
 
