@@ -8,7 +8,7 @@ import json
 from offsecgym.experiment.bootstrapped_monolithic import BootstrappedMonolithicExperimentRunner
 from offsecgym.experiment.scripted import BoundFindingSink
 from offsecgym.schemas.specs import ExperimentSpec
-from offsecgym.solver.monolithic import MonolithicSaasAgent
+from offsecgym.solver.monolithic import MonolithicSecurityAgent
 
 
 class WitnessPlanningExperimentRunner(BootstrappedMonolithicExperimentRunner):
@@ -24,7 +24,7 @@ class WitnessPlanningExperimentRunner(BootstrappedMonolithicExperimentRunner):
     def _agent(self, findings_store: BoundFindingSink, spec: ExperimentSpec):
         if spec.model is None:
             raise ValueError("witness planning requires a model")
-        return MonolithicSaasAgent(
+        return MonolithicSecurityAgent(
             self.provider,
             spec.model,
             findings_store,

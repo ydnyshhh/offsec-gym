@@ -5,7 +5,7 @@ import json
 import os
 from pathlib import Path
 
-from service_common import Handler, audit, connect, role_active, row, rows, serve, stamp
+from service_common import Handler, audit, connect, row, rows, serve, stamp
 
 PATCHES = frozenset(json.loads(Path("/app/implementation.json").read_text()))
 
@@ -35,8 +35,11 @@ class WorkerHandler(Handler):
                     change = row(
                         cur, "SELECT * FROM changes WHERE id=%s FOR UPDATE", (job["change_id"],)
                     )
-                    valid = change["status"] == "QUEUED" and role_active(
-                        cur, job["initiator_id"], change["project_id"], "operator"
+                    # Vulnerable execution trusts the queue-time authorization
+                    # snapshot. The B3 patch rechecks only the cancellation state.
+                    valid = (
+                        change["status"] == "QUEUED"
+                        and change["revision"] == job["queued_change_revision"]
                     )
                     if "B3-CANCELLED-JOB" in PATCHES and not valid:
                         cur.execute(
@@ -53,6 +56,8 @@ class WorkerHandler(Handler):
                             "CANCELLED",
                             executor="worker",
                         )
+                        continue
+                    if not job["queued_authorized"]:
                         continue
                     cur.execute(
                         """UPDATE jobs SET status='RUNNING',started_tick=%s,

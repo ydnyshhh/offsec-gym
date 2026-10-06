@@ -113,22 +113,28 @@ class ChangeHandler(Handler):
                 return self.error(404, "not found")
             item = visible_item(cur, "changes", match.group(1), principal)
             if item:
-                # A bounded session permission snapshot crosses the identity/change boundary.
-                key = f"approval:{user_id}:{item['project_id']}"
-                if cache().get(key) is None:
-                    cache().set(
-                        key,
-                        "1"
-                        if role_active(cur, user_id, item["project_id"], "change_approver")
-                        else "0",
-                    )
+                # Rendering available actions primes the same authorization
+                # decision later consulted by the approval endpoint.
+                can_approve = role_cached(cur, user_id, item["project_id"])
+                allowed_actions = []
+                if item["status"] == "PENDING_APPROVAL" and can_approve:
+                    allowed_actions.append("reject")
+                    if user_id != item["requester_id"]:
+                        allowed_actions.append("approve")
                 job = row(
                     cur,
                     "SELECT id,status FROM jobs WHERE change_id=%s "
                     "ORDER BY created_at DESC,id DESC LIMIT 1",
                     (item["id"],),
                 )
-                return self.send_json(200, {**item, "job_id": job["id"] if job else None})
+                return self.send_json(
+                    200,
+                    {
+                        **item,
+                        "job_id": job["id"] if job else None,
+                        "allowed_actions": allowed_actions,
+                    },
+                )
             return self.error(404, "not found")
         if match := JOB.fullmatch(path):
             item = row(
@@ -331,8 +337,9 @@ class ChangeHandler(Handler):
                 current_tick = tick(cur)
                 cur.execute(
                     """INSERT INTO jobs(id,change_id,environment_id,initiator_id,status,
-                               queued_tick,due_tick,created_at,updated_at)
-                               VALUES (%s,%s,%s,%s,'QUEUED',%s,%s,%s,%s)""",
+                               queued_tick,due_tick,queued_change_revision,queued_authorized,
+                               created_at,updated_at)
+                               VALUES (%s,%s,%s,%s,'QUEUED',%s,%s,%s,true,%s,%s)""",
                     (
                         job_id,
                         object_id,
@@ -340,6 +347,7 @@ class ChangeHandler(Handler):
                         actor,
                         current_tick,
                         current_tick + 4,
+                        item["revision"] + 1,
                         now,
                         now,
                     ),

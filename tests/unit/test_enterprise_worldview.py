@@ -64,6 +64,12 @@ def test_enterprise_entities_and_relationships_from_complete_reads() -> None:
         f.predicate == "executes_change" and isinstance(f.object_value, EntityRef)
         for f in extract(f"/api/jobs/{job['id']}", actor, job)
     )
+    job_facts = extract(f"/api/jobs/{job['id']}", actor, job)
+    assert any(
+        f.predicate == "queued_change_revision" and f.object_value == job["queued_change_revision"]
+        for f in job_facts
+    )
+    assert any(f.predicate == "queued_authorized" and f.object_value is True for f in job_facts)
 
 
 def test_extractor_rejects_truncation_and_route_object_mismatch() -> None:

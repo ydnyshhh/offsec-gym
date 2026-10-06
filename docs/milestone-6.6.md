@@ -1,9 +1,11 @@
 # M6.6 design: witness-oriented exploration
 
 **Status:** opt-in oracle-free witness ledger and policy runner implemented
-with fake-provider tests. No M6.6 paid pilot or sample is approved or run.
-The second state-changing range family and a frozen costed manifest are still
-required before a confirmatory generalization study.
+for SaaS and enterprise change control, with real-Compose fake-provider
+pairs. [Range B preflight](diagnostics/m66-range-b-readiness.md) passed a
+100-seed compiler sweep and 50 scripted Compose cells. No M6.6 paid pilot or
+sample is approved or run. A frozen costed manifest and trace-stage
+extraction are still required before a confirmatory generalization study.
 [M6.5.1](diagnostics/m651-witness-recovery-v2-results.md)
 found 19 successful unauthorized refund actions across ten vulnerable runs,
 yet only two runs held a complete ordered, same-identity paid-before /
@@ -77,6 +79,20 @@ change which transitions get attempted or succeed. Predeclare the complete
 stage table, with failed/invalid runs retained and uncertainty clustered by
 seed pair.
 
+For Range B's queued change, preserve a finer event-derived stage table:
+
+| Stage | Trace question |
+| --- | --- |
+| Queued | Was a deployment job enqueued, and at which logical tick? |
+| Cancel attempted | Was cancellation requested before the job's due tick? |
+| Cancel committed | Did the canonical change reach the cancelled state? |
+| Worker execution | Did the queued job execute and change deployment state? |
+| Witness | Was ordered before/action/after evidence completed? |
+
+Record intervening HTTP requests and logical ticks between queue and cancel
+for both arms. Extra witness reads can change the opportunity itself, so the
+stage breakdown is needed to interpret a difference in complete witnesses.
+
 To assess transfer beyond one refund workflow, add a second synthetic
 state-changing family with a different dependency structure **before** a
 confirmatory generalization claim. Initial fake-provider tests may use the
@@ -96,7 +112,10 @@ list of known vulnerable routes.
   independent validation on vulnerable and patched builds.
 - The manifest freezes new seeds, range family, policy text/tool schema,
   checkpoint and stop conditions, selected endpoint, price snapshot,
-  analysis code, and explicit estimated-cost ceiling. Run a non-sample
+  analysis code, and explicit estimated-cost ceiling. Pin both the source
+  commit and the separate hashes of the model policy, tool schema, range
+  surface, pair runner, witness policy, and analysis. The Range B qualification
+  bundle hash covers range mechanics only. Run a non-sample
   feasibility pilot before requesting approval for paid collection.
 - Record witness completion, duplicate/abandoned witness attempts,
   additional reads, time and tokens to proof, distinct-root recall, and
@@ -128,9 +147,10 @@ false findings, and resource totals. No sample collector or historical control
 has been repurposed for this study.
 
 The current implementation does not automatically open a hypothesis for every
-state-changing gateway action; the model must use the opt-in tool. It also has
-no second synthetic state-changing family. Before live collection, test equal
-budget and action permissions across both arms in a full fake-provider range
-run, freeze the policy and predeclared trace-stage extraction, create a costed
-manifest and stop rule, and run a separately approved non-sample pilot. No
-generalization claim follows from the current SaaS-only tests.
+state-changing gateway action; the model must use the opt-in tool. The second
+synthetic family is implemented and passed no-model qualification. Before live
+collection, freeze the policy and predeclared trace-stage extraction, create a
+costed manifest and stop rule, and run a separately approved non-sample pilot
+on one Range A and one Range B seed. The fake-provider pair verifies runner
+parity and validation rejection, but it does not establish model behavior or
+a complete-witness improvement. No generalization claim follows yet.
