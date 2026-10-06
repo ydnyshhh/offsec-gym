@@ -1,0 +1,232 @@
+{
+  "arm_order_method": "SHA-256(protocol|family|variant), low bit of first byte",
+  "cells": [
+    {
+      "arm": "control",
+      "arm_order": [
+        "control",
+        "witness"
+      ],
+      "cell_id": "34c9654c232a88ec",
+      "experiment_sha256": "dedeb88d90a76b4a4fb907dcb5c63065c2f756ee686666af20a72577724ff573",
+      "max_actions": 80,
+      "max_http_requests": 80,
+      "max_model_calls": 20,
+      "max_total_tokens": 120000,
+      "range_family": "saas",
+      "seed": 712868,
+      "variant": "vulnerable"
+    },
+    {
+      "arm": "witness",
+      "arm_order": [
+        "control",
+        "witness"
+      ],
+      "cell_id": "a2047940d9a3519f",
+      "experiment_sha256": "dedeb88d90a76b4a4fb907dcb5c63065c2f756ee686666af20a72577724ff573",
+      "max_actions": 80,
+      "max_http_requests": 80,
+      "max_model_calls": 20,
+      "max_total_tokens": 120000,
+      "range_family": "saas",
+      "seed": 712868,
+      "variant": "vulnerable"
+    },
+    {
+      "arm": "witness",
+      "arm_order": [
+        "witness",
+        "control"
+      ],
+      "cell_id": "212e304acc9bccf6",
+      "experiment_sha256": "e899f8f3ad5041571b9ddf4be8a6b8522cec312d2730db5a609be5964120734d",
+      "max_actions": 80,
+      "max_http_requests": 80,
+      "max_model_calls": 20,
+      "max_total_tokens": 120000,
+      "range_family": "saas",
+      "seed": 712868,
+      "variant": "patched"
+    },
+    {
+      "arm": "control",
+      "arm_order": [
+        "witness",
+        "control"
+      ],
+      "cell_id": "1ffe8b6bacf4a1d9",
+      "experiment_sha256": "e899f8f3ad5041571b9ddf4be8a6b8522cec312d2730db5a609be5964120734d",
+      "max_actions": 80,
+      "max_http_requests": 80,
+      "max_model_calls": 20,
+      "max_total_tokens": 120000,
+      "range_family": "saas",
+      "seed": 712868,
+      "variant": "patched"
+    },
+    {
+      "arm": "witness",
+      "arm_order": [
+        "witness",
+        "control"
+      ],
+      "cell_id": "1a13b180391c5e50",
+      "experiment_sha256": "ac377e1d0ac438ddb0d0f91a0d571cd7fc6595c33bc0fdf5ab65b91659144f7c",
+      "max_actions": 120,
+      "max_http_requests": 120,
+      "max_model_calls": 20,
+      "max_total_tokens": 120000,
+      "range_family": "enterprise_change_control_v1",
+      "seed": 551180,
+      "variant": "vulnerable"
+    },
+    {
+      "arm": "control",
+      "arm_order": [
+        "witness",
+        "control"
+      ],
+      "cell_id": "d1938a220cb65ba3",
+      "experiment_sha256": "ac377e1d0ac438ddb0d0f91a0d571cd7fc6595c33bc0fdf5ab65b91659144f7c",
+      "max_actions": 120,
+      "max_http_requests": 120,
+      "max_model_calls": 20,
+      "max_total_tokens": 120000,
+      "range_family": "enterprise_change_control_v1",
+      "seed": 551180,
+      "variant": "vulnerable"
+    },
+    {
+      "arm": "witness",
+      "arm_order": [
+        "witness",
+        "control"
+      ],
+      "cell_id": "064606ac0508e927",
+      "experiment_sha256": "1886b6fc8a4429c62a5f46a445c7f9bbc255eb700799ad0d589bda15c43a1f54",
+      "max_actions": 120,
+      "max_http_requests": 120,
+      "max_model_calls": 20,
+      "max_total_tokens": 120000,
+      "range_family": "enterprise_change_control_v1",
+      "seed": 551180,
+      "variant": "patched"
+    },
+    {
+      "arm": "control",
+      "arm_order": [
+        "witness",
+        "control"
+      ],
+      "cell_id": "ab396944f1c660a1",
+      "experiment_sha256": "1886b6fc8a4429c62a5f46a445c7f9bbc255eb700799ad0d589bda15c43a1f54",
+      "max_actions": 120,
+      "max_http_requests": 120,
+      "max_model_calls": 20,
+      "max_total_tokens": 120000,
+      "range_family": "enterprise_change_control_v1",
+      "seed": 551180,
+      "variant": "patched"
+    }
+  ],
+  "configs": {
+    "enterprise_change_control_v1": {
+      "path": "experiments/configs/m66-pilot-v2-range-b.yaml",
+      "sha256": "722480094803abdecc2acb204ce468dad5b40c40bbe575c12091089d1348b3d6"
+    },
+    "saas": {
+      "path": "experiments/configs/m66-pilot-v2-range-a.yaml",
+      "sha256": "ec0e2aa324470ce971472fde90c4a9bed22cf4658a123de70b9357fa4d7291f9"
+    }
+  },
+  "cumulative_estimated_cost_stop_usd": 15.0,
+  "effect_size_is_not_a_pilot_gate": true,
+  "expected_selected_endpoint": {
+    "revision": "moonshotai/kimi-k3-20260715",
+    "upstream_provider": "Moonshot AI"
+  },
+  "maximum_configured_estimated_cost_usd": 14.4,
+  "model_policy_sha256": "a64b53c36c0dd3503aba5fa051980cbd5996c3bfc517c39bb861700237b63a3f",
+  "model_request": {
+    "allow_fallbacks": false,
+    "name": "moonshotai/kimi-k3",
+    "provider": "openrouter",
+    "reasoning": "high",
+    "upstream_provider": "moonshotai"
+  },
+  "no_retry_or_replacement": true,
+  "paid_model_calls_authorized": false,
+  "pair_runner_sha256": "c3e2452d62c79860d1d3b228f5a1a803c6c8798778da94e39fcaecd5e1590431",
+  "pilot_gates": "infrastructure_and_feasibility_only",
+  "planned_trajectories": 8,
+  "price_snapshot": {
+    "checked_at": "2026-10-06T14:08:03.062847Z",
+    "input_usd_per_million_tokens": 3.0,
+    "output_usd_per_million_tokens": 15.0,
+    "source": "https://openrouter.ai/api/v1/models/moonshotai/kimi-k3/endpoints"
+  },
+  "protocol": "m66-pilot-v2",
+  "protocol_commit": "ea56685ff55d2bb20207edd8429562a793ed904f",
+  "range_a_compiler_version": "tenant-boundary-v2/compiler-1",
+  "range_b_compiler_version": "enterprise-change-control-v1/compiler-2",
+  "range_b_qualification_bundle_sha256": "1004dbf7c4b2d0af1e4b4d4ee77aa5bc5a3743369da1aaf571abe5579a86e233",
+  "range_surface_sha256": "9c07f79708f0538c3fab3e963d7249918dfd69c5fa965fe0a6c427091b57d7f3",
+  "schema_version": "1",
+  "seed_selection": {
+    "excluded_from_confirmatory_sample": true,
+    "fixture_inspection_before_selection": false,
+    "labels": [
+      "m66-pilot-range-a-v2",
+      "m66-pilot-range-b-v2"
+    ],
+    "method": "SHA-256(label|0), first eight bytes mod 800000 + 100000",
+    "prior_exclusion_count": 160,
+    "prior_exclusion_registry_path": "experiments/manifests/m66-prior-seed-exclusions-v2.json",
+    "prior_exclusion_registry_sha256": "e38bd7c74aa0f8811cef9ca31cfaa5c2f55f089a62f5affd93639530dc7e269d",
+    "prior_exclusion_sha256": "7d10c511ddf7050f0133672e25482bb55dcb3ed9f76d231aca1cbb52975108f5",
+    "range_a_seed": 712868,
+    "range_b_seed": 551180,
+    "reason": "m66_live_pilot"
+  },
+  "source_commit": "950bdb746e0d8ae9d68a324f58e5b763c7ddbc1d",
+  "source_hashes": {
+    "model_policy": {
+      "files": {
+        "src/offsecgym/solver/monolithic.py": "33369c398621afb364a2a533ca58c2f8a75f2c2edde79d99288afa9be48ada1f"
+      },
+      "sha256": "a64b53c36c0dd3503aba5fa051980cbd5996c3bfc517c39bb861700237b63a3f"
+    },
+    "pair_runner": {
+      "files": {
+        "src/offsecgym/research/m66_pair.py": "39a70cf7605ec7b5b96a065de8334883bf049295b75b01e8b2cd4f68b70fc7d3"
+      },
+      "sha256": "c3e2452d62c79860d1d3b228f5a1a803c6c8798778da94e39fcaecd5e1590431"
+    },
+    "range_surface": {
+      "files": {
+        "src/offsecgym/solver/range_surface.py": "777ec93615e16f58cfdcaf70d87041722b908b91fc5397de2429db6b4d1e10f5"
+      },
+      "sha256": "9c07f79708f0538c3fab3e963d7249918dfd69c5fa965fe0a6c427091b57d7f3"
+    },
+    "witness_policy": {
+      "files": {
+        "src/offsecgym/experiment/witness_planning.py": "e04e5231a7ac69a85972fff14e42894f14533b575770e5287b8af41ea668723d",
+        "src/offsecgym/worldview/witness.py": "f6729379abb9aaa27e7b30d71cee480d58befb6c45292b76c2054e90381d58a7"
+      },
+      "sha256": "20a59031aa06b905a6c37ef3bb36bf86e628b3948361bcfb99fc912091d40d79"
+    }
+  },
+  "status": "frozen_unrun",
+  "tool_schema_sha256": "37a890b17386225daae22005be0c838ee61bee9f99e25deff30a4f093a40b246",
+  "trace_analysis": {
+    "files": {
+      "research_ops/m66_extract_stages.py": "0d445d0f9fea46f6500d2299c68eb73be84cd1ce476ceb898d7f6b3744a75d9b",
+      "src/offsecgym/research/m66_analysis.py": "57a0b973d5491c6315d9584f98d7fc950b829140f3d385fc4a46cb40ae92a663",
+      "src/offsecgym/research/m66_pilot_analysis.py": "5a2ad6c7568585b6d3fd1dfd04c2b0b9e19075b90fd1b264827b1486db5b2ea5"
+    },
+    "sha256": "774e4430f0ef7e170df44e9b83a29c3de48217649ddabba2cba2bc224452d86a"
+  },
+  "trace_analysis_sha256": "774e4430f0ef7e170df44e9b83a29c3de48217649ddabba2cba2bc224452d86a",
+  "witness_policy_sha256": "20a59031aa06b905a6c37ef3bb36bf86e628b3948361bcfb99fc912091d40d79"
+}
