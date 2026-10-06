@@ -10,8 +10,9 @@ desired treatment effect. The pilot is excluded from every later confirmatory
 sample. The confirmatory witness-completion estimand is specified separately
 in the M6.6 analysis module; this pilot does not estimate it.
 
-The source boundary is the exact merge commit of PR #3 after its exact-head CI
-passes. The protocol boundary is the exact merge commit of PR #4 after its own
+The source boundary is PR #3's exact-head-green merge commit
+`950bdb746e0d8ae9d68a324f58e5b763c7ddbc1d`. The protocol boundary is
+the exact merge commit of PR #4 after its own
 exact-head CI passes. The manifest pins both immutable commits and independent
 SHA-256 hashes for the model policy, tool schemas, range surface, witness policy, pair runner,
 and trace analysis. Range B's existing qualification hash certifies mechanics,
