@@ -11,7 +11,9 @@ pilot was [frozen](diagnostics/m66-pilot-v2-freeze.md), separately approved,
 and [closed after a provider transport failure at cell 7](diagnostics/m66-pilot-v2-results.md).
 Six v2 cells are score valid; the score-invalid seventh cell is retained and
 the eighth was not started. Neither pilot supports an eight-cell policy effect
-estimate. No confirmatory M6.6 sample has run.
+estimate. No confirmatory M6.6 sample has run. The next step is the
+[confirmatory protocol design](diagnostics/m66-confirmatory-protocol-design.md);
+there is no v3 feasibility pilot planned.
 [M6.5.1](diagnostics/m651-witness-recovery-v2-results.md)
 found 19 successful unauthorized refund actions across ten vulnerable runs,
 yet only two runs held a complete ordered, same-identity paid-before /
@@ -146,11 +148,13 @@ by the agent-facing tool.
 
 `WitnessPlanningExperimentRunner` enables the typed `start_witness` and
 `get_witness` tools plus a bounded reminder while otherwise inheriting the
-M6.5 monolithic control path. `analyze_witness_policy` defines a four-cell
-seed-block analysis with the intention-to-treat assigned-root denominator,
-seed-pair bootstrap, conditional transition-to-witness diagnostic, patched
-false findings, and resource totals. No sample collector or historical control
-has been repurposed for this study.
+M6.5 monolithic control path. The pilot-era `analyze_witness_policy` uses
+assigned-root denominators **only among score-valid matched pairs**; it is a
+complete-case diagnostic and must not be labeled intention-to-treat for the
+confirmatory sample. The separate `analyze_confirmatory` contract retains
+auditable pre-terminal witnesses from score-invalid runs, distinguishes truly
+missing traces, and reports all-assigned bounds. No sample collector or
+historical control has been repurposed for this study.
 
 The current implementation does not automatically open a hypothesis for every
 state-changing gateway action; the model must use the opt-in tool. The second
