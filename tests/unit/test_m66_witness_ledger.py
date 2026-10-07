@@ -19,9 +19,17 @@ from offsecgym.research.m65_witness_packet import (
     ReporterPacket,
     TrustedAction,
     WitnessAction,
+    build_reporter_bundle,
 )
 from offsecgym.schemas.domain import AgentContext, AgentTask, AgentVisibleRangeContext
-from offsecgym.schemas.events import RangeStarted, RunStarted, WitnessHypothesisStarted, parse_event
+from offsecgym.schemas.events import (
+    ActionCompleted,
+    ActionRequested,
+    RangeStarted,
+    RunStarted,
+    WitnessHypothesisStarted,
+    parse_event,
+)
 from offsecgym.schemas.evidence import Evidence, RequestArtifact
 from offsecgym.schemas.specs import Budget, ModelSpec
 from offsecgym.solver.monolithic import MonolithicSaasAgent, model_tools
@@ -267,6 +275,117 @@ async def test_hypothesis_is_event_backed_and_model_tools_are_opt_in(tmp_path: P
     assert "start_witness" in {
         item["name"] for item in model_tools(structured=True, witness_planning=True)
     }
+
+
+@pytest.mark.asyncio
+async def test_enterprise_identity_evidence_does_not_require_saas_reporter_fields(
+    tmp_path: Path,
+) -> None:
+    run_id, instance_id, build_id, identity, organization, object_id = (uuid4() for _ in range(6))
+    action_id, request_id, evidence_id = (uuid4() for _ in range(3))
+    body = json.dumps(
+        {
+            "id": str(identity),
+            "username": "change.viewer",
+            "organization_id": str(organization),
+            "roles": [{"project_id": str(uuid4()), "role": "change_viewer", "active": True}],
+        }
+    ).encode()
+    digest = hashlib.sha256(body).hexdigest()
+    request = RequestArtifact(
+        request_artifact_id=request_id,
+        run_id=run_id,
+        action_id=action_id,
+        range_instance_id=instance_id,
+        range_generation=0,
+        identity_id=identity,
+        destination="enterprise_change_control_v1",
+        method="GET",
+        path="/api/me",
+        source_phase="bootstrap",
+    )
+    evidence = Evidence(
+        evidence_id=evidence_id,
+        run_id=run_id,
+        action_id=action_id,
+        range_instance_id=instance_id,
+        range_generation=0,
+        request_artifact_id=request_id,
+        identity_id=identity,
+        http_status=200,
+        body_b64=base64.b64encode(body).decode(),
+        response_sha256=digest,
+    )
+    instance = tmp_path / "instances" / instance_id.hex
+    (instance / "requests").mkdir(parents=True)
+    (instance / "evidence").mkdir()
+    (instance / "requests" / f"{request_id.hex}.json").write_text(request.model_dump_json())
+    (instance / "evidence" / f"{evidence_id.hex}.json").write_text(evidence.model_dump_json())
+    trace = [
+        RunStarted(run_id=run_id, actor="controller", sequence_number=1, experiment_hash="a" * 64),
+        RangeStarted(
+            run_id=run_id,
+            actor="controller",
+            sequence_number=2,
+            build_id=build_id,
+            range_instance_id=instance_id,
+            range_generation=0,
+        ),
+        ActionRequested(
+            run_id=run_id,
+            actor="gateway",
+            sequence_number=3,
+            action_id=action_id,
+            action_type="http_request",
+            destination="enterprise_change_control_v1",
+            method="GET",
+            path_sha256=hashlib.sha256(b"/api/me").hexdigest(),
+            range_instance_id=instance_id,
+            range_generation=0,
+            request_artifact_id=request_id,
+            identity_id=identity,
+            source_phase="bootstrap",
+        ),
+        ActionCompleted(
+            run_id=run_id,
+            actor="gateway",
+            sequence_number=4,
+            action_id=action_id,
+            evidence_id=evidence_id,
+            duration_ms=1,
+            http_status=200,
+            response_sha256=digest,
+        ),
+    ]
+    with pytest.raises(ValueError, match="trusted identity response is malformed"):
+        build_reporter_bundle(trace, tmp_path, expected_run_id=run_id)
+    bundle = build_reporter_bundle(
+        trace, tmp_path, expected_run_id=run_id, project_visible_identities=False
+    )
+    assert bundle.packet.identities == ()
+    assert bundle.get_action(action_id)["response_sha256"] == digest
+    evidence_path = instance / "evidence" / f"{evidence_id.hex}.json"
+    evidence_path.write_text(evidence.model_copy(update={"body_b64": "e30="}).model_dump_json())
+    with pytest.raises(ValueError, match="evidence response hash mismatch"):
+        build_reporter_bundle(
+            trace, tmp_path, expected_run_id=run_id, project_visible_identities=False
+        )
+    evidence_path.write_text(evidence.model_dump_json())
+    events = MemoryEvents()
+    events.items = trace.copy()
+    ledger = EventWitnessLedger(events, tmp_path)
+    view = await ledger.start(
+        run_id,
+        identity_id=identity,
+        object_id=object_id,
+        before_path=f"/api/changes/{object_id}",
+        action_method="POST",
+        action_path=f"/api/changes/{object_id}/deploy",
+        state_field="status",
+        causation_id=uuid4(),
+    )
+    assert view.status == "before_missing"
+    assert await ledger.get(run_id, view.witness_id) == view
 
 
 @pytest.mark.asyncio
