@@ -19,8 +19,7 @@ from offsecgym.schemas.specs import ExperimentSpec
 from offsecgym.solver.monolithic import model_tools
 
 PROTOCOL = "m66-confirmatory-v2"
-# Replaced with the reviewed Range B witness fix merge commit before protocol review.
-QUALIFIED_SOURCE_COMMIT = "0" * 40
+QUALIFIED_SOURCE_COMMIT = "6bfb14dc240ae6ab7e65bd04025b74688312a806"
 EXCLUSION_REGISTRY = "experiments/manifests/m66-prior-seed-exclusions-confirmatory-v2.json"
 CONFIGS = {
     "saas": "experiments/configs/m66-pilot-v2-range-a.yaml",

@@ -48,7 +48,7 @@ from offsecgym.storage.projection import project_controller_events
 
 EXPECTED_MANIFEST_SHA256 = "0" * 64  # Closed until frozen manifest review.
 EXPECTED_APPROVAL_SHA256 = "0" * 64  # Closed until separate paid-call approval.
-EXPECTED_SOURCE_COMMIT = "0" * 40  # Pinned to the reviewed source merge before v2 freeze.
+EXPECTED_SOURCE_COMMIT = "6bfb14dc240ae6ab7e65bd04025b74688312a806"
 EXPECTED_PROTOCOL = "m66-confirmatory-v2"
 ENDPOINT_URL = "https://openrouter.ai/api/v1/models/moonshotai/kimi-k3/endpoints"
 PRICE_IN = Decimal("0.000003")

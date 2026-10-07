@@ -14,8 +14,8 @@ projection fix: witness status can be reconstructed from Range B `roles` and
 `workspace_id` summary. Action, evidence, time-order, and tamper checks remain
 required. A synthetic Range B test and read-only replay of the retained cell
 34 trace establish compatibility; no paid feasibility call is used for this
-qualification. The final manifest must identify the full merge commit of this
-fix as `source_commit`.
+qualification. The final manifest identifies merge commit
+`6bfb14dc240ae6ab7e65bd04025b74688312a806` as `source_commit`.
 
 The version label is `m66-confirmatory-v2`. The v2 exclusion registry includes
 all 162 prior excluded seeds **and all 120 seeds assigned in v1**, whether or
