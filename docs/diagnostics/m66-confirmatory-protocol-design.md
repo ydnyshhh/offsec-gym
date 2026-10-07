@@ -1,6 +1,6 @@
 # M6.6 confirmatory protocol design
 
-**Status: design, unapproved and unrun.** No confirmatory manifest is frozen and
+**Status: freeze preparation, unrun.** No confirmatory manifest is frozen and
 no paid model collection is authorized by the v1/v2 pilot approvals. This
 document preserves those excluded pilots as separate feasibility records. It
 does not pool their outcomes or infer a treatment effect from the three valid
@@ -160,5 +160,13 @@ analysis with unstarted cells as missing and publish attrition bounds.
    final manifest and cumulative paid-call cap. Run the 280 cells once in
    frozen order only after approval.
 
-The current artifact implements the analysis contract and a design precision
-study. It is not an executable collector or a frozen confirmatory protocol.
+The preparation branch adds a versioned 162-seed exclusion registry, a
+deterministic 280-cell assignment generator, terminal-bounded stage adapter,
+provider-health rule, source/journal audit, and an execution wrapper closed by
+zero-value manifest and approval hash pins. The frozen manifest must be
+generated once after a green protocol merge and a fresh public endpoint/price
+check. The wrapper stays closed until the user separately approves that exact
+manifest hash and cumulative cost ceiling. The $504 bound is the configured
+worst-case estimated model-token cost (280 × 120,000 tokens at the output
+rate); it is a proposed ceiling, not authorization or an expected bill. No
+third excluded pilot is planned.
