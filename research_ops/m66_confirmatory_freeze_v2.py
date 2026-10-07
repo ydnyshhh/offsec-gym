@@ -71,6 +71,9 @@ def main() -> None:
     parser.add_argument("--protocol-commit", required=True)
     args = parser.parse_args()
     root = args.repository_root.resolve()
+    expected_output = root / "experiments/manifests/m66-confirmatory-v2.json"
+    if args.output.resolve() != expected_output:
+        raise ValueError(f"v2 manifest must be created exactly once at {expected_output}")
     require_protocol_checkout(root, args.protocol_commit)
     receipt = live_endpoint_receipt()
     plan = plan_confirmatory(root, protocol_commit=args.protocol_commit, endpoint_receipt=receipt)
