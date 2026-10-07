@@ -55,7 +55,7 @@ def _stage(terminal, *, complete=True):
             "patched_submitted_findings": 0,
             "patched_rejected_findings": 0,
             "patched_inconclusive_findings": 0,
-            "roots": [{"root": "MEMBER-REFUND", "complete_witness": complete}],
+            "roots": [{"root": "MEMBER-REFUND", "applicable": True, "complete_witness": complete}],
         },
     }
 

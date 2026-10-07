@@ -97,6 +97,8 @@ def record_from_audit(
         raise ValueError("stage root rows contain duplicates")
     if any(type(row.get("complete_witness")) is not bool for row in roots):
         raise ValueError("stage root rows lack Boolean witness outcomes")
+    if variant == "vulnerable" and any(row.get("applicable") is not True for row in roots):
+        raise ValueError("assigned vulnerable root is absent from the compiled fixture")
     complete = (
         tuple(row["root"] for row in roots if row["complete_witness"])
         if variant == "vulnerable"

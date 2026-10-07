@@ -162,6 +162,23 @@ async def audit(
             )
             if receipt.get("cumulative_estimated_cost_usd") != str(pair_cost):
                 raise ValueError("pair-local cumulative model-token cost differs")
+        if len(completed) % 2:
+            pair_index = full_pairs + 1
+            endpoint_path = journal_path.parent / f"endpoint-preflight-{pair_index}.json"
+            preflight = json.loads(endpoint_path.read_bytes())
+            if (
+                preflight.get("endpoint")
+                != f"{manifest['expected_selected_endpoint']['upstream_provider']} | "
+                f"{manifest['expected_selected_endpoint']['revision']}"
+                or preflight.get("model_id") != manifest["model_request"]["name"]
+                or preflight.get("provider_name") != "Moonshot AI"
+                or preflight.get("status") != 0
+                or Decimal(str(preflight.get("input_usd_per_million"))) != Decimal("3")
+                or Decimal(str(preflight.get("output_usd_per_million"))) != Decimal("15")
+            ):
+                raise ValueError("partial pair lacks matching live endpoint preflight")
+            if (journal_path.parent / f"pair-postcheck-{pair_index}.json").exists():
+                raise ValueError("partial pair must not have a completed-pair receipt")
         return {
             "protocol": manifest["protocol"],
             "manifest_sha256": EXPECTED_MANIFEST_SHA256,

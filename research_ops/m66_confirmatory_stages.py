@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import os
 import subprocess
 from pathlib import Path
 
@@ -124,7 +125,8 @@ def main() -> None:
     args = parser.parse_args()
     result = extract(args.manifest, args.cell_id, args.trace, args.trace_sha256, args.state_dir)
     args.output.parent.mkdir(parents=True, exist_ok=True)
-    with args.output.open("x", encoding="utf-8") as stream:
+    descriptor = os.open(args.output, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+    with os.fdopen(descriptor, "w", encoding="utf-8") as stream:
         json.dump(result, stream, sort_keys=True, indent=2)
         stream.write("\n")
 

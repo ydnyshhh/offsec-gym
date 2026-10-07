@@ -42,6 +42,7 @@ from offsecgym.schemas.events import (
     RunStarted,
 )
 from offsecgym.schemas.specs import ExperimentSpec
+from offsecgym.solver.monolithic import model_tools
 from offsecgym.storage.event_store import PostgresEventStore
 from offsecgym.storage.projection import project_controller_events
 
@@ -178,6 +179,17 @@ def _approval_and_manifest(
     cells = manifest["cells"]
     if len(cells) != 280 or len({cell["cell_id"] for cell in cells}) != 280:
         raise ValueError("frozen confirmatory manifest must have 280 distinct cells")
+    if _sha256(_canonical(cells)) != manifest["schedule"]["cell_assignment_sha256"]:
+        raise ValueError("frozen confirmatory assignment hash differs")
+    schemas = {
+        family: {
+            arm: model_tools(structured=True, family=family, witness_planning=arm == "witness")
+            for arm in ("control", "witness")
+        }
+        for family in ("saas", "enterprise_change_control_v1")
+    }
+    if _sha256(_canonical(schemas)) != manifest["tool_schema_sha256"]:
+        raise ValueError("frozen confirmatory model tool schema differs")
     for first, second in zip(cells[::2], cells[1::2], strict=True):
         if (
             (first["range_family"], first["variant"], first["seed"])
