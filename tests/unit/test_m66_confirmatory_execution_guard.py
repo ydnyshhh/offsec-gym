@@ -46,9 +46,13 @@ def _manifest():
     )
 
 
-def test_paid_collection_is_closed_before_exact_post_freeze_approval() -> None:
-    with pytest.raises(ValueError, match="closed pending exact manifest approval"):
-        _execution_approval(_manifest(), b"{}")
+def test_paid_collection_requires_exact_frozen_manifest_and_approval_bytes() -> None:
+    import hashlib
+
+    frozen = ROOT / "experiments/manifests/m66-confirmatory-v2.json"
+    assert hashlib.sha256(frozen.read_bytes()).hexdigest() == collector.EXPECTED_MANIFEST_SHA256
+    with pytest.raises(ValueError, match="approval artifact hash differs"):
+        _execution_approval(json.loads(frozen.read_bytes()), b"{}")
     health = collector._health_module(ROOT)
     assert (
         health.provider_health((health.CellTerminal("provider_failed", "provider_unavailable"),))
@@ -70,7 +74,7 @@ def test_journal_must_be_contiguous_frozen_prefix() -> None:
     cells = manifest["cells"]
     header = {
         "type": "batch_started",
-        "manifest_sha256": "0" * 64,
+        "manifest_sha256": collector.EXPECTED_MANIFEST_SHA256,
         "expected_model_revision": manifest["expected_selected_endpoint"]["revision"],
         "expected_upstream_provider": "Moonshot AI",
         "max_estimated_usd": 504.0,

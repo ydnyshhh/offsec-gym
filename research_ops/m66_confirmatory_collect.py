@@ -46,8 +46,8 @@ from offsecgym.solver.monolithic import model_tools
 from offsecgym.storage.event_store import PostgresEventStore
 from offsecgym.storage.projection import project_controller_events
 
-EXPECTED_MANIFEST_SHA256 = "0" * 64  # Closed until frozen manifest review.
-EXPECTED_APPROVAL_SHA256 = "0" * 64  # Closed until separate paid-call approval.
+EXPECTED_MANIFEST_SHA256 = "a8aa98654360945ad69f350c38153dccaf827434a4e157819f558ae8da05916c"
+EXPECTED_APPROVAL_SHA256 = "638ab038ede1d8806068cc311c1d88c96fec9ba115a9647843864d4af3929848"
 EXPECTED_SOURCE_COMMIT = "6bfb14dc240ae6ab7e65bd04025b74688312a806"
 EXPECTED_PROTOCOL = "m66-confirmatory-v2"
 ENDPOINT_URL = "https://openrouter.ai/api/v1/models/moonshotai/kimi-k3/endpoints"
