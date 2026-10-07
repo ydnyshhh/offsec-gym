@@ -88,7 +88,12 @@ def extract(
     witness_statuses = []
     if hypotheses:
         source = _witness_source_trace(bounded)
-        bundle = build_reporter_bundle(source, state_dir, expected_run_id=trace[0].run_id)
+        bundle = build_reporter_bundle(
+            source,
+            state_dir,
+            expected_run_id=trace[0].run_id,
+            project_visible_identities=False,
+        )
         witness_statuses = [project_witness(item, bundle).status for item in hypotheses]
     result = extract_confirmatory_stages(
         trace,

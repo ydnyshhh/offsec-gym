@@ -280,9 +280,17 @@ def _response_object_id(raw: bytes) -> UUID | None:
 
 
 def build_reporter_bundle(
-    trace: list[TraceEvent], state_dir: Path, *, expected_run_id: UUID
+    trace: list[TraceEvent],
+    state_dir: Path,
+    *,
+    expected_run_id: UUID,
+    project_visible_identities: bool = True,
 ) -> ReporterEvidenceBundle:
-    """Verify event/artifact closure before exposing any evidence to a reporter."""
+    """Verify every action artifact; optionally index SaaS identities for reporting.
+
+    Witness projections use the verified actions, so they omit the SaaS-specific
+    identity index without relaxing request or response provenance checks.
+    """
     started = [item for item in trace if isinstance(item, RunStarted)]
     ranges = [item for item in trace if isinstance(item, RangeStarted)]
     if (
@@ -414,7 +422,12 @@ def build_reporter_bundle(
         ):
             raise ValueError("reporter action event and trusted artifacts disagree")
         raw = base64.b64decode(evidence.body_b64, validate=True)
-        if request.path == "/api/me" and request.identity_id and evidence.http_status == 200:
+        if (
+            project_visible_identities
+            and request.path == "/api/me"
+            and request.identity_id
+            and evidence.http_status == 200
+        ):
             try:
                 me = json.loads(raw)
                 if isinstance(me, dict) and me.get("id") == str(request.identity_id):

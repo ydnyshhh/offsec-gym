@@ -2,13 +2,14 @@
 
 from __future__ import annotations
 
+import hashlib
+import json
 import subprocess
 import sys
 from pathlib import Path
 
 import yaml
 
-from offsecgym.research import m66_pilot_protocol_v2 as protocol
 from offsecgym.runtime.enterprise import FAMILY as ENTERPRISE_FAMILY
 from offsecgym.runtime.enterprise import fixture_for_seed
 from offsecgym.schemas.events import FindingValidated, ReporterStarted, RunCompleted
@@ -19,17 +20,19 @@ sys.path.insert(0, str(ROOT / "research_ops"))
 from m66_extract_stages import _witness_source_trace  # noqa: E402
 
 
-def _head() -> str:
-    return subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=ROOT, text=True).strip()
-
-
 def test_v2_selection_and_bootstrap_budget_are_frozen() -> None:
-    manifest = protocol.plan_pilot(
-        ROOT,
-        source_commit="950bdb746e0d8ae9d68a324f58e5b763c7ddbc1d",
-        protocol_commit=_head(),
-        price_checked_at="2026-10-06T12:00:00Z",
+    raw = (ROOT / "experiments/manifests/m66-pilot-v2.json").read_bytes()
+    assert hashlib.sha256(raw).hexdigest() == (
+        "b8dbdc28689e7299c4f5f099ce8e3f788483de7b558c0319043fae7ca43fe528"
     )
+    manifest = json.loads(raw)
+    assert manifest["source_commit"] == "950bdb746e0d8ae9d68a324f58e5b763c7ddbc1d"
+    for bundle in manifest["source_hashes"].values():
+        for path, digest in bundle["files"].items():
+            frozen = subprocess.check_output(
+                ["git", "show", f"{manifest['source_commit']}:{path}"], cwd=ROOT
+            )
+            assert hashlib.sha256(frozen).hexdigest() == digest
     assert manifest["protocol"] == "m66-pilot-v2"
     assert manifest["planned_trajectories"] == 8
     assert manifest["paid_model_calls_authorized"] is False
