@@ -241,7 +241,9 @@ class EventWitnessLedger:
         ]
         if len(hypotheses) != 1:
             raise ValueError("witness hypothesis is absent or duplicated")
-        bundle = build_reporter_bundle(trace, self.state_root, expected_run_id=run_id)
+        bundle = build_reporter_bundle(
+            trace, self.state_root, expected_run_id=run_id, project_visible_identities=False
+        )
         return project_witness(hypotheses[0], bundle)
 
     async def render_active(self, run_id: UUID, *, max_chars: int = 1400) -> str:
@@ -249,7 +251,9 @@ class EventWitnessLedger:
         hypotheses = [item for item in trace if isinstance(item, WitnessHypothesisStarted)]
         if not hypotheses:
             return ""
-        bundle = build_reporter_bundle(trace, self.state_root, expected_run_id=run_id)
+        bundle = build_reporter_bundle(
+            trace, self.state_root, expected_run_id=run_id, project_visible_identities=False
+        )
         lines = ["Active temporal witnesses (observed state, not security verdict):"]
         for item in hypotheses[-3:]:
             view = project_witness(item, bundle)
