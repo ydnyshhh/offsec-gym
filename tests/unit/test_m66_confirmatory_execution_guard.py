@@ -19,7 +19,7 @@ from m66_confirmatory_audit import _postterminal_bookkeeping_only  # noqa: E402
 from m66_confirmatory_collect import _execution_approval, _spec  # noqa: E402
 from m66_confirmatory_postcheck import _journal_records  # noqa: E402
 
-from offsecgym.research.m66_confirmatory_protocol import plan_confirmatory  # noqa: E402
+from offsecgym.research.m66_confirmatory_protocol_v2 import plan_confirmatory  # noqa: E402
 from offsecgym.schemas.events import (  # noqa: E402
     CoverageLeaseReleased,
     CoverageUpdated,

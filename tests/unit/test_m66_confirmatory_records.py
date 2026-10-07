@@ -16,6 +16,7 @@ CELL = {
     "arm_order": ["witness", "control"],
 }
 MANIFEST_SHA = "a" * 64
+PROTOCOL = "m66-confirmatory-v1"
 
 
 def _terminal(*, status="provider_failed", valid=False):
@@ -63,7 +64,11 @@ def _stage(terminal, *, complete=True):
 def test_provider_failed_preterminal_witness_remains_observed() -> None:
     terminal = _terminal()
     row = record_from_audit(
-        CELL, terminal=terminal, stage_output=_stage(terminal), manifest_sha256=MANIFEST_SHA
+        CELL,
+        terminal=terminal,
+        stage_output=_stage(terminal),
+        manifest_sha256=MANIFEST_SHA,
+        protocol=PROTOCOL,
     )
     assert row.status == "provider_failed"
     assert not row.score_valid
@@ -73,12 +78,20 @@ def test_provider_failed_preterminal_witness_remains_observed() -> None:
 
 def test_missing_stage_is_missing_outcome_and_unstarted_is_retained() -> None:
     row = record_from_audit(
-        CELL, terminal=_terminal(), stage_output=None, manifest_sha256=MANIFEST_SHA
+        CELL,
+        terminal=_terminal(),
+        stage_output=None,
+        manifest_sha256=MANIFEST_SHA,
+        protocol=PROTOCOL,
     )
     assert not row.trace_auditable
     assert row.complete_witness_roots == ()
     unstarted = record_from_audit(
-        CELL, terminal=None, stage_output=None, manifest_sha256=MANIFEST_SHA
+        CELL,
+        terminal=None,
+        stage_output=None,
+        manifest_sha256=MANIFEST_SHA,
+        protocol=PROTOCOL,
     )
     assert unstarted.status == "unstarted"
     assert not unstarted.trace_auditable
@@ -89,10 +102,20 @@ def test_asymmetric_or_misbound_record_is_rejected() -> None:
     stage = _stage(terminal)
     stage["trace_sha256"] = "c" * 64
     with pytest.raises(ValueError, match="frozen cell"):
-        record_from_audit(CELL, terminal=terminal, stage_output=stage, manifest_sha256=MANIFEST_SHA)
+        record_from_audit(
+            CELL,
+            terminal=terminal,
+            stage_output=stage,
+            manifest_sha256=MANIFEST_SHA,
+            protocol=PROTOCOL,
+        )
     with pytest.raises(ValueError, match="score-valid"):
         record_from_audit(
-            CELL, terminal=_terminal(valid=True), stage_output=None, manifest_sha256=MANIFEST_SHA
+            CELL,
+            terminal=_terminal(valid=True),
+            stage_output=None,
+            manifest_sha256=MANIFEST_SHA,
+            protocol=PROTOCOL,
         )
 
 
@@ -107,9 +130,35 @@ def test_patched_findings_count_all_submissions() -> None:
         patched_inconclusive_findings=2,
     )
     row = record_from_audit(
-        cell, terminal=terminal, stage_output=stage, manifest_sha256=MANIFEST_SHA
+        cell,
+        terminal=terminal,
+        stage_output=stage,
+        manifest_sha256=MANIFEST_SHA,
+        protocol=PROTOCOL,
     )
     assert row.assigned_roots == ()
     assert row.patched_submitted_findings == 3
     assert row.patched_rejected_findings == 1
     assert row.patched_inconclusive_findings == 2
+
+
+def test_v2_record_rejects_a_v1_stage_artifact() -> None:
+    terminal = _terminal()
+    stage = _stage(terminal)
+    with pytest.raises(ValueError, match="frozen cell"):
+        record_from_audit(
+            CELL,
+            terminal=terminal,
+            stage_output=stage,
+            manifest_sha256=MANIFEST_SHA,
+            protocol="m66-confirmatory-v2",
+        )
+    stage["protocol"] = "m66-confirmatory-v2"
+    row = record_from_audit(
+        CELL,
+        terminal=terminal,
+        stage_output=stage,
+        manifest_sha256=MANIFEST_SHA,
+        protocol="m66-confirmatory-v2",
+    )
+    assert row.complete_witness_roots == ("MEMBER-REFUND",)

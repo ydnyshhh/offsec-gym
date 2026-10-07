@@ -48,7 +48,8 @@ from offsecgym.storage.projection import project_controller_events
 
 EXPECTED_MANIFEST_SHA256 = "0" * 64  # Closed until frozen manifest review.
 EXPECTED_APPROVAL_SHA256 = "0" * 64  # Closed until separate paid-call approval.
-EXPECTED_SOURCE_COMMIT = "950bdb746e0d8ae9d68a324f58e5b763c7ddbc1d"
+EXPECTED_SOURCE_COMMIT = "6bfb14dc240ae6ab7e65bd04025b74688312a806"
+EXPECTED_PROTOCOL = "m66-confirmatory-v2"
 ENDPOINT_URL = "https://openrouter.ai/api/v1/models/moonshotai/kimi-k3/endpoints"
 PRICE_IN = Decimal("0.000003")
 PRICE_OUT = Decimal("0.000015")
@@ -108,7 +109,7 @@ def _execution_approval(manifest: dict, approval_bytes: bytes) -> dict:
     if approved_at < frozen_at:
         raise ValueError("confirmatory approval must follow the frozen manifest price check")
     if (
-        approval.get("protocol") != "m66-confirmatory-v1"
+        approval.get("protocol") != EXPECTED_PROTOCOL
         or approval.get("manifest_sha256") != EXPECTED_MANIFEST_SHA256
         or approval.get("source_commit") != EXPECTED_SOURCE_COMMIT
         or approval.get("protocol_commit") != manifest.get("protocol_commit")
@@ -142,7 +143,7 @@ def _approval_and_manifest(
         raise ValueError("separate confirmatory approval artifact is absent")
     approval = _execution_approval(manifest, approval_path.read_bytes())
     if (
-        manifest.get("protocol") != "m66-confirmatory-v1"
+        manifest.get("protocol") != EXPECTED_PROTOCOL
         or manifest.get("source_commit") != EXPECTED_SOURCE_COMMIT
         or manifest.get("protocol_commit") != manifest_commit
         or manifest.get("planned_trajectories") != 280
@@ -510,7 +511,7 @@ async def collect(
             receipt = json.loads(receipt_path.read_bytes())
             endpoint_path = journal_path.parent / f"endpoint-preflight-{index // 2 + 1}.json"
             if (
-                receipt.get("protocol") != "m66-confirmatory-v1"
+                receipt.get("protocol") != EXPECTED_PROTOCOL
                 or receipt.get("manifest_sha256") != EXPECTED_MANIFEST_SHA256
                 or receipt.get("pair_number") != index // 2 + 1
                 or receipt.get("cell_ids") != [cell["cell_id"] for cell in pair_cells]
@@ -678,7 +679,7 @@ async def collect(
             _write_json_create_only(
                 _pair_receipt_path(journal_path, pair_index + 1),
                 {
-                    "protocol": "m66-confirmatory-v1",
+                    "protocol": EXPECTED_PROTOCOL,
                     "manifest_sha256": EXPECTED_MANIFEST_SHA256,
                     "pair_number": pair_index + 1,
                     "cell_ids": [first["cell_id"], second["cell_id"]],
