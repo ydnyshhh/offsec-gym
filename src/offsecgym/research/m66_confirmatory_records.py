@@ -21,6 +21,7 @@ def record_from_audit(
     terminal: Mapping[str, object] | None,
     stage_output: Mapping[str, object] | None,
     manifest_sha256: str,
+    protocol: str,
 ) -> ConfirmatoryRecord:
     """One assigned cell, including unstarted and unmeasurable terminals."""
     family, seed, variant, arm = _key(cell)
@@ -65,7 +66,7 @@ def record_from_audit(
             }
         )
     if (
-        stage_output.get("protocol") != "m66-confirmatory-v1"
+        stage_output.get("protocol") != protocol
         or stage_output.get("manifest_sha256") != manifest_sha256
         or stage_output.get("cell_id") != cell.get("cell_id")
         or stage_output.get("trace_sha256") != terminal.get("trace_sha256")

@@ -103,7 +103,7 @@ def _stage_extract(
         raise ValueError(f"pinned confirmatory stage extraction failed for {cell['cell_id']}")
     stage = json.loads(output.read_bytes())
     if (
-        stage.get("protocol") != "m66-confirmatory-v1"
+        stage.get("protocol") != json.loads(manifest_path.read_bytes())["protocol"]
         or stage.get("cell_id") != cell["cell_id"]
         or stage.get("manifest_sha256") != _sha256(manifest_path.read_bytes())
         or stage.get("trace_sha256") != record["trace_sha256"]
@@ -290,7 +290,7 @@ async def audit_cell(
             raise ValueError("existing stage extraction differs from paired audit receipt")
         stage = json.loads(stage_path.read_bytes())
         if (
-            stage.get("protocol") != "m66-confirmatory-v1"
+            stage.get("protocol") != manifest["protocol"]
             or stage.get("cell_id") != cell["cell_id"]
             or stage.get("manifest_sha256") != _sha256(manifest_path.read_bytes())
             or stage.get("trace_sha256") != record["trace_sha256"]

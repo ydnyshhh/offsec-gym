@@ -121,7 +121,7 @@ async def audit(
             if (
                 (first["build_id"], first["pair_id"], first["fixture_digest"])
                 != (second["build_id"], second["pair_id"], second["fixture_digest"])
-                or receipt.get("protocol") != "m66-confirmatory-v1"
+                or receipt.get("protocol") != manifest["protocol"]
                 or receipt.get("manifest_sha256") != EXPECTED_MANIFEST_SHA256
                 or receipt.get("pair_number") != pair_index + 1
                 or receipt.get("cell_ids") != [cell["cell_id"] for cell in cells]

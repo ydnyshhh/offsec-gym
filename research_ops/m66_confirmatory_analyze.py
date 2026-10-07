@@ -21,7 +21,7 @@ def analyze(manifest_path: Path, journal_path: Path, audit_path: Path) -> dict[s
     manifest = json.loads(manifest_raw)
     root = Path(__file__).resolve().parents[1]
     head = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=root, text=True).strip()
-    if head != manifest["protocol_commit"] or manifest["protocol"] != "m66-confirmatory-v1":
+    if head != manifest["protocol_commit"] or manifest["protocol"] != "m66-confirmatory-v2":
         raise ValueError("analysis requires the exact confirmatory protocol checkout")
     manifest_sha = _sha(manifest_raw)
     cells = manifest["cells"]
@@ -82,6 +82,7 @@ def analyze(manifest_path: Path, journal_path: Path, audit_path: Path) -> dict[s
                 terminal=terminal,
                 stage_output=stage_output,
                 manifest_sha256=manifest_sha,
+                protocol=manifest["protocol"],
             )
         )
     keys = frozenset(
