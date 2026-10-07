@@ -6,6 +6,7 @@ import json
 import sys
 from pathlib import Path
 from types import SimpleNamespace
+from uuid import uuid4
 
 import pytest
 
@@ -14,10 +15,17 @@ sys.path.insert(0, str(ROOT / "research_ops"))
 
 import m66_confirmatory_collect as collector  # noqa: E402
 from m66_confirmatory_analyze import analyze  # noqa: E402
+from m66_confirmatory_audit import _postterminal_bookkeeping_only  # noqa: E402
 from m66_confirmatory_collect import _execution_approval, _spec  # noqa: E402
 from m66_confirmatory_postcheck import _journal_records  # noqa: E402
 
 from offsecgym.research.m66_confirmatory_protocol import plan_confirmatory  # noqa: E402
+from offsecgym.schemas.events import (  # noqa: E402
+    CoverageLeaseReleased,
+    CoverageUpdated,
+    RunCompleted,
+    RunStarted,
+)
 
 
 def _manifest():
@@ -147,3 +155,32 @@ async def test_endpoint_drift_closes_confirmatory_route(monkeypatch) -> None:
     with pytest.raises(collector.ProviderFailure, match="confirmatory_endpoint_drift"):
         await guard.provider("test-key").complete(_request())
     assert guard.stopped is True
+
+
+def test_only_coverage_closure_may_follow_run_terminal() -> None:
+    run_id, claim_id, task_id = uuid4(), uuid4(), uuid4()
+    terminal = RunCompleted(run_id=run_id, sequence_number=2, actor="test", status="completed")
+    closure = [
+        CoverageUpdated(
+            run_id=run_id,
+            sequence_number=3,
+            actor="worldstate",
+            claim_id=claim_id,
+            status="released",
+        ),
+        CoverageLeaseReleased(
+            run_id=run_id,
+            sequence_number=4,
+            actor="worldstate",
+            claim_id=claim_id,
+            task_id=task_id,
+            status="released",
+        ),
+    ]
+    assert _postterminal_bookkeeping_only([terminal, *closure], terminal.sequence_number)
+    later_work = RunStarted(
+        run_id=run_id, sequence_number=5, actor="test", experiment_hash="unexpected"
+    )
+    assert not _postterminal_bookkeeping_only(
+        [terminal, *closure, later_work], terminal.sequence_number
+    )

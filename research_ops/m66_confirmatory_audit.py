@@ -18,6 +18,8 @@ from offsecgym.experiment.scripted import experiment_hash
 from offsecgym.research.m64_execute import _sha256
 from offsecgym.schemas.events import (
     ActionRequested,
+    CoverageLeaseReleased,
+    CoverageUpdated,
     FindingSubmitted,
     FindingValidated,
     ModelCallCompleted,
@@ -55,6 +57,14 @@ def _expected_run_hash(spec, arm: str) -> str:
     return hashlib.sha256(
         json.dumps(record, sort_keys=True, separators=(",", ":")).encode()
     ).hexdigest()
+
+
+def _postterminal_bookkeeping_only(trace: list, terminal_sequence: int) -> bool:
+    return all(
+        isinstance(event, (CoverageUpdated, CoverageLeaseReleased))
+        for event in trace
+        if event.sequence_number > terminal_sequence
+    )
 
 
 def _stage_extract(
@@ -138,25 +148,11 @@ async def audit_cell(
     if (
         starts[0].experiment_hash != _expected_run_hash(spec, cell["arm"])
         or terminals[0].status != record["status"]
-        or terminals[0].sequence_number != len(trace)
         or ranges[0].build_id is None
     ):
         raise ValueError("confirmatory terminal status or build identity differs")
-    if any(
-        isinstance(
-            event,
-            (
-                ActionRequested,
-                ModelCallStarted,
-                ModelCallCompleted,
-                FindingSubmitted,
-                FindingValidated,
-            ),
-        )
-        and event.sequence_number > terminals[0].sequence_number
-        for event in trace
-    ):
-        raise ValueError("pilot performed model or gateway work after terminal state")
+    if not _postterminal_bookkeeping_only(trace, terminals[0].sequence_number):
+        raise ValueError("confirmatory trace has work after terminal state")
     build = state.verify_build_integrity(ranges[0].build_id)
     if (
         str(build.build_id) != record["build_id"]
