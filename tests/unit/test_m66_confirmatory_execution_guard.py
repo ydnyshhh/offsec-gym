@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 import sys
 from pathlib import Path
@@ -46,9 +47,33 @@ def _manifest():
     )
 
 
-def test_paid_collection_is_closed_before_exact_post_freeze_approval() -> None:
-    with pytest.raises(ValueError, match="closed pending exact manifest approval"):
+def test_paid_collection_requires_exact_post_freeze_approval(monkeypatch) -> None:
+    assert collector.EXPECTED_MANIFEST_SHA256 == (
+        "d0f9f516d93008407196165296c5e8ce7d0c4a7fbcc2aed02c14eec3150f61f4"
+    )
+    with pytest.raises(ValueError, match="approval artifact hash differs"):
         _execution_approval(_manifest(), b"{}")
+
+    approval = {
+        "protocol": "m66-confirmatory-v1",
+        "manifest_sha256": collector.EXPECTED_MANIFEST_SHA256,
+        "source_commit": collector.EXPECTED_SOURCE_COMMIT,
+        "protocol_commit": "a" * 40,
+        "approved_at": "2026-10-07T01:00:00Z",
+        "cost_ceiling_usd": 504.0,
+        "approval_scope": "m66_confirmatory_280_cells_only",
+        "approved_for_paid_calls": True,
+    }
+    raw = json.dumps(approval, sort_keys=True).encode()
+    monkeypatch.setattr(collector, "EXPECTED_APPROVAL_SHA256", hashlib.sha256(raw).hexdigest())
+    assert _execution_approval(_manifest(), raw) == approval
+    with pytest.raises(ValueError, match="approval does not authorize"):
+        changed = {**approval, "cost_ceiling_usd": 505.0}
+        changed_raw = json.dumps(changed, sort_keys=True).encode()
+        monkeypatch.setattr(
+            collector, "EXPECTED_APPROVAL_SHA256", hashlib.sha256(changed_raw).hexdigest()
+        )
+        _execution_approval(_manifest(), changed_raw)
     health = collector._health_module(ROOT)
     assert (
         health.provider_health((health.CellTerminal("provider_failed", "provider_unavailable"),))
@@ -70,7 +95,7 @@ def test_journal_must_be_contiguous_frozen_prefix() -> None:
     cells = manifest["cells"]
     header = {
         "type": "batch_started",
-        "manifest_sha256": "0" * 64,
+        "manifest_sha256": collector.EXPECTED_MANIFEST_SHA256,
         "expected_model_revision": manifest["expected_selected_endpoint"]["revision"],
         "expected_upstream_provider": "Moonshot AI",
         "max_estimated_usd": 504.0,
