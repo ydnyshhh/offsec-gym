@@ -24,10 +24,13 @@ normal collector replays the now complete 45-pair prefix before admitting cell
 91. Its existing request, score, cost, and endpoint gates govern every later
 cell. A further provider-health pause stops collection again.
 
-The new approval artifact is separate from the frozen manifest and must be
-pinned by exact SHA-256 before paid work can run. Its scope is **assigned cells
-91–280 only, no retry or replacement**, under the **same $504 cumulative** cap.
-The current code intentionally has an all-zero approval hash and fails closed.
+The new approval artifact is separate from the frozen manifest. Following
+explicit approval of this exact post-pause scope, the private create-only
+receipt has SHA-256
+`5da9c5502d26e94adb1bf6b823563db62e178c2cb151a7d6f27d3b4b4cb81018`.
+It authorizes **assigned cells 91–280 only, no retry or replacement**, under
+the **same $504 cumulative** cap. The code binds this exact receipt hash;
+collection still requires exact-head CI and the full prelaunch reconciliation.
 
 This is a post-start operational deviation. The two failed cells remain in the
 intention-to-treat schedule; a completed-sample analysis must report their
