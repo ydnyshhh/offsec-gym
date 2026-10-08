@@ -48,6 +48,10 @@ from offsecgym.storage.projection import project_controller_events
 
 EXPECTED_MANIFEST_SHA256 = "a8aa98654360945ad69f350c38153dccaf827434a4e157819f558ae8da05916c"
 EXPECTED_APPROVAL_SHA256 = "638ab038ede1d8806068cc311c1d88c96fec9ba115a9647843864d4af3929848"
+EXPECTED_PAUSE_APPROVAL_SHA256 = "5da9c5502d26e94adb1bf6b823563db62e178c2cb151a7d6f27d3b4b4cb81018"
+PROVIDER_PAUSE_STOP_JOURNAL_SHA256 = (
+    "1f47e18f9f8b993ea6ddcae3a240133235da4d9b904653b8c5dc932d681acf1d"
+)
 EXPECTED_SOURCE_COMMIT = "6bfb14dc240ae6ab7e65bd04025b74688312a806"
 EXPECTED_PROTOCOL = "m66-confirmatory-v2"
 ENDPOINT_URL = "https://openrouter.ai/api/v1/models/moonshotai/kimi-k3/endpoints"
@@ -445,6 +449,70 @@ def _pair_receipt_path(journal_path: Path, pair_number: int) -> Path:
     return journal_path.parent / f"pair-postcheck-{pair_number}.json"
 
 
+def _admit_provider_pause_clearance(
+    *,
+    health,
+    history: tuple,
+    completed_pairs: int,
+    cells: list[dict],
+    completed: dict[str, dict],
+    manifest: dict,
+    approval_path: Path,
+    journal_path: Path,
+    clearance_path: Path | None,
+) -> tuple:
+    """Start a new health epoch only at the reviewed, exact cell-90 stop."""
+    decision = health.provider_health(history)
+    if clearance_path is None:
+        if decision != "continue":
+            raise ValueError("provider-health gate requires a recorded operational review")
+        return history
+    if (
+        decision != "pause"
+        or completed_pairs != 45
+        or len(completed) != 90
+        or len(history) != 90
+        or _sha256(journal_path.read_bytes()) != PROVIDER_PAUSE_STOP_JOURNAL_SHA256
+        or not clearance_path.is_file()
+    ):
+        raise ValueError("provider-pause clearance is not at the reconciled boundary")
+    first, second = cells[88:90]
+    first_record, second_record = completed[first["cell_id"]], completed[second["cell_id"]]
+    pair_path = _pair_receipt_path(journal_path, 45)
+    if not pair_path.is_file():
+        raise ValueError("provider-pause clearance lacks the reconciled pair receipt")
+    receipt = json.loads(clearance_path.read_bytes())
+    endpoint = manifest["expected_selected_endpoint"]
+    selected = receipt.get("selected_endpoint_recheck", {})
+    if (
+        receipt.get("protocol") != "m66-confirmatory-v2-provider-pause-clearance-v1"
+        or EXPECTED_PAUSE_APPROVAL_SHA256 == "0" * 64
+        or receipt.get("pause_approval_sha256") != EXPECTED_PAUSE_APPROVAL_SHA256
+        or receipt.get("manifest_sha256") != EXPECTED_MANIFEST_SHA256
+        or receipt.get("approval_sha256") != _sha256(approval_path.read_bytes())
+        or receipt.get("stop_journal_sha256") != PROVIDER_PAUSE_STOP_JOURNAL_SHA256
+        or receipt.get("pair45_receipt_sha256") != _sha256(pair_path.read_bytes())
+        or receipt.get("provider_health_before") != "pause"
+        or receipt.get("provider_health_epoch_start_order") != 91
+        or receipt.get("failed_cell_ids") != [first["cell_id"], second["cell_id"]]
+        or receipt.get("failed_run_ids") != [first_record["run_id"], second_record["run_id"]]
+        or any(
+            record["status"] != "provider_failed"
+            or record["failure_reason"] != "provider_unavailable"
+            or record["score_valid"] is not False
+            for record in (first_record, second_record)
+        )
+        or selected.get("endpoint") != f"{endpoint['upstream_provider']} | {endpoint['revision']}"
+        or selected.get("model_id") != manifest["model_request"]["name"]
+        or selected.get("provider_name") != endpoint["upstream_provider"]
+        or selected.get("status") != 0
+        or Decimal(str(selected.get("input_usd_per_million"))) != Decimal("3")
+        or Decimal(str(selected.get("output_usd_per_million"))) != Decimal("15")
+    ):
+        raise ValueError("provider-pause clearance differs from frozen evidence")
+    return ()
+
+
 async def collect(
     source_root: Path,
     protocol_root: Path,
@@ -452,6 +520,7 @@ async def collect(
     approval_path: Path,
     journal_path: Path,
     state_dir: Path,
+    provider_pause_clearance: Path | None = None,
 ) -> dict:
     manifest, approval = _approval_and_manifest(
         source_root, protocol_root, manifest_path, approval_path
@@ -559,8 +628,17 @@ async def collect(
             for cell in cells[: 2 * completed_pairs]
             for record in [journal.completed[cell["cell_id"]]]
         )
-        if health.provider_health(terminal_history) != "continue":
-            raise ValueError("provider-health gate requires a recorded operational review")
+        terminal_history = _admit_provider_pause_clearance(
+            health=health,
+            history=terminal_history,
+            completed_pairs=completed_pairs,
+            cells=cells,
+            completed=journal.completed,
+            manifest=manifest,
+            approval_path=approval_path,
+            journal_path=journal_path,
+            clearance_path=provider_pause_clearance,
+        )
         for pair_index in range(completed_pairs, len(cells) // 2):
             index = pair_index * 2
             first, second = cells[index : index + 2]
