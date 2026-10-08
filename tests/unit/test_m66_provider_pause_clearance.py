@@ -21,10 +21,40 @@ def _manifest() -> dict:
     return json.loads((ROOT / "experiments/manifests/m66-confirmatory-v2.json").read_bytes())
 
 
-def test_separate_paid_approval_is_closed_by_default(tmp_path) -> None:
+def test_separate_paid_approval_requires_the_exact_receipt(tmp_path) -> None:
     approval = tmp_path / "pause-approval.json"
-    approval.write_text("{}")
     with pytest.raises(ValueError, match="lacks exact separate approval"):
+        recovery._require_pause_approval(approval)
+    approval.write_text("{}")
+    with pytest.raises(ValueError, match="artifact hash differs"):
+        recovery._require_pause_approval(approval)
+
+
+def test_separate_paid_approval_scope_is_checked(tmp_path, monkeypatch) -> None:
+    approval = tmp_path / "pause-approval.json"
+    receipt = {
+        "protocol": "m66-confirmatory-v2-provider-pause-clearance-v1",
+        "approved_for_paid_calls": True,
+        "approval_scope": "assigned_cells_91_through_280_only_no_retry_or_replacement",
+        "original_manifest_sha256": collector.EXPECTED_MANIFEST_SHA256,
+        "original_approval_sha256": collector.EXPECTED_APPROVAL_SHA256,
+        "stop_journal_sha256": recovery.STOP_JOURNAL_SHA256,
+        "cost_ceiling_usd": 504.0,
+        "provider_health_reset_after_order": 90,
+        "retained_invalid_cell_orders": [89, 90],
+    }
+    approval.write_text(json.dumps(receipt))
+    digest = hashlib.sha256(approval.read_bytes()).hexdigest()
+    monkeypatch.setattr(recovery, "EXPECTED_PAUSE_APPROVAL_SHA256", digest)
+    assert recovery._require_pause_approval(approval) == digest
+    receipt["retained_invalid_cell_orders"] = [90]
+    approval.write_text(json.dumps(receipt))
+    monkeypatch.setattr(
+        recovery,
+        "EXPECTED_PAUSE_APPROVAL_SHA256",
+        hashlib.sha256(approval.read_bytes()).hexdigest(),
+    )
+    with pytest.raises(ValueError, match="does not cover this exact stop"):
         recovery._require_pause_approval(approval)
 
 
