@@ -31,16 +31,20 @@ call was made during this reconciliation.**
 ## Proposed narrow operational amendment
 
 The one-time wrapper is pinned to the exact 188-cell journal and the three
-retained rate-limited run identities. Its required separate paid-continuation
-approval hash is **all zeros**, so the wrapper remains closed. A candidate
-receipt was created after an ambiguous "continue" reply, but automatic
-approval review rejected using it to authorize paid cells 189–280. That
-candidate was preserved privately as unaccepted evidence and is not bound
-to the code. After a new explicit approval, the wrapper would replay
+retained rate-limited run identities. A candidate receipt created after an
+ambiguous "continue" reply was preserved privately as unaccepted evidence;
+automatic approval review rejected using it to authorize paid cells 189–280.
+The user subsequently explicitly approved the reviewed scope: only frozen
+cells 189–280 once, no retry or replacement, one provider-health epoch at
+189, all earlier failures retained, and the original $504 cumulative cap.
+A fresh, create-only private approval receipt was written at
+`.offsecgym/m66-confirmatory-v2/rate-approval.json` with SHA-256
+`b21c516c4ab024fa63f7d1f8b3dac8bcb88bfd035a95df0b6d5af648bbd14676`.
+The execution guard pins that hash. Before collection, the wrapper must replay
 all 188 PostgreSQL source runs and validator replay runs, require a fresh
 public selected-endpoint and price check, create pair 94's receipt solely
 from the two already completed arms, and record an explicit clearance.
-The full frozen postcheck must pass before the unchanged collector can admit
+The full frozen postcheck must pass before the unchanged collector admits
 cell 189. The new provider-health epoch would start at 189 exactly once.
 Another health pause would stop collection again.
 
