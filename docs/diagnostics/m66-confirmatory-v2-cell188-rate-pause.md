@@ -31,9 +31,11 @@ call was made during this reconciliation.**
 ## Proposed narrow operational amendment
 
 The one-time wrapper is pinned to the exact 188-cell journal and the three
-retained rate-limited run identities. It requires a **new, separate,
-scope-bound approval receipt** whose hash is currently all zeros in code.
-Until that hash is pinned, it fails closed. After approval, it would replay
+retained rate-limited run identities. The user approved the exact PR #25
+proposal at head `e6e2be87579c857287d8597412fbeb469651fe19`. Its
+**separate, private, create-only approval receipt** has SHA-256
+`190d124b3439d5cf78a88f6aa1749993bbd13c2f8e51920237ae81eb935497c2`.
+The code binds that exact hash. It will replay
 all 188 PostgreSQL source runs and validator replay runs, require a fresh
 public selected-endpoint and price check, create pair 94's receipt solely
 from the two already completed arms, and record an explicit clearance.
@@ -41,7 +43,7 @@ The full frozen postcheck must pass before the unchanged collector can admit
 cell 189. The new provider-health epoch would start at 189 exactly once.
 Another health pause would stop collection again.
 
-The proposed approval scope is **only assigned cells 189–280**, each at most
+The approval scope is **only assigned cells 189–280**, each at most
 once, under the **same $504 cumulative** estimated-cost cap. The source
 commit, protocol commit, model prompt and request, range, validator,
 budgets, seeds, arm order, manifest, and original terminal outcomes remain
@@ -54,7 +56,7 @@ This is a post-start operational deviation. Provider failures remain in the
 intention-to-treat schedule; any eligible-only comparison has a conditional
 estimand and must report attrition by arm, range, and variant. Public model
 metadata and a matching selected endpoint do not prove that rate limiting
-has cleared. If a separately approved continuation encounters another
+has cleared. If this approved continuation encounters another
 provider-health pause, the guard must stop again. This amendment provides
 reproducible evidence handling, not an assurance that the remaining cells
 will complete.
