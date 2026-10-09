@@ -28,14 +28,19 @@ runtime source, model request, range, validator, manifest, seeds, order,
 budgets, and cell-162 terminal status remain unchanged.
 
 The operational wrapper is bound to the exact 162-cell journal and source
-run. After a separately approved, exact-hash receipt, it would replay
+run. After a separately approved, exact-hash receipt, it will replay
 authoritative PostgreSQL events, persist the deterministic stage output and
 an explicit amendment receipt create-only, reconstruct pair 81 from the two
 retained source runs, and require the full frozen postcheck before admitting
-cell 163. It retains the provider-failed cells 89 and 90. The new approval
-would cover **assigned cells 163–280 only**, with no retry or replacement and
-the **same $504 cumulative** estimated-cost cap. The approval pin is currently
-all zeros; the wrapper fails closed and cannot start paid work.
+cell 163. It retains the provider-failed cells 89 and 90. The separate
+approval followed review of PR #24 at
+`29d1b390fe696a5a7c73716d0fd78f3ff6e5b8e6`. Its private create-only
+receipt has SHA-256
+`2162bdaca0f407fbb32253d1bbb41b99412c049ec5626281b1ed19e80cdf6bc6`.
+It covers **assigned cells 163–280 only**, with no retry or replacement and
+the **same $504 cumulative** estimated-cost cap. The wrapper binds this exact
+receipt hash and still requires exact-head CI, authoritative replay, the
+frozen postcheck, and a fresh selected-endpoint/price check before paid work.
 
 ## Read-only rehearsal
 
