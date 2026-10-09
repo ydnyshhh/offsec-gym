@@ -22,6 +22,7 @@ def _manifest() -> dict:
 
 
 def test_paid_rate_continuation_requires_new_exact_approval(tmp_path, monkeypatch) -> None:
+    monkeypatch.setattr(recovery, "EXPECTED_RATE_PAUSE_APPROVAL_SHA256", "0" * 64)
     path = tmp_path / "rate-approval.json"
     with pytest.raises(ValueError, match="lacks separate exact approval"):
         recovery._require_rate_approval(path)
