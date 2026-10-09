@@ -49,9 +49,14 @@ from offsecgym.storage.projection import project_controller_events
 EXPECTED_MANIFEST_SHA256 = "a8aa98654360945ad69f350c38153dccaf827434a4e157819f558ae8da05916c"
 EXPECTED_APPROVAL_SHA256 = "638ab038ede1d8806068cc311c1d88c96fec9ba115a9647843864d4af3929848"
 EXPECTED_PAUSE_APPROVAL_SHA256 = "5da9c5502d26e94adb1bf6b823563db62e178c2cb151a7d6f27d3b4b4cb81018"
+EXPECTED_RATE_PAUSE_APPROVAL_SHA256 = (
+    "b21c516c4ab024fa63f7d1f8b3dac8bcb88bfd035a95df0b6d5af648bbd14676"
+)
 PROVIDER_PAUSE_STOP_JOURNAL_SHA256 = (
     "1f47e18f9f8b993ea6ddcae3a240133235da4d9b904653b8c5dc932d681acf1d"
 )
+RATE_PAUSE_STOP_JOURNAL_SHA256 = "bc651787966bbbfbdcc750a6949272f9cb8c1fc25f064ae7c75a51126480b87b"
+RATE_PAUSE_CLEARANCE_NAME = "provider-rate-pause-clearance-after-cell-188.json"
 EXPECTED_SOURCE_COMMIT = "6bfb14dc240ae6ab7e65bd04025b74688312a806"
 EXPECTED_PROTOCOL = "m66-confirmatory-v2"
 ENDPOINT_URL = "https://openrouter.ai/api/v1/models/moonshotai/kimi-k3/endpoints"
@@ -461,12 +466,24 @@ def _admit_provider_pause_clearance(
     journal_path: Path,
     clearance_path: Path | None,
 ) -> tuple:
-    """Start a new health epoch only at the reviewed, exact cell-90 stop."""
+    """Start a new health epoch only at a separately reviewed exact stop."""
     decision = health.provider_health(history)
     if clearance_path is None:
         if decision != "continue":
             raise ValueError("provider-health gate requires a recorded operational review")
         return history
+    if clearance_path.name == RATE_PAUSE_CLEARANCE_NAME:
+        return _admit_rate_pause_clearance(
+            decision=decision,
+            history=history,
+            completed_pairs=completed_pairs,
+            cells=cells,
+            completed=completed,
+            manifest=manifest,
+            approval_path=approval_path,
+            journal_path=journal_path,
+            clearance_path=clearance_path,
+        )
     if (
         decision != "pause"
         or completed_pairs != 45
@@ -510,6 +527,80 @@ def _admit_provider_pause_clearance(
         or Decimal(str(selected.get("output_usd_per_million"))) != Decimal("15")
     ):
         raise ValueError("provider-pause clearance differs from frozen evidence")
+    return ()
+
+
+def _admit_rate_pause_clearance(
+    *,
+    decision: str,
+    history: tuple,
+    completed_pairs: int,
+    cells: list[dict],
+    completed: dict[str, dict],
+    manifest: dict,
+    approval_path: Path,
+    journal_path: Path,
+    clearance_path: Path,
+) -> tuple:
+    """Admit exactly the retained cell-188 429 pause, once, after review."""
+    if (
+        decision != "pause"
+        or completed_pairs != 94
+        or len(completed) != 188
+        or len(history) != 188
+        or _sha256(journal_path.read_bytes()) != RATE_PAUSE_STOP_JOURNAL_SHA256
+        or EXPECTED_RATE_PAUSE_APPROVAL_SHA256 == "0" * 64
+        or not clearance_path.is_file()
+    ):
+        raise ValueError("rate-pause clearance is not at the reconciled boundary")
+    failed_cells = cells[185:188]
+    failed_records = [completed[cell["cell_id"]] for cell in failed_cells]
+    pair_path = _pair_receipt_path(journal_path, 94)
+    endpoint_path = journal_path.parent / "endpoint-preflight-94.json"
+    recheck_path = journal_path.parent / "endpoint-recheck-cell-187.json"
+    if not pair_path.is_file() or not endpoint_path.is_file() or not recheck_path.is_file():
+        raise ValueError("rate-pause clearance lacks reconciled pair or route receipts")
+    endpoint = manifest["expected_selected_endpoint"]
+    preflight = json.loads(endpoint_path.read_bytes())
+    recheck = json.loads(recheck_path.read_bytes())
+    receipt = json.loads(clearance_path.read_bytes())
+    selected = receipt.get("selected_endpoint_recheck", {})
+    if (
+        receipt.get("protocol") != "m66-confirmatory-v2-rate-pause-clearance-v1"
+        or receipt.get("rate_pause_approval_sha256") != EXPECTED_RATE_PAUSE_APPROVAL_SHA256
+        or receipt.get("manifest_sha256") != EXPECTED_MANIFEST_SHA256
+        or receipt.get("approval_sha256") != _sha256(approval_path.read_bytes())
+        or receipt.get("stop_journal_sha256") != RATE_PAUSE_STOP_JOURNAL_SHA256
+        or receipt.get("pair94_receipt_sha256") != _sha256(pair_path.read_bytes())
+        or receipt.get("provider_health_before") != "pause"
+        or receipt.get("provider_health_epoch_start_order") != 189
+        or receipt.get("failed_cell_ids") != [cell["cell_id"] for cell in failed_cells]
+        or receipt.get("failed_run_ids") != [record["run_id"] for record in failed_records]
+        or any(
+            record["status"] != "provider_failed"
+            or record["failure_reason"] != "provider_rate_limited"
+            or record["score_valid"] is not False
+            for record in failed_records
+        )
+        or any(
+            preflight.get(field) != recheck.get(field)
+            for field in (
+                "endpoint",
+                "model_id",
+                "provider_name",
+                "status",
+                "input_usd_per_million",
+                "output_usd_per_million",
+            )
+        )
+        or selected.get("endpoint") != f"{endpoint['upstream_provider']} | {endpoint['revision']}"
+        or selected.get("model_id") != manifest["model_request"]["name"]
+        or selected.get("provider_name") != endpoint["upstream_provider"]
+        or selected.get("status") != 0
+        or Decimal(str(selected.get("input_usd_per_million"))) != Decimal("3")
+        or Decimal(str(selected.get("output_usd_per_million"))) != Decimal("15")
+    ):
+        raise ValueError("rate-pause clearance differs from frozen evidence")
     return ()
 
 
