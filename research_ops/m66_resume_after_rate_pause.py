@@ -54,6 +54,7 @@ FAILED_RUN_IDS = (
 )
 RETAINED_INVALID_ORDERS = [89, 90, 170, 186, 187, 188]
 PRIOR_STAGE_AMENDMENT = "stage-bound-reconciliation-cell-162.json"
+REVIEWED_PR_HEAD = "e6e2be87579c857287d8597412fbeb469651fe19"
 
 
 def _require_rate_approval(path: Path) -> str:
@@ -79,6 +80,8 @@ def _require_rate_approval(path: Path) -> str:
         or approval.get("provider_health_reset_after_order") != 188
         or approval.get("retained_invalid_cell_orders") != RETAINED_INVALID_ORDERS
         or approval.get("retained_agent_failed_cell_order") != 162
+        or approval.get("reviewed_pr") != 25
+        or approval.get("reviewed_pr_head") != REVIEWED_PR_HEAD
     ):
         raise ValueError("rate-pause approval does not cover this exact stop")
     return digest

@@ -38,9 +38,11 @@ def test_paid_rate_continuation_requires_new_exact_approval(tmp_path, monkeypatc
         "provider_health_reset_after_order": 188,
         "retained_invalid_cell_orders": recovery.RETAINED_INVALID_ORDERS,
         "retained_agent_failed_cell_order": 162,
+        "reviewed_pr": 25,
+        "reviewed_pr_head": recovery.REVIEWED_PR_HEAD,
     }
     path.write_text(json.dumps(receipt))
-    with pytest.raises(ValueError, match="lacks separate exact approval"):
+    with pytest.raises(ValueError, match="artifact hash differs"):
         recovery._require_rate_approval(path)
     digest = hashlib.sha256(path.read_bytes()).hexdigest()
     monkeypatch.setattr(recovery, "EXPECTED_RATE_PAUSE_APPROVAL_SHA256", digest)
