@@ -26,7 +26,7 @@ def test_paid_stage_continuation_has_no_implicit_approval(tmp_path) -> None:
     with pytest.raises(ValueError, match="lacks separate paid continuation approval"):
         recovery._require_stage_approval(path)
     path.write_text("{}")
-    with pytest.raises(ValueError, match="lacks separate paid continuation approval"):
+    with pytest.raises(ValueError, match="artifact hash differs"):
         recovery._require_stage_approval(path)
 
 
@@ -44,6 +44,8 @@ def test_stage_approval_scope_is_exact(tmp_path, monkeypatch) -> None:
         "cost_ceiling_usd": 504.0,
         "retained_invalid_cell_orders": [89, 90],
         "retained_agent_failed_cell_order": 162,
+        "reviewed_pr": 24,
+        "reviewed_pr_head": recovery.REVIEWED_PR_HEAD,
     }
     path.write_text(json.dumps(receipt))
     digest = hashlib.sha256(path.read_bytes()).hexdigest()

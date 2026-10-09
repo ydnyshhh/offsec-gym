@@ -40,7 +40,8 @@ from m66_stage_bound_offline import CELL_ID, EXACT_PACKET_CHARS, FROZEN_PACKET_L
 from offsecgym.research.m64_execute import _sha256
 from offsecgym.runtime.compose import ComposeRangeRuntime
 
-EXPECTED_STAGE_APPROVAL_SHA256 = "0" * 64
+EXPECTED_STAGE_APPROVAL_SHA256 = "2162bdaca0f407fbb32253d1bbb41b99412c049ec5626281b1ed19e80cdf6bc6"
+REVIEWED_PR_HEAD = "29d1b390fe696a5a7c73716d0fd78f3ff6e5b8e6"
 STOP_JOURNAL_SHA256 = "02e4acbb03125bb363810980372eb5d16f1eeb324f22c2eab979d8f8a862cdbc"
 STOP_COST = Decimal("71.985765")
 CELL_161_ID = "00e10c134f186123"
@@ -70,6 +71,8 @@ def _require_stage_approval(path: Path) -> str:
         or Decimal(str(value.get("cost_ceiling_usd"))) != Decimal("504")
         or value.get("retained_invalid_cell_orders") != [89, 90]
         or value.get("retained_agent_failed_cell_order") != 162
+        or value.get("reviewed_pr") != 24
+        or value.get("reviewed_pr_head") != REVIEWED_PR_HEAD
     ):
         raise ValueError("cell-162 approval does not cover this exact stop")
     return digest
