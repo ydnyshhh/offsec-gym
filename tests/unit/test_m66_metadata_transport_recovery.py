@@ -40,6 +40,7 @@ def _approval() -> dict:
 
 
 def test_paid_continuation_requires_new_exact_approval(tmp_path, monkeypatch) -> None:
+    monkeypatch.setattr(recovery, "EXPECTED_METADATA_RECOVERY_APPROVAL_SHA256", "0" * 64)
     path = tmp_path / "metadata-approval.json"
     with pytest.raises(ValueError, match="lacks separate exact paid-call approval"):
         recovery._require_metadata_approval(path)
