@@ -41,11 +41,17 @@ and neither the original journal nor any paid model request changed.
 
 The versioned wrapper is pinned to the exact 192-cell journal, cell-192 run,
 pair-96 receipt, stopped log, prior rate-pause clearance, and cumulative
-cost. It has a **zero-value approval hash** and is incapable of starting
-paid work until a separate scope-bound approval artifact is reviewed and
-pinned. No approval artifact for this recovery has been created.
+cost. It initially had a zero-value approval hash. After the two exact-head
+CI checks passed, the user explicitly approved merging the reviewed PR and
+running only frozen cells 193–280 once, with no retries or replacements,
+the existing order-189 health epoch unchanged, all earlier failures
+retained, and the original $504 cumulative cap. A fresh create-only private
+approval receipt at `.offsecgym/m66-confirmatory-v2/metadata-approval.json`
+has SHA-256
+`ca900a15dff992e1bd9a9f282b154d48c7281dbc4ba6304c49c0eeac39b65a10`.
+The execution guard pins that exact hash.
 
-After approval, the wrapper would replay all 192 PostgreSQL source runs and
+Before collection, the wrapper must replay all 192 PostgreSQL source runs and
 the frozen pair receipts, require a fresh public selected-endpoint and price
 check, then write a create-only transport clearance. The unchanged collector
 would replay the stopped prefix and start only frozen assignments 193–280.
