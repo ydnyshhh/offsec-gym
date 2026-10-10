@@ -59,6 +59,12 @@ EXPECTED_METADATA_RECOVERY_APPROVAL_SHA256 = (
 METADATA_STOP_JOURNAL_SHA256 = "6a32da71e769868b0313cecfd5fa4c2a95b6b026704c31b93a93d4fb581fc53e"
 PRIOR_RATE_CLEARANCE_SHA256 = "4c7c71e4fc23eade5015d347981636a0dc44447c8debd608df863c0943741698"
 METADATA_RECOVERY_CLEARANCE_NAME = "metadata-transport-clearance-after-cell-192.json"
+EXPECTED_CELL227_PAUSE_APPROVAL_SHA256 = "0" * 64
+PRIOR_CELL208_APPROVAL_SHA256 = "db9cfe2c700112c30483768a18b129533aeb5074ff67c835c68358f914df2858"
+CELL227_PAUSE_STOP_JOURNAL_SHA256 = (
+    "1e40a9cfdac4ca8c5245aa412bf509c432d7672800ef32a304288340d52db809"
+)
+CELL227_PAUSE_CLEARANCE_NAME = "provider-pause-clearance-after-cell-227.json"
 PROVIDER_PAUSE_STOP_JOURNAL_SHA256 = (
     "1f47e18f9f8b993ea6ddcae3a240133235da4d9b904653b8c5dc932d681acf1d"
 )
@@ -504,6 +510,18 @@ def _admit_provider_pause_clearance(
             journal_path=journal_path,
             clearance_path=clearance_path,
         )
+    if clearance_path.name == CELL227_PAUSE_CLEARANCE_NAME:
+        return _admit_cell227_pause_clearance(
+            health=health,
+            history=history,
+            completed_pairs=completed_pairs,
+            cells=cells,
+            completed=completed,
+            manifest=manifest,
+            approval_path=approval_path,
+            journal_path=journal_path,
+            clearance_path=clearance_path,
+        )
     if (
         decision != "pause"
         or completed_pairs != 45
@@ -723,6 +741,115 @@ def _admit_metadata_recovery_clearance(
     ):
         raise ValueError("metadata recovery differs from frozen evidence")
     return current_epoch
+
+
+def _admit_cell227_pause_clearance(
+    *,
+    health,
+    history: tuple,
+    completed_pairs: int,
+    cells: list[dict],
+    completed: dict[str, dict],
+    manifest: dict,
+    approval_path: Path,
+    journal_path: Path,
+    clearance_path: Path,
+) -> tuple:
+    """Admit only the reviewed partial-pair pause, with a new epoch at cell 228."""
+    base = journal_path.parent
+    approval_file = base / "cell227-approval.json"
+    pair_file = _pair_receipt_path(journal_path, 114)
+    original_endpoint_file = base / "endpoint-preflight-114.json"
+    recheck_file = base / "endpoint-recheck-cell-227.json"
+    raw_lines = journal_path.read_bytes().splitlines(keepends=True)
+    if (
+        EXPECTED_CELL227_PAUSE_APPROVAL_SHA256 == "0" * 64
+        or completed_pairs != 114
+        or len(completed) != 228
+        or len(history) != 228
+        or len(raw_lines) != 457
+        or _sha256(b"".join(raw_lines[:455])) != CELL227_PAUSE_STOP_JOURNAL_SHA256
+        or health.provider_health(history[:227]) != "pause"
+        or health.provider_health(history[227:]) != "continue"
+        or not all(
+            path.is_file()
+            for path in (
+                approval_file,
+                clearance_path,
+                pair_file,
+                original_endpoint_file,
+                recheck_file,
+            )
+        )
+        or _sha256(approval_file.read_bytes()) != EXPECTED_CELL227_PAUSE_APPROVAL_SHA256
+    ):
+        raise ValueError("cell-227 provider-pause clearance is not at the reviewed boundary")
+    approval = json.loads(approval_file.read_bytes())
+    receipt = json.loads(clearance_path.read_bytes())
+    original_endpoint = json.loads(original_endpoint_file.read_bytes())
+    selected = json.loads(recheck_file.read_bytes())
+    prior_cells = cells[225:227]
+    prior_records = [completed[cell["cell_id"]] for cell in prior_cells]
+    endpoint = manifest["expected_selected_endpoint"]
+    if (
+        approval.get("protocol") != "m66-confirmatory-v2-cell227-provider-pause-v1"
+        or approval.get("approved_for_paid_calls") is not True
+        or approval.get("approval_scope")
+        != "assigned_cells_228_through_280_only_no_retry_or_replacement"
+        or approval.get("original_manifest_sha256") != EXPECTED_MANIFEST_SHA256
+        or approval.get("original_approval_sha256") != EXPECTED_APPROVAL_SHA256
+        or approval.get("prior_metadata_approval_sha256")
+        != EXPECTED_METADATA_RECOVERY_APPROVAL_SHA256
+        or approval.get("prior_cell208_approval_sha256") != PRIOR_CELL208_APPROVAL_SHA256
+        or approval.get("stop_journal_sha256") != CELL227_PAUSE_STOP_JOURNAL_SHA256
+        or approval.get("provider_health_epoch_start_order") != 228
+        or approval.get("new_provider_health_epoch") is not True
+        or approval.get("retained_invalid_cell_orders")
+        != [89, 90, 170, 186, 187, 188, 192, 226, 227]
+        or approval.get("retained_agent_failed_cell_order") != 162
+        or approval.get("retained_score_valid_cell_order") != 208
+        or Decimal(str(approval.get("cost_ceiling_usd"))) != Decimal("504")
+        or receipt.get("protocol") != "m66-confirmatory-v2-cell227-provider-pause-v1"
+        or receipt.get("manifest_sha256") != EXPECTED_MANIFEST_SHA256
+        or receipt.get("original_approval_sha256") != _sha256(approval_path.read_bytes())
+        or receipt.get("cell227_approval_sha256") != EXPECTED_CELL227_PAUSE_APPROVAL_SHA256
+        or receipt.get("stop_journal_sha256") != CELL227_PAUSE_STOP_JOURNAL_SHA256
+        or receipt.get("stop_log_sha256")
+        != _sha256((base / "collector-cell208-reconciled.log").read_bytes())
+        or receipt.get("pair113_receipt_sha256")
+        != _sha256(_pair_receipt_path(journal_path, 113).read_bytes())
+        or receipt.get("endpoint_preflight_114_sha256")
+        != _sha256(original_endpoint_file.read_bytes())
+        or receipt.get("endpoint_recheck_cell227_sha256") != _sha256(recheck_file.read_bytes())
+        or receipt.get("selected_endpoint_recheck") != selected
+        or receipt.get("provider_health_before") != "pause"
+        or receipt.get("provider_health_epoch_start_order") != 228
+        or receipt.get("new_provider_health_epoch") is not True
+        or receipt.get("failed_cell_ids") != [cell["cell_id"] for cell in prior_cells]
+        or receipt.get("failed_run_ids") != [record["run_id"] for record in prior_records]
+        or any(
+            record["status"] != "provider_failed"
+            or record["failure_reason"] != "provider_unavailable"
+            or record["score_valid"] is not False
+            for record in prior_records
+        )
+        or any(
+            selected.get(field) != original_endpoint.get(field)
+            for field in (
+                "endpoint",
+                "model_id",
+                "provider_name",
+                "status",
+                "input_usd_per_million",
+                "output_usd_per_million",
+            )
+        )
+        or selected.get("endpoint") != f"{endpoint['upstream_provider']} | {endpoint['revision']}"
+        or selected.get("model_id") != manifest["model_request"]["name"]
+        or selected.get("status") != 0
+    ):
+        raise ValueError("cell-227 provider-pause provenance differs from frozen evidence")
+    return history[227:]
 
 
 async def collect(
