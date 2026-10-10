@@ -41,7 +41,9 @@ from m66_resume_after_stage_bound import _write_bytes_create_only
 from offsecgym.research.m64_execute import _sha256
 from offsecgym.runtime.compose import ComposeRangeRuntime
 
-EXPECTED_CELL208_APPROVAL_SHA256 = "db9cfe2c700112c30483768a18b129533aeb5074ff67c835c68358f914df2858"
+EXPECTED_CELL208_APPROVAL_SHA256 = (
+    "db9cfe2c700112c30483768a18b129533aeb5074ff67c835c68358f914df2858"
+)
 STOP_JOURNAL_SHA256 = "e0e118e096b931e31fb99cf71c51e9c2140c89bd8e688717923aade8cf4452a3"
 STOP_LOG_SHA256 = "5448c31a3f74951305e3779671fd121bb5392f3b2a590619f57bd162f7a683db"
 STOP_COST = Decimal("91.340037")
