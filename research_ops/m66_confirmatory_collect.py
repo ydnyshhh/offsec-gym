@@ -49,9 +49,14 @@ from offsecgym.storage.projection import project_controller_events
 EXPECTED_MANIFEST_SHA256 = "a8aa98654360945ad69f350c38153dccaf827434a4e157819f558ae8da05916c"
 EXPECTED_APPROVAL_SHA256 = "638ab038ede1d8806068cc311c1d88c96fec9ba115a9647843864d4af3929848"
 EXPECTED_PAUSE_APPROVAL_SHA256 = "5da9c5502d26e94adb1bf6b823563db62e178c2cb151a7d6f27d3b4b4cb81018"
+EXPECTED_STAGE_APPROVAL_SHA256 = "2162bdaca0f407fbb32253d1bbb41b99412c049ec5626281b1ed19e80cdf6bc6"
 EXPECTED_RATE_PAUSE_APPROVAL_SHA256 = (
     "b21c516c4ab024fa63f7d1f8b3dac8bcb88bfd035a95df0b6d5af648bbd14676"
 )
+EXPECTED_METADATA_RECOVERY_APPROVAL_SHA256 = "0" * 64
+METADATA_STOP_JOURNAL_SHA256 = "6a32da71e769868b0313cecfd5fa4c2a95b6b026704c31b93a93d4fb581fc53e"
+PRIOR_RATE_CLEARANCE_SHA256 = "4c7c71e4fc23eade5015d347981636a0dc44447c8debd608df863c0943741698"
+METADATA_RECOVERY_CLEARANCE_NAME = "metadata-transport-clearance-after-cell-192.json"
 PROVIDER_PAUSE_STOP_JOURNAL_SHA256 = (
     "1f47e18f9f8b993ea6ddcae3a240133235da4d9b904653b8c5dc932d681acf1d"
 )
@@ -484,6 +489,19 @@ def _admit_provider_pause_clearance(
             journal_path=journal_path,
             clearance_path=clearance_path,
         )
+    if clearance_path.name == METADATA_RECOVERY_CLEARANCE_NAME:
+        return _admit_metadata_recovery_clearance(
+            health=health,
+            decision=decision,
+            history=history,
+            completed_pairs=completed_pairs,
+            cells=cells,
+            completed=completed,
+            manifest=manifest,
+            approval_path=approval_path,
+            journal_path=journal_path,
+            clearance_path=clearance_path,
+        )
     if (
         decision != "pause"
         or completed_pairs != 45
@@ -602,6 +620,107 @@ def _admit_rate_pause_clearance(
     ):
         raise ValueError("rate-pause clearance differs from frozen evidence")
     return ()
+
+
+def _admit_metadata_recovery_clearance(
+    *,
+    health,
+    decision: str,
+    history: tuple,
+    completed_pairs: int,
+    cells: list[dict],
+    completed: dict[str, dict],
+    manifest: dict,
+    approval_path: Path,
+    journal_path: Path,
+    clearance_path: Path,
+) -> tuple:
+    """Resume after a metadata transport error without resetting health at 193."""
+    prior_clearance = journal_path.parent / RATE_PAUSE_CLEARANCE_NAME
+    metadata_approval = journal_path.parent / "metadata-approval.json"
+    pair_path = _pair_receipt_path(journal_path, 96)
+    endpoint_path = journal_path.parent / "endpoint-preflight-96.json"
+    if (
+        decision != "pause"
+        or completed_pairs != 96
+        or len(completed) != 192
+        or len(history) != 192
+        or _sha256(journal_path.read_bytes()) != METADATA_STOP_JOURNAL_SHA256
+        or EXPECTED_METADATA_RECOVERY_APPROVAL_SHA256 == "0" * 64
+        or not all(
+            path.is_file()
+            for path in (
+                clearance_path,
+                prior_clearance,
+                metadata_approval,
+                pair_path,
+                endpoint_path,
+            )
+        )
+        or _sha256(prior_clearance.read_bytes()) != PRIOR_RATE_CLEARANCE_SHA256
+        or _sha256(metadata_approval.read_bytes()) != EXPECTED_METADATA_RECOVERY_APPROVAL_SHA256
+        or (journal_path.parent / "endpoint-preflight-97.json").exists()
+    ):
+        raise ValueError("metadata recovery is not at the reconciled boundary")
+    current_epoch = history[188:]
+    failed_cell = cells[191]
+    failed_record = completed[failed_cell["cell_id"]]
+    receipt = json.loads(clearance_path.read_bytes())
+    approval_receipt = json.loads(metadata_approval.read_bytes())
+    selected = receipt.get("selected_endpoint_recheck", {})
+    endpoint = manifest["expected_selected_endpoint"]
+    original_endpoint = json.loads(endpoint_path.read_bytes())
+    if (
+        health.provider_health(current_epoch) != "continue"
+        or failed_record.get("status") != "provider_failed"
+        or failed_record.get("failure_reason") != "provider_unavailable"
+        or failed_record.get("score_valid") is not False
+        or receipt.get("protocol") != "m66-confirmatory-v2-metadata-transport-recovery-v1"
+        or receipt.get("metadata_approval_sha256") != EXPECTED_METADATA_RECOVERY_APPROVAL_SHA256
+        or receipt.get("manifest_sha256") != EXPECTED_MANIFEST_SHA256
+        or receipt.get("original_approval_sha256") != _sha256(approval_path.read_bytes())
+        or receipt.get("stop_journal_sha256") != METADATA_STOP_JOURNAL_SHA256
+        or receipt.get("pair96_receipt_sha256") != _sha256(pair_path.read_bytes())
+        or receipt.get("prior_rate_clearance_sha256") != PRIOR_RATE_CLEARANCE_SHA256
+        or receipt.get("stop_log_sha256")
+        != "4079246eb8e61d4fbb84681250332dab6150f4374e544a13460adce74237ed7f"
+        or receipt.get("last_failed_cell_id") != failed_cell["cell_id"]
+        or receipt.get("last_failed_run_id") != failed_record["run_id"]
+        or receipt.get("resume_at_order") != 193
+        or receipt.get("provider_health_epoch_start_order") != 189
+        or receipt.get("new_provider_health_epoch") is not False
+        or approval_receipt.get("protocol") != "m66-confirmatory-v2-metadata-transport-recovery-v1"
+        or approval_receipt.get("approved_for_paid_calls") is not True
+        or approval_receipt.get("approval_scope")
+        != "assigned_cells_193_through_280_only_no_retry_or_replacement"
+        or approval_receipt.get("original_manifest_sha256") != EXPECTED_MANIFEST_SHA256
+        or approval_receipt.get("original_approval_sha256") != EXPECTED_APPROVAL_SHA256
+        or approval_receipt.get("prior_pause_approval_sha256") != EXPECTED_PAUSE_APPROVAL_SHA256
+        or approval_receipt.get("prior_stage_approval_sha256") != EXPECTED_STAGE_APPROVAL_SHA256
+        or approval_receipt.get("prior_rate_approval_sha256") != EXPECTED_RATE_PAUSE_APPROVAL_SHA256
+        or approval_receipt.get("stop_journal_sha256") != METADATA_STOP_JOURNAL_SHA256
+        or approval_receipt.get("provider_health_epoch_start_order") != 189
+        or approval_receipt.get("new_provider_health_epoch") is not False
+        or Decimal(str(approval_receipt.get("cost_ceiling_usd"))) != Decimal("504")
+        or approval_receipt.get("retained_invalid_cell_orders") != [89, 90, 170, 186, 187, 188, 192]
+        or approval_receipt.get("retained_agent_failed_cell_order") != 162
+        or any(
+            selected.get(field) != original_endpoint.get(field)
+            for field in (
+                "endpoint",
+                "model_id",
+                "provider_name",
+                "status",
+                "input_usd_per_million",
+                "output_usd_per_million",
+            )
+        )
+        or selected.get("endpoint") != f"{endpoint['upstream_provider']} | {endpoint['revision']}"
+        or selected.get("model_id") != manifest["model_request"]["name"]
+        or selected.get("status") != 0
+    ):
+        raise ValueError("metadata recovery differs from frozen evidence")
+    return current_epoch
 
 
 async def collect(
