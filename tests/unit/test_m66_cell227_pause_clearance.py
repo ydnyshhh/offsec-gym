@@ -46,6 +46,10 @@ def _approval() -> dict:
 def test_new_paid_calls_require_exact_scope_and_pinned_receipt(tmp_path, monkeypatch) -> None:
     path = tmp_path / "cell227-approval.json"
     path.write_text(json.dumps(_approval()))
+    assert collector.EXPECTED_CELL227_PAUSE_APPROVAL_SHA256 == (
+        "cdcc2f9f659acf7326bdb44aaf35f9cb048dabf4d0026f4662ffdfdac6664074"
+    )
+    monkeypatch.setattr(recovery, "EXPECTED_CELL227_PAUSE_APPROVAL_SHA256", "0" * 64)
     with pytest.raises(ValueError, match="lacks separate exact paid-call approval"):
         recovery._require_approval(path)
     monkeypatch.setattr(recovery, "EXPECTED_CELL227_PAUSE_APPROVAL_SHA256", _sha(path.read_bytes()))

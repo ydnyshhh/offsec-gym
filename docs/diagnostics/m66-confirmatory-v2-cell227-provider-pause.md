@@ -29,7 +29,15 @@ cell 227 is retained as failed, while its assigned partner cell 228 has not
 started. A separately pinned, create-only paid-call approval would authorize
 **only frozen cells 228–280 once**, with no retry or replacement, one new
 provider-health epoch at 228, and the same $504 **cumulative** cap. The
-approval hash remains zero in this draft, so the paid path is closed.
+approval hash remained zero in that draft, so the paid path was closed. The
+user subsequently approved this exact scope after PR #29 passed both
+exact-head CI checks. PR #29 merged as
+`0f9f6eafabbdd051b17283b4ff6d6f3a5fe41195`, preserving its three
+individual commits. A separate, create-only private approval receipt at
+`.offsecgym/m66-confirmatory-v2/cell227-approval.json` has SHA-256
+`cdcc2f9f659acf7326bdb44aaf35f9cb048dabf4d0026f4662ffdfdac6664074`.
+The operational execution guard pins only that hash; the private receipt is
+not committed.
 
 If approved, the wrapper must replay the 227-cell PostgreSQL evidence and
 perform a fresh public selected-endpoint and price check before cell 228. It
