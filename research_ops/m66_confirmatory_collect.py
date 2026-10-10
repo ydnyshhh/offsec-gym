@@ -67,6 +67,17 @@ CELL227_PAUSE_STOP_JOURNAL_SHA256 = (
     "1e40a9cfdac4ca8c5245aa412bf509c432d7672800ef32a304288340d52db809"
 )
 CELL227_PAUSE_CLEARANCE_NAME = "provider-pause-clearance-after-cell-227.json"
+EXPECTED_CELL249_METADATA_APPROVAL_SHA256 = "0" * 64
+CELL249_METADATA_STOP_JOURNAL_SHA256 = (
+    "866c0306e643c0b9fd33d88440acbab5ade171fd7bd362207ff18c11b350975d"
+)
+CELL249_METADATA_STOP_LOG_SHA256 = (
+    "99962d8ff006e53a41fb3e86c2888b31e2977dc95f3841bc305f3e518a91cf85"
+)
+CELL249_PAIR124_SHA256 = "2f33d7eb6efa48efc59bc2ae763498bebab24f02c42624835f96e1382bf92a23"
+CELL249_ENDPOINT125_SHA256 = "0c2f3cdf706c4c9c3b3e9433c6f7cc72c632440ff33a6eaaa1ba7a438af68490"
+PRIOR_CELL227_CLEARANCE_SHA256 = "bb1ef6ca5d96b18c47cdacc9ebf1dbecbfba7811c4a9c31865323eeb9b55dd8a"
+CELL249_METADATA_CLEARANCE_NAME = "metadata-transport-clearance-after-cell-249.json"
 PROVIDER_PAUSE_STOP_JOURNAL_SHA256 = (
     "1f47e18f9f8b993ea6ddcae3a240133235da4d9b904653b8c5dc932d681acf1d"
 )
@@ -524,6 +535,18 @@ def _admit_provider_pause_clearance(
             journal_path=journal_path,
             clearance_path=clearance_path,
         )
+    if clearance_path.name == CELL249_METADATA_CLEARANCE_NAME:
+        return _admit_cell249_metadata_clearance(
+            health=health,
+            history=history,
+            completed_pairs=completed_pairs,
+            cells=cells,
+            completed=completed,
+            manifest=manifest,
+            approval_path=approval_path,
+            journal_path=journal_path,
+            clearance_path=clearance_path,
+        )
     if (
         decision != "pause"
         or completed_pairs != 45
@@ -851,6 +874,117 @@ def _admit_cell227_pause_clearance(
         or selected.get("status") != 0
     ):
         raise ValueError("cell-227 provider-pause provenance differs from frozen evidence")
+    return history[227:]
+
+
+def _admit_cell249_metadata_clearance(
+    *,
+    health,
+    history: tuple,
+    completed_pairs: int,
+    cells: list[dict],
+    completed: dict[str, dict],
+    manifest: dict,
+    approval_path: Path,
+    journal_path: Path,
+    clearance_path: Path,
+) -> tuple:
+    """Admit the exact pair-125 transport stop without resetting the cell-228 epoch."""
+    base = journal_path.parent
+    approval_file = base / "cell249-approval.json"
+    pair_file = _pair_receipt_path(journal_path, 125)
+    original_endpoint_file = base / "endpoint-preflight-125.json"
+    recheck_file = base / "endpoint-recheck-cell-249.json"
+    prior_clearance = base / CELL227_PAUSE_CLEARANCE_NAME
+    raw_lines = journal_path.read_bytes().splitlines(keepends=True)
+    if (
+        EXPECTED_CELL249_METADATA_APPROVAL_SHA256 == "0" * 64
+        or clearance_path != base / CELL249_METADATA_CLEARANCE_NAME
+        or completed_pairs != 125
+        or len(completed) != 250
+        or len(history) != 250
+        or len(raw_lines) != 501
+        or _sha256(b"".join(raw_lines[:499])) != CELL249_METADATA_STOP_JOURNAL_SHA256
+        or health.provider_health(history[227:249]) != "continue"
+        or health.provider_health(history[227:]) != "continue"
+        or not all(
+            path.is_file()
+            for path in (
+                approval_file,
+                clearance_path,
+                pair_file,
+                original_endpoint_file,
+                recheck_file,
+                prior_clearance,
+            )
+        )
+        or _sha256(approval_file.read_bytes()) != EXPECTED_CELL249_METADATA_APPROVAL_SHA256
+        or _sha256((base / "collector-cell227.log").read_bytes())
+        != CELL249_METADATA_STOP_LOG_SHA256
+        or _sha256(_pair_receipt_path(journal_path, 124).read_bytes()) != CELL249_PAIR124_SHA256
+        or _sha256(original_endpoint_file.read_bytes()) != CELL249_ENDPOINT125_SHA256
+        or _sha256(prior_clearance.read_bytes()) != PRIOR_CELL227_CLEARANCE_SHA256
+    ):
+        raise ValueError("cell-249 metadata clearance is not at the reviewed boundary")
+    approval = json.loads(approval_file.read_bytes())
+    receipt = json.loads(clearance_path.read_bytes())
+    original_endpoint = json.loads(original_endpoint_file.read_bytes())
+    selected = json.loads(recheck_file.read_bytes())
+    first, second = cells[248:250]
+    failed_record = completed[first["cell_id"]]
+    endpoint = manifest["expected_selected_endpoint"]
+    if (
+        approval.get("protocol") != "m66-confirmatory-v2-cell249-metadata-transport-v1"
+        or approval.get("approved_for_paid_calls") is not True
+        or approval.get("approval_scope")
+        != "assigned_cells_250_through_280_only_no_retry_or_replacement"
+        or approval.get("original_manifest_sha256") != EXPECTED_MANIFEST_SHA256
+        or approval.get("original_approval_sha256") != EXPECTED_APPROVAL_SHA256
+        or approval.get("prior_cell227_approval_sha256") != EXPECTED_CELL227_PAUSE_APPROVAL_SHA256
+        or approval.get("stop_journal_sha256") != CELL249_METADATA_STOP_JOURNAL_SHA256
+        or approval.get("provider_health_epoch_start_order") != 228
+        or approval.get("new_provider_health_epoch") is not False
+        or approval.get("retained_invalid_cell_orders")
+        != [89, 90, 170, 186, 187, 188, 192, 226, 227, 249]
+        or approval.get("retained_agent_failed_cell_order") != 162
+        or approval.get("retained_score_valid_cell_order") != 208
+        or Decimal(str(approval.get("cost_ceiling_usd"))) != Decimal("504")
+        or receipt.get("protocol") != "m66-confirmatory-v2-cell249-metadata-transport-v1"
+        or receipt.get("manifest_sha256") != EXPECTED_MANIFEST_SHA256
+        or receipt.get("original_approval_sha256") != _sha256(approval_path.read_bytes())
+        or receipt.get("cell249_approval_sha256") != EXPECTED_CELL249_METADATA_APPROVAL_SHA256
+        or receipt.get("stop_journal_sha256") != CELL249_METADATA_STOP_JOURNAL_SHA256
+        or receipt.get("stop_log_sha256") != CELL249_METADATA_STOP_LOG_SHA256
+        or receipt.get("pair124_receipt_sha256") != CELL249_PAIR124_SHA256
+        or receipt.get("endpoint_preflight_125_sha256") != CELL249_ENDPOINT125_SHA256
+        or receipt.get("prior_cell227_clearance_sha256") != PRIOR_CELL227_CLEARANCE_SHA256
+        or receipt.get("endpoint_recheck_cell249_sha256") != _sha256(recheck_file.read_bytes())
+        or receipt.get("selected_endpoint_recheck") != selected
+        or receipt.get("resume_at_order") != 250
+        or receipt.get("provider_health_epoch_start_order") != 228
+        or receipt.get("new_provider_health_epoch") is not False
+        or receipt.get("last_failed_cell_id") != first["cell_id"]
+        or receipt.get("last_failed_run_id") != failed_record["run_id"]
+        or failed_record["status"] != "provider_failed"
+        or failed_record["failure_reason"] != "provider_unavailable"
+        or failed_record["score_valid"] is not False
+        or second["cell_id"] not in completed
+        or any(
+            selected.get(field) != original_endpoint.get(field)
+            for field in (
+                "endpoint",
+                "model_id",
+                "provider_name",
+                "status",
+                "input_usd_per_million",
+                "output_usd_per_million",
+            )
+        )
+        or selected.get("endpoint") != f"{endpoint['upstream_provider']} | {endpoint['revision']}"
+        or selected.get("model_id") != manifest["model_request"]["name"]
+        or selected.get("status") != 0
+    ):
+        raise ValueError("cell-249 metadata provenance differs from frozen evidence")
     return history[227:]
 
 
