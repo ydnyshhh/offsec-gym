@@ -1,4 +1,4 @@
-"""The proposed paid continuation remains closed until exact separate approval."""
+"""The paid continuation requires its exact separate approval receipt."""
 
 from __future__ import annotations
 
@@ -16,7 +16,8 @@ sys.path.insert(0, str(ROOT / "research_ops"))
 import m66_resume_after_cell208_redaction as recovery  # noqa: E402
 
 
-def test_paid_recovery_fails_closed_with_zero_pin(tmp_path: Path) -> None:
+def test_paid_recovery_fails_closed_with_zero_pin(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.setattr(recovery, "EXPECTED_CELL208_APPROVAL_SHA256", "0" * 64)
     path = tmp_path / "approval.json"
     with pytest.raises(ValueError, match="lacks separate exact paid-call approval"):
         recovery._require_approval(path)
