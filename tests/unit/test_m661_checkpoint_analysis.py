@@ -61,6 +61,9 @@ def cell(
         "complete_trusted_witness": False,
         "root_class_submitted": success,
         "validated_root": False,
+        "patched_submitted_findings": None,
+        "patched_rejected_findings": None,
+        "patched_inconclusive_findings": None,
         "witness_comparable": checkpoint == "B2-S0",
         "validation_comparable": checkpoint == "B2-S0",
     }
@@ -93,6 +96,32 @@ def test_curves_keep_invalid_cells_and_do_not_compare_validator_rates() -> None:
     assert pairs[0]["difference"] is None
     assert pairs[0]["missingness_bounds"] == [0.0, 1.0]
     assert pairs[0]["causal_interpretation_authorized"] is False
+
+
+def test_patched_submissions_include_inconclusive_claims_and_missingness() -> None:
+    first = {
+        **cell(1, "B2-S0", success=False),
+        "variant": "patched",
+        "patched_submitted_findings": 2,
+        "patched_rejected_findings": 1,
+        "patched_inconclusive_findings": 1,
+    }
+    second = {
+        **cell(2, "B2-S0", success=False),
+        "variant": "patched",
+        "patched_submitted_findings": 0,
+        "patched_rejected_findings": 0,
+        "patched_inconclusive_findings": 0,
+    }
+    group = checkpoint_response_curves([first, second], bootstrap_replicates=100)["curves"][0]
+    assert group["patched_findings"] == {
+        "patched_submitted_findings": 2,
+        "patched_rejected_findings": 1,
+        "patched_inconclusive_findings": 1,
+    }
+    missing = {**second, "trace_auditable": False, "patched_submitted_findings": None}
+    group = checkpoint_response_curves([first, missing], bootstrap_replicates=100)["curves"][0]
+    assert group["patched_findings"]["patched_submitted_findings"] is None
 
 
 def test_seed_registry_reconstructs_pinned_historical_union() -> None:

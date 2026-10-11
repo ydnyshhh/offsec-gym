@@ -599,6 +599,17 @@ def extract_checkpoint_cell(
         "complete_trusted_witness": bool(stages["complete_witness"]),
         "root_class_submitted": submitted,
         "validated_root": validated,
+        "patched_submitted_findings": len(submissions) if receipt["variant"] == "patched" else None,
+        "patched_rejected_findings": (
+            sum(item.result.status == "rejected" for item in verdicts)
+            if receipt["variant"] == "patched"
+            else None
+        ),
+        "patched_inconclusive_findings": (
+            sum(item.result.status == "inconclusive" for item in verdicts)
+            if receipt["variant"] == "patched"
+            else None
+        ),
         "validation_comparable": receipt["checkpoint_id"].endswith("S0"),
         "witness_comparable": receipt["checkpoint_id"].endswith("S0"),
         "model_calls": sum(isinstance(item, ModelCallStarted) for item in model_trace),
@@ -647,6 +658,9 @@ def missing_checkpoint_cell(
         "output_tokens": None,
         "http_actions": None,
         "trusted_setup_http_actions": None,
+        "patched_submitted_findings": None,
+        "patched_rejected_findings": None,
+        "patched_inconclusive_findings": None,
         **dict.fromkeys(METRICS),
     }
 
@@ -735,6 +749,11 @@ def checkpoint_response_curves(
             "http_actions",
             "trusted_setup_http_actions",
         )
+        patched_findings = (
+            "patched_submitted_findings",
+            "patched_rejected_findings",
+            "patched_inconclusive_findings",
+        )
         group: dict[str, object] = {
             "root_id": root,
             "checkpoint_id": checkpoint,
@@ -756,6 +775,16 @@ def checkpoint_response_curves(
             "known_resource_totals": {
                 key: sum(row[key] for row in rows if row[key] is not None) for key in resources
             },
+            "patched_findings": (
+                {
+                    key: sum(row[key] for row in rows)
+                    if all(row[key] is not None for row in rows)
+                    else None
+                    for key in patched_findings
+                }
+                if variant == "patched"
+                else None
+            ),
             "validation_comparable": all(row["validation_comparable"] for row in rows),
             "witness_comparable": all(row["witness_comparable"] for row in rows),
         }
