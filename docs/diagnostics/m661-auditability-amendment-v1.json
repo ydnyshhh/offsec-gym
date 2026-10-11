@@ -1,0 +1,27 @@
+{
+  "amendment": "checkpoint-trace-auditability-v1",
+  "analysis_module_sha256": "7dfa596c70356e56dcc8742665411bae4fdae662660a8f5a197fffff1c044954",
+  "analysis_test_sha256": "b3c901e98eb20054edb319363555bd8d84e529d62ee6454f1cacdd0c7bdc5935",
+  "created_at": "2026-10-11T17:45:18.141298+00:00",
+  "focused_junit_sha256": "15dcb33f0685e58397f6c274e7754155453a08f431abd1ad6c87332e2468a74f",
+  "focused_tests": {
+    "failed": 0,
+    "passed": 297,
+    "skipped": 0
+  },
+  "paid_model_calls": 0,
+  "predecessor_qualification_sha256": "a2c2fd5d0720e813b609a6b6721382683c9f5a730b7d7a7067705c55d95b38e4",
+  "protocol": "m661-critical-state-branching-v1",
+  "real_compose_recheck": {
+    "failed": 0,
+    "model_calls": 0,
+    "passed": 5
+  },
+  "semantic_contract": {
+    "provider_failed_preterminal_stages": "retained if trace_auditable",
+    "score_valid": "frozen terminal score eligibility",
+    "trace_auditable": "authoritative receipt, event, request, evidence and stage replay",
+    "unstarted_or_corrupt_artifacts": "assigned with missing stages"
+  },
+  "source_commit": "67527e48ff7241a1cef0ce801b1b6c847425b2ab"
+}

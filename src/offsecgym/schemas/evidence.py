@@ -22,7 +22,7 @@ class RequestArtifact(StrictModel):
     range_generation: int = Field(ge=0)
     worker_id: UUID | None = None
     task_id: UUID | None = None
-    source_phase: Literal["bootstrap"] | None = None
+    source_phase: Literal["bootstrap", "critical_checkpoint"] | None = None
     originating_call_id: UUID | None = None
     originating_tool_call_id: str | None = None
     identity_id: UUID | None = None
