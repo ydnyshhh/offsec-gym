@@ -3,17 +3,22 @@
 from __future__ import annotations
 
 from pathlib import Path
+from types import SimpleNamespace
+from uuid import uuid4
 
 import pytest
 
 from offsecgym.research.m661_checkpoint_analysis import (
     checkpoint_response_curves,
+    extract_checkpoint_cell,
     paired_checkpoint_differences,
 )
+from offsecgym.research.m661_checkpoints import _digest
 from offsecgym.research.m661_seed_exclusions import (
     load_exclusion_registry,
     require_fresh_seed,
 )
+from offsecgym.schemas.events import RangeStarted, RunCompleted, RunStarted
 
 
 def cell(seed: int, checkpoint: str, *, success: bool, auditable: bool = True) -> dict:
@@ -71,3 +76,30 @@ def test_seed_registry_reconstructs_pinned_historical_union() -> None:
     with pytest.raises(ValueError, match="prior or qualification"):
         require_fresh_seed(root, 900_000)
     assert require_fresh_seed(root, 1_200_001) == digest
+
+
+def test_post_terminal_model_action_cannot_enter_stage_extraction(monkeypatch) -> None:
+    run_id, build_id, instance_id = uuid4(), uuid4(), uuid4()
+    trace = [
+        RunStarted(run_id=run_id, actor="controller", sequence_number=1, experiment_hash="test"),
+        RangeStarted(
+            run_id=run_id,
+            actor="controller",
+            sequence_number=2,
+            build_id=build_id,
+            range_instance_id=instance_id,
+            range_generation=1,
+        ),
+        RunCompleted(run_id=run_id, actor="controller", sequence_number=3, status="completed"),
+    ]
+    fixture = {"test": True}
+    receipt = {"fixture_sha256": _digest(fixture)}
+    monkeypatch.setattr(
+        "offsecgym.research.m661_checkpoint_analysis._verify_binding",
+        lambda *_args: receipt,
+    )
+    action = SimpleNamespace(request=SimpleNamespace(source_phase=None, run_id=run_id), sequence=4)
+    with pytest.raises(ValueError, match="post-terminal"):
+        extract_checkpoint_cell(
+            b"{}", trace, [], [action], [], SimpleNamespace(build_id=build_id), fixture
+        )
