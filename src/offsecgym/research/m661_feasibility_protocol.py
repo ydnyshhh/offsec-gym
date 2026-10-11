@@ -331,6 +331,7 @@ def plan_feasibility(
                 "paired_adjacent_seed_contrasts",
                 "patched_submitted_findings",
                 "resource_use_with_missing_flags",
+                "b3_predeadline_action_diagnostics",
             ],
             "resampling_unit": "seed",
             "bootstrap_replicates": 10000,
@@ -340,5 +341,15 @@ def plan_feasibility(
             "score_valid_separate_from_trace_auditable": True,
             "unexpected_analysis_exception": "abort_global_postcheck",
             "cross_checkpoint_witness_and_validator_rates": "suppressed; S0 descriptive only",
+            "b3_predeadline_action_diagnostics": {
+                "states": ["B3-S2", "B3-S4"],
+                "first_two_categories": "ordered_model_action_requests",
+                "model_http_actions_before_due_tick": "completed_gateway_actions",
+                "cancel_attempt_before_due_tick": "target_cancel_request_including_blocked",
+                "cancel_commit_before_due_tick": "target_cancel_response_status_CANCELLED",
+                "worker_tick_rule": "one_tick_per_completed_gateway_action",
+                "failed_dispatch_before_due": "timing_unknown",
+                "interpretation": "descriptive_only_no_new_endpoint",
+            },
         },
     }

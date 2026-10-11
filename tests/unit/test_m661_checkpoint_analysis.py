@@ -12,6 +12,7 @@ from uuid import uuid4
 import pytest
 
 from offsecgym.research.m661_checkpoint_analysis import (
+    _b3_deadline_diagnostics,
     _model_usage,
     checkpoint_response_curves,
     extract_checkpoint_assignment,
@@ -26,6 +27,7 @@ from offsecgym.research.m661_seed_exclusions import (
 from offsecgym.runtime.enterprise import FAMILY, fixture_for_seed, oracle_for_fixture
 from offsecgym.schemas.events import (
     ActionCompleted,
+    ActionFailed,
     ActionRequested,
     ModelCallCompleted,
     ModelCallFailed,
@@ -35,6 +37,7 @@ from offsecgym.schemas.events import (
     RunStarted,
 )
 from offsecgym.schemas.evidence import Evidence, RequestArtifact
+from offsecgym.validation.deterministic import ProofAction
 
 
 def cell(
@@ -165,6 +168,78 @@ def test_started_provider_call_without_completion_has_unknown_tokens() -> None:
         output_tokens=45,
     )
     assert _model_usage([started, completed])["input_tokens"] == 123
+
+
+def test_b3_first_two_http_choices_and_deadline_are_descriptive() -> None:
+    run_id, instance_id = uuid4(), uuid4()
+    change, environment = str(uuid4()), str(uuid4())
+    observed = []
+    completed = []
+    for sequence, method, path, body in (
+        (10, "GET", "/api/jobs?limit=20", {}),
+        (12, "POST", f"/api/changes/{change}/cancel", {"status": "CANCELLED"}),
+        (14, "GET", f"/api/environments/{environment}", {}),
+    ):
+        action_id, request_id, evidence_id = uuid4(), uuid4(), uuid4()
+        request = RequestArtifact(
+            request_artifact_id=request_id,
+            run_id=run_id,
+            action_id=action_id,
+            range_instance_id=instance_id,
+            range_generation=1,
+            destination=FAMILY,
+            method=method,
+            path=path,
+        )
+        raw = json.dumps(body).encode()
+        evidence = Evidence(
+            evidence_id=evidence_id,
+            run_id=run_id,
+            action_id=action_id,
+            range_instance_id=instance_id,
+            range_generation=1,
+            request_artifact_id=request_id,
+            http_status=200,
+            body_b64=base64.b64encode(raw).decode(),
+            response_sha256=hashlib.sha256(raw).hexdigest(),
+        )
+        observed.append(SimpleNamespace(sequence=sequence, request=request))
+        completed.append(ProofAction(request, evidence, sequence + 1))
+    receipt = {"verified_public_state": {"queued_tick": 10, "due_tick": 14, "ticks_since_queue": 2}}
+    timing = _b3_deadline_diagnostics(receipt, [], completed, observed, change, environment)
+    assert timing["first_model_http_action_category"] == "job_read"
+    assert timing["second_model_http_action_category"] == "target_cancel"
+    assert timing["worker_tick_at_model_start"] == 12
+    assert timing["model_http_actions_before_due_tick"] == 2
+    assert timing["cancel_attempt_before_due_tick"] is True
+    assert timing["cancel_commit_before_due_tick"] is True
+    assert timing["worker_clock_reconstructable"] is True
+
+    blocked_cancel = _b3_deadline_diagnostics(
+        receipt, [], [completed[0], completed[2]], observed, change, environment
+    )
+    assert blocked_cancel["cancel_attempt_before_due_tick"] is True
+    assert blocked_cancel["cancel_commit_before_due_tick"] is False
+    assert blocked_cancel["model_http_actions_before_due_tick"] == 2
+
+    failed = ActionFailed(
+        run_id=run_id,
+        actor="controller",
+        sequence_number=11,
+        action_id=observed[0].request.action_id,
+        reason_code="gateway_transport_failed",
+    )
+    uncertain = _b3_deadline_diagnostics(
+        receipt, [failed], completed[1:], observed, change, environment
+    )
+    assert uncertain["worker_clock_reconstructable"] is False
+    assert uncertain["model_http_actions_before_due_tick"] is None
+
+    s0 = _b3_deadline_diagnostics(
+        {"verified_public_state": {}}, [], completed, observed, change, environment
+    )
+    assert s0["first_model_http_action_category"] == "job_read"
+    assert s0["model_http_actions_before_due_tick"] is None
 
 
 def test_seed_registry_reconstructs_pinned_historical_union() -> None:

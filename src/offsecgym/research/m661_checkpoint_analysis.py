@@ -438,6 +438,96 @@ def audit_checkpoint_model_artifacts(
     return actions, requests
 
 
+def _b3_action_category(request: RequestArtifact, change: str, environment: str) -> str:
+    path = request.path
+    if request.method == "POST" and path == f"/api/changes/{change}/cancel":
+        return "target_cancel"
+    if request.method == "POST" and path == f"/api/changes/{change}/deploy":
+        return "target_deploy"
+    if request.method == "GET" and path == f"/api/changes/{change}":
+        return "target_change_read"
+    if request.method == "GET" and path.startswith("/api/changes?"):
+        return "change_list_read"
+    if request.method == "GET" and (path.startswith("/api/jobs/") or path.startswith("/api/jobs?")):
+        return "job_read"
+    if request.method == "GET" and path == f"/api/environments/{environment}":
+        return "target_environment_read"
+    if request.method == "GET" and path.startswith("/api/audit"):
+        return "audit_read"
+    return "other_read" if request.method == "GET" else "other_write"
+
+
+def _b3_deadline_diagnostics(
+    receipt: dict[str, object],
+    model_trace: list[TraceEvent],
+    model_actions: list[ProofAction],
+    model_requests: list[ObservedRequest],
+    change: str,
+    environment: str,
+) -> dict[str, object]:
+    """Describe model HTTP choices against the audited setup worker clock."""
+    ordered = sorted(model_requests, key=lambda item: item.sequence)
+    categories = [_b3_action_category(item.request, change, environment) for item in ordered[:2]]
+    result: dict[str, object] = {
+        "first_model_http_action_category": categories[0] if categories else "none",
+        "second_model_http_action_category": categories[1] if len(categories) > 1 else "none",
+        "model_http_actions_before_due_tick": None,
+        "cancel_attempt_before_due_tick": None,
+        "cancel_commit_before_due_tick": None,
+        "worker_clock_reconstructable": False,
+        "worker_tick_at_model_start": None,
+        "worker_due_tick": None,
+    }
+    state = receipt["verified_public_state"]
+    queued_tick = state.get("queued_tick")
+    due_tick = state.get("due_tick")
+    elapsed = state.get("ticks_since_queue")
+    if queued_tick is None and due_tick is None and elapsed is None:
+        return result  # S0 has no queued target job or model-start deadline.
+    if (
+        type(queued_tick) is not int
+        or type(due_tick) is not int
+        or type(elapsed) is not int
+        or due_tick - queued_tick != 4
+        or not 0 <= elapsed < 4
+    ):
+        raise ValueError("audited B3 worker-clock state differs from frozen protocol")
+    tick = queued_tick + elapsed
+    result["worker_tick_at_model_start"] = tick
+    result["worker_due_tick"] = due_tick
+    completed = {item.request.action_id: item for item in model_actions}
+    failed = {item.action_id for item in model_trace if isinstance(item, ActionFailed)}
+    actions_before_due = 0
+    cancel_attempted = False
+    cancel_committed = False
+    for observed in ordered:
+        if tick >= due_tick:
+            break
+        action_id = observed.request.action_id
+        if _b3_action_category(observed.request, change, environment) == "target_cancel":
+            cancel_attempted = True
+        action = completed.get(action_id)
+        if action is None:
+            if action_id in failed:
+                return result  # A failed dispatch can have an unknown settle/tick effect.
+            continue  # A blocked request never reaches the worker clock.
+        actions_before_due += 1
+        if _b3_action_category(observed.request, change, environment) == "target_cancel":
+            cancel_committed |= (
+                action.evidence.http_status == 200 and _body(action).get("status") == "CANCELLED"
+            )
+        tick += 1
+    result.update(
+        {
+            "model_http_actions_before_due_tick": actions_before_due,
+            "cancel_attempt_before_due_tick": cancel_attempted,
+            "cancel_commit_before_due_tick": cancel_committed,
+            "worker_clock_reconstructable": True,
+        }
+    )
+    return result
+
+
 def extract_checkpoint_cell(
     receipt_bytes: bytes,
     model_trace: list[TraceEvent],
@@ -582,6 +672,9 @@ def extract_checkpoint_cell(
             ),
             "worker_execution_observed": executed,
             "downstream_state_changed": after_env,
+            **_b3_deadline_diagnostics(
+                receipt, model_trace, model_actions, model_requests, change, env
+            ),
         }
     submissions = [item for item in model_trace if isinstance(item, FindingSubmitted)]
     verdicts = [item for item in model_trace if isinstance(item, FindingValidated)]
