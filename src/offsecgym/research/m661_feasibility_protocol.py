@@ -22,7 +22,7 @@ from offsecgym.schemas.specs import ExperimentSpec
 from offsecgym.solver.monolithic import model_tools
 
 PROTOCOL = "m661-feasibility-v1"
-SOURCE_COMMIT = "0" * 40  # Pin the PR #34 merge commit before this protocol PR is published.
+SOURCE_COMMIT = "e302b182a6987c84ac542f50c36932de249c99c7"
 CONFIG_PATH = "experiments/configs/m66-pilot-v2-range-b.yaml"
 ENDPOINT_URL = "https://openrouter.ai/api/v1/models/moonshotai/kimi-k3/endpoints"
 REQUESTED_MODEL = "moonshotai/kimi-k3"

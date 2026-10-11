@@ -51,7 +51,7 @@ def test_eight_fresh_seeds_and_balanced_checkpoint_variant_order() -> None:
 
 
 def test_plan_is_paired_budgeted_and_unapproved(monkeypatch) -> None:
-    monkeypatch.setattr(protocol, "SOURCE_COMMIT", "a" * 40)
+    assert protocol.SOURCE_COMMIT == "e302b182a6987c84ac542f50c36932de249c99c7"
     receipt = endpoint_receipt()
     plan = protocol.plan_feasibility(ROOT, protocol_commit="b" * 40, endpoint_receipt=receipt)
     assert plan == protocol.plan_feasibility(
@@ -85,6 +85,7 @@ def test_price_drift_and_unmerged_source_pin_fail_closed(monkeypatch) -> None:
         protocol._price_snapshot({**receipt, "output_usd_per_million_tokens": 16.0})
     with pytest.raises(ValueError, match="endpoint or price"):
         protocol._price_snapshot({**receipt, "revision": "unexpected"})
+    monkeypatch.setattr(protocol, "SOURCE_COMMIT", "0" * 40)
     with pytest.raises(ValueError, match="source merge commit"):
         protocol.require_protocol_checkout(ROOT, "b" * 40)
     with pytest.raises(ValueError, match="source merge commit"):
