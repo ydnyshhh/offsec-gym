@@ -49,6 +49,7 @@ SOURCE_PATHS = (
     "src/offsecgym/schemas/events.py",
     "src/offsecgym/schemas/evidence.py",
     "src/offsecgym/schemas/workers.py",
+    CONFIG_PATH,
 )
 PROTOCOL_PATHS = (
     CONFIG_PATH,

@@ -34,6 +34,12 @@ def endpoint_receipt() -> dict[str, object]:
 
 
 def test_eight_fresh_seeds_and_balanced_checkpoint_variant_order() -> None:
+    assert protocol.CONFIG_PATH in protocol.SOURCE_PATHS
+    assert protocol.CONFIG_PATH in protocol.PROTOCOL_PATHS
+    assert (
+        protocol._commit_bytes(ROOT, protocol.SOURCE_COMMIT, protocol.CONFIG_PATH)
+        == (ROOT / protocol.CONFIG_PATH).read_bytes()
+    )
     excluded, _ = load_exclusion_registry(ROOT)
     seeds = protocol.select_seeds(excluded)
     assert len(seeds) == len(set(seeds)) == 8
