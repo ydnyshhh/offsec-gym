@@ -12,6 +12,8 @@ from uuid import uuid4
 import pytest
 
 from offsecgym.research.m661_checkpoint_analysis import (
+    _b3_deadline_diagnostics,
+    _model_usage,
     checkpoint_response_curves,
     extract_checkpoint_assignment,
     extract_checkpoint_cell,
@@ -25,12 +27,17 @@ from offsecgym.research.m661_seed_exclusions import (
 from offsecgym.runtime.enterprise import FAMILY, fixture_for_seed, oracle_for_fixture
 from offsecgym.schemas.events import (
     ActionCompleted,
+    ActionFailed,
     ActionRequested,
+    ModelCallCompleted,
+    ModelCallFailed,
+    ModelCallStarted,
     RangeStarted,
     RunCompleted,
     RunStarted,
 )
 from offsecgym.schemas.evidence import Evidence, RequestArtifact
+from offsecgym.validation.deterministic import ProofAction
 
 
 def cell(
@@ -61,6 +68,9 @@ def cell(
         "complete_trusted_witness": False,
         "root_class_submitted": success,
         "validated_root": False,
+        "patched_submitted_findings": None,
+        "patched_rejected_findings": None,
+        "patched_inconclusive_findings": None,
         "witness_comparable": checkpoint == "B2-S0",
         "validation_comparable": checkpoint == "B2-S0",
     }
@@ -93,6 +103,143 @@ def test_curves_keep_invalid_cells_and_do_not_compare_validator_rates() -> None:
     assert pairs[0]["difference"] is None
     assert pairs[0]["missingness_bounds"] == [0.0, 1.0]
     assert pairs[0]["causal_interpretation_authorized"] is False
+
+
+def test_patched_submissions_include_inconclusive_claims_and_missingness() -> None:
+    first = {
+        **cell(1, "B2-S0", success=False),
+        "variant": "patched",
+        "patched_submitted_findings": 2,
+        "patched_rejected_findings": 1,
+        "patched_inconclusive_findings": 1,
+    }
+    second = {
+        **cell(2, "B2-S0", success=False),
+        "variant": "patched",
+        "patched_submitted_findings": 0,
+        "patched_rejected_findings": 0,
+        "patched_inconclusive_findings": 0,
+    }
+    group = checkpoint_response_curves([first, second], bootstrap_replicates=100)["curves"][0]
+    assert group["patched_findings"] == {
+        "patched_submitted_findings": 2,
+        "patched_rejected_findings": 1,
+        "patched_inconclusive_findings": 1,
+    }
+    missing = {**second, "trace_auditable": False, "patched_submitted_findings": None}
+    group = checkpoint_response_curves([first, missing], bootstrap_replicates=100)["curves"][0]
+    assert group["patched_findings"]["patched_submitted_findings"] is None
+
+
+def test_started_provider_call_without_completion_has_unknown_tokens() -> None:
+    run_id, call_id = uuid4(), uuid4()
+    started = ModelCallStarted(
+        schema_version="1",
+        run_id=run_id,
+        actor="controller",
+        sequence_number=1,
+        call_id=call_id,
+        provider="openrouter",
+        model="moonshotai/kimi-k3",
+        input_sha256="0" * 64,
+    )
+    failed = ModelCallFailed(
+        run_id=run_id,
+        actor="controller",
+        sequence_number=2,
+        call_id=call_id,
+        reason_code="provider_unavailable",
+    )
+    assert _model_usage([started, failed]) == {
+        "model_calls": 1,
+        "input_tokens": None,
+        "output_tokens": None,
+        "resource_auditable": False,
+    }
+    completed = ModelCallCompleted(
+        schema_version="1",
+        run_id=run_id,
+        actor="controller",
+        sequence_number=2,
+        call_id=call_id,
+        provider_status="completed",
+        tool_call_count=0,
+        input_tokens=123,
+        output_tokens=45,
+    )
+    assert _model_usage([started, completed])["input_tokens"] == 123
+
+
+def test_b3_first_two_http_choices_and_deadline_are_descriptive() -> None:
+    run_id, instance_id = uuid4(), uuid4()
+    change, environment = str(uuid4()), str(uuid4())
+    observed = []
+    completed = []
+    for sequence, method, path, body in (
+        (10, "GET", "/api/jobs?limit=20", {}),
+        (12, "POST", f"/api/changes/{change}/cancel", {"status": "CANCELLED"}),
+        (14, "GET", f"/api/environments/{environment}", {}),
+    ):
+        action_id, request_id, evidence_id = uuid4(), uuid4(), uuid4()
+        request = RequestArtifact(
+            request_artifact_id=request_id,
+            run_id=run_id,
+            action_id=action_id,
+            range_instance_id=instance_id,
+            range_generation=1,
+            destination=FAMILY,
+            method=method,
+            path=path,
+        )
+        raw = json.dumps(body).encode()
+        evidence = Evidence(
+            evidence_id=evidence_id,
+            run_id=run_id,
+            action_id=action_id,
+            range_instance_id=instance_id,
+            range_generation=1,
+            request_artifact_id=request_id,
+            http_status=200,
+            body_b64=base64.b64encode(raw).decode(),
+            response_sha256=hashlib.sha256(raw).hexdigest(),
+        )
+        observed.append(SimpleNamespace(sequence=sequence, request=request))
+        completed.append(ProofAction(request, evidence, sequence + 1))
+    receipt = {"verified_public_state": {"queued_tick": 10, "due_tick": 14, "ticks_since_queue": 2}}
+    timing = _b3_deadline_diagnostics(receipt, [], completed, observed, change, environment)
+    assert timing["first_model_http_action_category"] == "job_read"
+    assert timing["second_model_http_action_category"] == "target_cancel"
+    assert timing["worker_tick_at_model_start"] == 12
+    assert timing["model_http_actions_before_due_tick"] == 2
+    assert timing["cancel_attempt_before_due_tick"] is True
+    assert timing["cancel_commit_before_due_tick"] is True
+    assert timing["worker_clock_reconstructable"] is True
+
+    blocked_cancel = _b3_deadline_diagnostics(
+        receipt, [], [completed[0], completed[2]], observed, change, environment
+    )
+    assert blocked_cancel["cancel_attempt_before_due_tick"] is True
+    assert blocked_cancel["cancel_commit_before_due_tick"] is False
+    assert blocked_cancel["model_http_actions_before_due_tick"] == 2
+
+    failed = ActionFailed(
+        run_id=run_id,
+        actor="controller",
+        sequence_number=11,
+        action_id=observed[0].request.action_id,
+        reason_code="gateway_transport_failed",
+    )
+    uncertain = _b3_deadline_diagnostics(
+        receipt, [failed], completed[1:], observed, change, environment
+    )
+    assert uncertain["worker_clock_reconstructable"] is False
+    assert uncertain["model_http_actions_before_due_tick"] is None
+
+    s0 = _b3_deadline_diagnostics(
+        {"verified_public_state": {}}, [], completed, observed, change, environment
+    )
+    assert s0["first_model_http_action_category"] == "job_read"
+    assert s0["model_http_actions_before_due_tick"] is None
 
 
 def test_seed_registry_reconstructs_pinned_historical_union() -> None:
@@ -281,9 +428,12 @@ async def test_provider_failed_preterminal_b2_stage_is_retained_only_with_intact
     assert corrupt["score_valid"] is False
     assert corrupt["trace_auditable"] is False
     assert corrupt["full_transition"] is None
-    assert checkpoint_response_curves([corrupt], bootstrap_replicates=100)["curves"][0][
-        "full_transition"
-    ]["missingness_bounds"] == [0.0, 1.0]
+    assert corrupt["model_calls"] is None
+    assert corrupt["resource_auditable"] is False
+    corrupt_curve = checkpoint_response_curves([corrupt], bootstrap_replicates=100)["curves"][0]
+    assert corrupt_curve["full_transition"]["missingness_bounds"] == [0.0, 1.0]
+    assert corrupt_curve["model_calls"] is None
+    assert corrupt_curve["resource_missing_cells"] == 1
 
     last_evidence.unlink()
     absent = await extract_checkpoint_assignment(assignment, tmp_path, Events(), oracle, fixture)
@@ -296,10 +446,21 @@ async def test_provider_failed_preterminal_b2_stage_is_retained_only_with_intact
     assert unstarted["terminal_status"] == "unstarted"
     assert unstarted["score_valid"] is None
     assert unstarted["trace_auditable"] is False
+    assert unstarted["http_actions"] is None
 
     last_evidence.write_text(evidence.model_dump_json())
+    original_action = trace[3]
     trace[3] = trace[3].model_copy(update={"evidence_id": None})
     absent_event_evidence = await extract_checkpoint_assignment(
         assignment, tmp_path, Events(), oracle, fixture
     )
     assert absent_event_evidence["trace_auditable"] is False
+
+    trace[3] = original_action
+
+    def faulty_analyzer(*_args):
+        raise ValueError("analysis implementation defect")
+
+    monkeypatch.setattr("offsecgym.research.m661_checkpoint_analysis._b2_stages", faulty_analyzer)
+    with pytest.raises(ValueError, match="analysis implementation defect"):
+        await extract_checkpoint_assignment(assignment, tmp_path, Events(), oracle, fixture)
