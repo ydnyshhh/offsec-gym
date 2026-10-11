@@ -1,19 +1,16 @@
 # M6.6 design: witness-oriented exploration
 
 **Status:** the opt-in oracle-free witness ledger and policy runner are
-implemented for SaaS and enterprise change control. The approved excluded
-eight-cell v1 pilot [closed with failed infrastructure
-gates](diagnostics/m66-pilot-v1-results.md). Four Range A cells are score
-valid; two Range B vulnerable cells are score invalid after exhausting the
-frozen 32-action bootstrap cap; the final patched pair remains unstarted.
-The two failed runs were reconciled without retry. A separate v2 excluded
-pilot was [frozen](diagnostics/m66-pilot-v2-freeze.md), separately approved,
-and [closed after a provider transport failure at cell 7](diagnostics/m66-pilot-v2-results.md).
-Six v2 cells are score valid; the score-invalid seventh cell is retained and
-the eighth was not started. Neither pilot supports an eight-cell policy effect
-estimate. No confirmatory M6.6 sample has run. The next step is the
-[confirmatory protocol design](diagnostics/m66-confirmatory-protocol-design.md);
-there is no v3 feasibility pilot planned.
+implemented for SaaS and enterprise change control. The excluded
+[v1](diagnostics/m66-pilot-v1-results.md) and
+[v2](diagnostics/m66-pilot-v2-results.md) pilots closed without a policy
+effect estimate. The confirmatory v1 run stopped after 34 frozen cells and
+remains separate. The [M6.6 v2 confirmatory study](diagnostics/m66-confirmatory-v2-results.md)
+completed all 280 frozen cells and 140 pairs without retry or replacement.
+The predeclared witness-minus-control complete-proof contrast was +0.5167
+per assigned Range A root and +0.0056 per assigned Range B root. Ten retained
+provider failures and separately approved operational pauses limit
+interpretation; no further paid collection is authorized by this result.
 [M6.5.1](diagnostics/m651-witness-recovery-v2-results.md)
 found 19 successful unauthorized refund actions across ten vulnerable runs,
 yet only two runs held a complete ordered, same-identity paid-before /

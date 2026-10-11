@@ -186,11 +186,13 @@
 - A managed artifact store and full experiment run manifests remain future controller work.
 - The model-turn protocol still uses OpenAI Responses item shapes. Normalize model output
   and opaque continuation state before adding a second provider.
-- M6.6 now has a second state-changing family and a real-Compose fake-provider
-  control/witness pair on vulnerable and patched builds. The frozen v1 pilot
-  exposed a deterministic Range B bootstrap budget shortfall and a pinned
-  offline stage-extraction defect. The corrected v2 excluded protocol and
-  manifest are frozen; a separate approval is required before paid collection.
+- M6.6 has a second state-changing family and a real-Compose fake-provider
+  control/witness pair on vulnerable and patched builds. Its excluded pilots
+  and stopped confirmatory v1 are preserved. The [confirmatory v2 result](diagnostics/m66-confirmatory-v2-results.md)
+  completed 280 frozen cells with a large Range A proof contrast and a very
+  small Range B contrast; ten provider failures and operational pauses remain
+  part of its audit trail. Any new collection needs a new frozen design and
+  separate paid-call approval.
 
 ## Next milestone
 
@@ -212,11 +214,11 @@ lacks a complete ordered witness and the recovery estimate is concentrated
 in one seed. The [M6.5.2 equal-compute context study](diagnostics/m652-reporting-context-v1-results.md)
 is complete. Its observed continuation advantage has a wide paired interval,
 and post-start attrition limits interpretation. The [M6.6 witness-oriented
-exploration study](milestone-6.6.md) remains the proposed action-to-proof
-test. [Range B preflight](diagnostics/m66-range-b-readiness.md) now covers
-model-runner parity and broad no-model qualification. The first frozen paid
-pilot did not reach Range B model behavior because of a bootstrap cap error;
-the [audited v1 result](diagnostics/m66-pilot-v1-results.md) is retained.
+exploration study](milestone-6.6.md) has completed its confirmatory v2
+action-to-proof test. Its family-specific [audited result](diagnostics/m66-confirmatory-v2-results.md)
+shows substantial Range A conversion and almost no Range B conversion under
+the frozen protocol. [Range B preflight](diagnostics/m66-range-b-readiness.md)
+and both excluded pilots remain preserved as separate feasibility evidence.
 
 ## Known architectural debt
 
