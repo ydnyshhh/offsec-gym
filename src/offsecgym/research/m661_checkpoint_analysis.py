@@ -29,9 +29,11 @@ from offsecgym.research.m661_checkpoints import (
     _canonical,
     _digest,
 )
-from offsecgym.runtime.manifests import StateStore
+from offsecgym.runtime.manifests import BuildIntegrityError, StateStore
 from offsecgym.schemas.events import (
+    ActionBlocked,
     ActionCompleted,
+    ActionFailed,
     ActionRequested,
     CriticalCheckpointBound,
     FindingSubmitted,
@@ -66,6 +68,7 @@ def _valid_trace(trace: list[TraceEvent]) -> None:
     if (
         not trace
         or len({event.run_id for event in trace}) != 1
+        or len({event.event_id for event in trace}) != len(trace)
         or [event.sequence_number for event in trace] != list(range(1, len(trace) + 1))
     ):
         raise ValueError("checkpoint trace identity or sequence invalid")
@@ -243,6 +246,157 @@ async def audit_checkpoint_receipt(
     }
 
 
+def _model_artifact_index(
+    model_trace: list[TraceEvent],
+    model_actions: list[ProofAction],
+    model_requests: list[ObservedRequest],
+) -> None:
+    """Require every model request and completed evidence to match its trace event."""
+    requests = [
+        item
+        for item in model_trace
+        if isinstance(item, ActionRequested) and item.source_phase is None
+    ]
+    completed = [
+        item
+        for item in model_trace
+        if isinstance(item, ActionCompleted)
+        and item.evidence_id is not None
+        and any(request.action_id == item.action_id for request in requests)
+    ]
+    by_request = {item.request.action_id: item for item in model_requests}
+    by_action = {item.request.action_id: item for item in model_actions}
+    if (
+        len(by_request) != len(requests)
+        or len(by_request) != len(model_requests)
+        or len(by_action) != len(completed)
+        or len(by_action) != len(model_actions)
+        or set(by_request) != {item.action_id for item in requests}
+        or set(by_action) != {item.action_id for item in completed}
+    ):
+        raise ValueError("model request or evidence artifact is absent or duplicated")
+    for event in requests:
+        observed = by_request[event.action_id]
+        request = observed.request
+        if (
+            observed.sequence != event.sequence_number
+            or request.run_id != event.run_id
+            or request.action_id != event.action_id
+            or request.request_artifact_id != event.request_artifact_id
+            or request.range_instance_id != event.range_instance_id
+            or request.range_generation != event.range_generation
+            or request.source_phase is not None
+            or request.method != event.method
+            or request.destination != event.destination
+            or request.identity_id != event.identity_id
+            or hashlib.sha256(request.path.encode()).hexdigest() != event.path_sha256
+        ):
+            raise ValueError("model request artifact differs from authoritative event")
+    for event in completed:
+        action = by_action[event.action_id]
+        evidence = action.evidence
+        request = action.request
+        if (
+            action.sequence != event.sequence_number
+            or request != by_request[event.action_id].request
+            or evidence.run_id != event.run_id
+            or evidence.action_id != event.action_id
+            or evidence.evidence_id != event.evidence_id
+            or evidence.request_artifact_id != request.request_artifact_id
+            or evidence.range_instance_id != request.range_instance_id
+            or evidence.range_generation != request.range_generation
+            or evidence.http_status != event.http_status
+            or evidence.response_sha256 != event.response_sha256
+        ):
+            raise ValueError("model evidence artifact differs from authoritative event")
+
+
+def audit_checkpoint_model_artifacts(
+    state_root: Path, model_trace: list[TraceEvent]
+) -> tuple[list[ProofAction], list[ObservedRequest]]:
+    """Read all required request/evidence artifacts from an authoritative run."""
+    _valid_trace(model_trace)
+    terminal = [event for event in model_trace if isinstance(event, RunCompleted)]
+    if len(terminal) != 1 or terminal[0].sequence_number != len(model_trace):
+        raise ValueError("model run terminal boundary is absent or not final")
+    ranges = [event for event in model_trace if isinstance(event, RangeStarted)]
+    if len(ranges) != 1:
+        raise ValueError("model run range binding differs")
+    range_event = ranges[0]
+    instance_dir = StateStore(state_root).instance_dir(range_event.range_instance_id)
+    requested = [event for event in model_trace if isinstance(event, ActionRequested)]
+    terminal_events = [
+        event
+        for event in model_trace
+        if isinstance(event, (ActionBlocked, ActionCompleted, ActionFailed))
+    ]
+    if len({event.action_id for event in requested}) != len(requested):
+        raise ValueError("model run repeats an action request")
+    by_terminal = {event.action_id: event for event in terminal_events}
+    if len(by_terminal) != len(terminal_events) or set(by_terminal) != {
+        event.action_id for event in requested
+    }:
+        raise ValueError("model run action terminal is absent or duplicated")
+    actions: list[ProofAction] = []
+    requests: list[ObservedRequest] = []
+    for asked in requested:
+        done = by_terminal[asked.action_id]
+        if (
+            asked.request_artifact_id is None
+            or asked.range_instance_id != range_event.range_instance_id
+            or asked.range_generation != range_event.range_generation
+            or asked.sequence_number >= done.sequence_number
+            or done.causation_id != asked.event_id
+        ):
+            raise ValueError("model action event provenance differs")
+        request = RequestArtifact.model_validate_json(
+            (instance_dir / "requests" / f"{asked.request_artifact_id.hex}.json").read_bytes()
+        )
+        if (
+            request.run_id != asked.run_id
+            or request.action_id != asked.action_id
+            or request.request_artifact_id != asked.request_artifact_id
+            or request.range_instance_id != asked.range_instance_id
+            or request.range_generation != asked.range_generation
+            or request.source_phase != asked.source_phase
+            or request.identity_id != asked.identity_id
+            or request.method != asked.method
+            or request.destination != asked.destination
+            or hashlib.sha256(request.path.encode()).hexdigest() != asked.path_sha256
+            or (
+                hashlib.sha256(
+                    json.dumps(request.json_body, sort_keys=True, separators=(",", ":")).encode()
+                ).hexdigest()
+                if request.json_body is not None
+                else None
+            )
+            != asked.body_sha256
+        ):
+            raise ValueError("model request artifact differs from event")
+        if asked.source_phase is None:
+            requests.append(ObservedRequest(asked.sequence_number, request))
+        if not isinstance(done, ActionCompleted) or done.evidence_id is None:
+            continue
+        evidence = Evidence.model_validate_json(
+            (instance_dir / "evidence" / f"{done.evidence_id.hex}.json").read_bytes()
+        )
+        if (
+            evidence.run_id != done.run_id
+            or evidence.action_id != done.action_id
+            or evidence.evidence_id != done.evidence_id
+            or evidence.request_artifact_id != request.request_artifact_id
+            or evidence.range_instance_id != request.range_instance_id
+            or evidence.range_generation != request.range_generation
+            or evidence.http_status != done.http_status
+            or evidence.response_sha256 != done.response_sha256
+        ):
+            raise ValueError("model evidence artifact differs from event")
+        if asked.source_phase is None:
+            actions.append(ProofAction(request, evidence, done.sequence_number))
+    _model_artifact_index(model_trace, actions, requests)
+    return actions, requests
+
+
 def extract_checkpoint_cell(
     receipt_bytes: bytes,
     model_trace: list[TraceEvent],
@@ -262,8 +416,8 @@ def extract_checkpoint_cell(
     ):
         raise ValueError("checkpoint fixture/oracle binding differs")
     terminal = [item for item in model_trace if isinstance(item, RunCompleted)]
-    if len(terminal) != 1:
-        raise ValueError("model run lacks one terminal event")
+    if len(terminal) != 1 or terminal[0].sequence_number != len(model_trace):
+        raise ValueError("model run lacks one final terminal event")
     terminal_sequence = terminal[0].sequence_number
     if any(
         action.request.source_phase is not None
@@ -277,6 +431,7 @@ def extract_checkpoint_cell(
         for item in model_requests
     ):
         raise ValueError("model actions contain trusted or post-terminal work")
+    _model_artifact_index(model_trace, model_actions, model_requests)
     root = receipt["root_id"]
     properties = [item for item in oracle.properties if item.slug == root]
     if len(properties) != 1:
@@ -413,7 +568,9 @@ def extract_checkpoint_cell(
         "model_run_id": str(model_trace[0].run_id),
         "receipt_sha256": hashlib.sha256(receipt_bytes).hexdigest(),
         "assigned": True,
-        "auditable": score_valid,
+        "score_valid": score_valid,
+        "trace_auditable": True,
+        "auditable": True,
         "terminal_status": terminal[0].status,
         "experiment_completed": bool(experiment),
         "full_transition": bool(full_transition),
@@ -432,6 +589,84 @@ def extract_checkpoint_cell(
     }
 
 
+def missing_checkpoint_cell(
+    assignment: dict[str, Any], *, terminal_status: str, reason: str
+) -> dict[str, object]:
+    """Retain an assigned, unstarted or unrepairably unauditable cell."""
+    if terminal_status not in {
+        "unstarted",
+        "completed",
+        "budget_exhausted",
+        "agent_failed",
+        "provider_failed",
+        "environment_failed",
+        "validation_failed",
+        "cancelled",
+    }:
+        raise ValueError("unknown missing checkpoint terminal status")
+    return {
+        "root_id": assignment["root_id"],
+        "checkpoint_id": assignment["checkpoint_id"],
+        "seed": assignment["seed"],
+        "variant": assignment["variant"],
+        "model_run_id": assignment.get("model_run_id"),
+        "assigned": True,
+        "score_valid": terminal_status in {"completed", "budget_exhausted", "agent_failed"}
+        if terminal_status != "unstarted"
+        else None,
+        "trace_auditable": False,
+        "auditable": False,
+        "audit_failure": reason,
+        "terminal_status": terminal_status,
+        "validation_comparable": assignment["checkpoint_id"].endswith("S0"),
+        "witness_comparable": assignment["checkpoint_id"].endswith("S0"),
+        "model_calls": 0,
+        "input_tokens": 0,
+        "output_tokens": 0,
+        "http_actions": 0,
+        "trusted_setup_http_actions": 0,
+        **dict.fromkeys(METRICS),
+    }
+
+
+async def extract_checkpoint_assignment(
+    assignment: dict[str, Any],
+    state_root: Path,
+    events: Any,
+    oracle: GroundTruthManifest,
+    fixture: dict[str, object],
+) -> dict[str, object]:
+    """Use the frozen assignment ledger, retaining missing cells on failed replay."""
+    run_id = assignment.get("model_run_id")
+    if run_id is None:
+        return missing_checkpoint_cell(
+            assignment, terminal_status="unstarted", reason="no_model_run"
+        )
+    model_trace: list[TraceEvent] = []
+    try:
+        model_run_id = UUID(str(run_id))
+        model_trace = await events.read_run(model_run_id)
+        receipt_path = state_root / "critical_checkpoints" / f"{model_run_id.hex}.json"
+        receipt = json.loads(receipt_path.read_bytes())
+        setup_trace = await events.read_run(UUID(receipt["setup_run_id"]))
+        await audit_checkpoint_receipt(state_root, events, model_run_id)
+        actions, requests = audit_checkpoint_model_artifacts(state_root, model_trace)
+        row = extract_checkpoint_cell(
+            receipt_path.read_bytes(), model_trace, setup_trace, actions, requests, oracle, fixture
+        )
+        if any(
+            row[key] != assignment[key] for key in ("root_id", "checkpoint_id", "seed", "variant")
+        ):
+            raise ValueError("checkpoint row differs from frozen assignment")
+        return row
+    except (BuildIntegrityError, OSError, ValueError, KeyError, TypeError) as exc:
+        terminal = [item for item in model_trace if isinstance(item, RunCompleted)]
+        status = terminal[0].status if len(terminal) == 1 else "unstarted"
+        return missing_checkpoint_cell(
+            assignment, terminal_status=status, reason=f"integrity_failed:{type(exc).__name__}"
+        )
+
+
 def checkpoint_response_curves(
     cells: list[dict[str, Any]], *, bootstrap_replicates: int = 2_000
 ) -> dict[str, object]:
@@ -448,13 +683,15 @@ def checkpoint_response_curves(
     for (root, checkpoint, variant), rows in sorted(grouped.items()):
         rows.sort(key=lambda row: row["seed"])
         counts = Counter(row["terminal_status"] for row in rows)
-        auditable = [row for row in rows if row["auditable"]]
+        auditable = [row for row in rows if row["trace_auditable"]]
         group: dict[str, object] = {
             "root_id": root,
             "checkpoint_id": checkpoint,
             "variant": variant,
             "assigned_cells": len(rows),
             "auditable_cells": len(auditable),
+            "trace_auditable_cells": len(auditable),
+            "score_valid_cells": sum(row["score_valid"] is True for row in rows),
             "seed_count": len({row["seed"] for row in rows}),
             "terminal_statuses": dict(sorted(counts.items())),
             "model_calls": sum(row["model_calls"] for row in rows),
@@ -537,7 +774,9 @@ def paired_checkpoint_differences(
                 pairs = [
                     (checkpoint_map[earlier][seed], checkpoint_map[later][seed]) for seed in shared
                 ]
-                complete = [(a, b) for a, b in pairs if a["auditable"] and b["auditable"]]
+                complete = [
+                    (a, b) for a, b in pairs if a["trace_auditable"] and b["trace_auditable"]
+                ]
                 differences = [int(bool(b[metric])) - int(bool(a[metric])) for a, b in complete]
                 missing = len(pairs) - len(complete)
                 comparable = (
