@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import json
+import sys
 from collections import Counter
 from pathlib import Path
 
@@ -11,6 +13,9 @@ from offsecgym.research import m661_feasibility_protocol as protocol
 from offsecgym.research.m661_seed_exclusions import load_exclusion_registry
 
 ROOT = Path(__file__).parents[2]
+sys.path.insert(0, str(ROOT / "research_ops"))
+
+import m661_freeze_feasibility as freeze  # noqa: E402
 
 
 def endpoint_receipt() -> dict[str, object]:
@@ -84,3 +89,74 @@ def test_price_drift_and_unmerged_source_pin_fail_closed(monkeypatch) -> None:
         protocol.require_protocol_checkout(ROOT, "b" * 40)
     with pytest.raises(ValueError, match="source merge commit"):
         protocol.plan_feasibility(ROOT, protocol_commit="b" * 40, endpoint_receipt=receipt)
+
+
+def test_public_endpoint_preflight_requires_exact_revision_and_price(monkeypatch) -> None:
+    class Response:
+        def __init__(self, raw: bytes):
+            self.raw = raw
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_args):
+            return False
+
+        def read(self, _size):
+            return self.raw
+
+    endpoint = {
+        "name": f"{protocol.UPSTREAM} | {protocol.SELECTED_REVISION}",
+        "provider_name": protocol.UPSTREAM,
+        "model_id": protocol.REQUESTED_MODEL,
+        "status": 0,
+        "pricing": {"prompt": "0.000003", "completion": "0.000015"},
+        "supported_parameters": ["tools", "tool_choice", "reasoning_effort"],
+    }
+
+    def serve(selected):
+        monkeypatch.setattr(
+            freeze,
+            "urlopen",
+            lambda *_args, **_kwargs: Response(
+                json.dumps({"data": {"endpoints": [selected]}}).encode()
+            ),
+        )
+
+    serve(endpoint)
+    assert freeze.live_endpoint_receipt()["revision"] == protocol.SELECTED_REVISION
+    serve({**endpoint, "pricing": {"prompt": "0.000003", "completion": "0.000016"}})
+    with pytest.raises(ValueError, match="drifted"):
+        freeze.live_endpoint_receipt()
+
+
+def test_manifest_freeze_is_create_only(tmp_path, monkeypatch) -> None:
+    destination = tmp_path / "experiments" / "manifests" / "m661-feasibility-v1.json"
+    destination.parent.mkdir(parents=True)
+    monkeypatch.setattr(freeze, "require_protocol_checkout", lambda *_args: None)
+    monkeypatch.setattr(freeze, "live_endpoint_receipt", endpoint_receipt)
+    monkeypatch.setattr(
+        freeze,
+        "plan_feasibility",
+        lambda *_args, **_kwargs: {
+            "planned_cells": 96,
+            "cumulative_estimated_cost_stop_usd": 172.8,
+        },
+    )
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "m661_freeze_feasibility.py",
+            str(destination),
+            "--repository-root",
+            str(tmp_path),
+            "--protocol-commit",
+            "b" * 40,
+        ],
+    )
+    freeze.main()
+    original = destination.read_bytes()
+    with pytest.raises(FileExistsError):
+        freeze.main()
+    assert destination.read_bytes() == original
