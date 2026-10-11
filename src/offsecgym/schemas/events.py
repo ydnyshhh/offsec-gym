@@ -61,6 +61,14 @@ class RangeStarted(TraceEvent):
         return self
 
 
+class CriticalCheckpointBound(TraceEvent):
+    """Model-safe digest link to a private, separately audited setup run."""
+
+    type: Literal["critical_checkpoint_bound"] = "critical_checkpoint_bound"
+    setup_run_id: UUID
+    receipt_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+
+
 class PrerequisiteBootstrapStarted(TraceEvent):
     type: Literal["prerequisite_bootstrap_started"] = "prerequisite_bootstrap_started"
     budget: BootstrapBudget
@@ -92,7 +100,7 @@ class ActionRequested(TraceEvent):
     path_sha256: str | None = Field(default=None, pattern=r"^[0-9a-f]{64}$")
     worker_id: UUID | None = None
     task_id: UUID | None = None
-    source_phase: Literal["bootstrap"] | None = None
+    source_phase: Literal["bootstrap", "critical_checkpoint"] | None = None
     originating_call_id: UUID | None = None
     originating_tool_call_id: str | None = Field(default=None, min_length=1)
     identity_id: UUID | None = None
@@ -112,7 +120,11 @@ class ActionRequested(TraceEvent):
         if (self.originating_call_id is None) != (self.originating_tool_call_id is None):
             raise ValueError("model-call and tool-call event origins must be paired")
         if self.source_phase is not None and self.originating_call_id is not None:
-            raise ValueError("bootstrap event cannot originate from a model turn")
+            raise ValueError("trusted event cannot originate from a model turn")
+        if self.source_phase == "critical_checkpoint" and (
+            self.worker_id is not None or self.task_id is not None
+        ):
+            raise ValueError("critical checkpoint event must be unowned")
         if self.schema_version == "2" and (
             self.range_instance_id is None
             or self.range_generation is None
@@ -840,6 +852,7 @@ class WitnessHypothesisStarted(TraceEvent):
 AnyTraceEvent = Annotated[
     RunStarted
     | RangeStarted
+    | CriticalCheckpointBound
     | PrerequisiteBootstrapStarted
     | PrerequisiteBootstrapCompleted
     | ActionRequested
