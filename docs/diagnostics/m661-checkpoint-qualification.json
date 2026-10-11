@@ -1,0 +1,472 @@
+{
+  "checkpoint_count": 6,
+  "compiled_build_count": 72,
+  "compose": {
+    "cases": [
+      "test_real_checkpoint_is_audited_isolated_and_patch_correct[B2-S3-False]",
+      "test_real_checkpoint_is_audited_isolated_and_patch_correct[B2-S3-True]",
+      "test_real_checkpoint_is_audited_isolated_and_patch_correct[B3-S2-False]",
+      "test_real_checkpoint_is_audited_isolated_and_patch_correct[B3-S4-False]",
+      "test_real_checkpoint_is_audited_isolated_and_patch_correct[B3-S4-True]"
+    ],
+    "junit_sha256": "87aa6ae6d8adec1f07723e118670901d3082e65b1a9e42d747a1bb3d96137dfd",
+    "model_calls": 0,
+    "status": "passed"
+  },
+  "created_at": "2026-10-11T16:37:25.821811+00:00",
+  "fixture_and_patch_pair_checks": "passed",
+  "future_study_seeds_selected": false,
+  "model_calls": 0,
+  "paid_model_calls": 0,
+  "protocol": "m661-critical-checkpoint-v1",
+  "qualification_seed_count": 24,
+  "registry_sha256": "81790b873a256a0cee48487e825aa23e1005c5b69d420b4d7fb791b60f72bb4c",
+  "rows": [
+    {
+      "build_ids": [
+        "88f283a7-ed98-5725-ad26-d3f919b67236",
+        "3d89ad8e-7a6b-569e-b0ee-1d78231e83bd",
+        "29e1e126-9efe-5590-af71-429f2a9b76bd"
+      ],
+      "checkpoint_fingerprints": {
+        "B2-S0": "cf92fd73311c3d5fa42efd5273b945d0d48d064d9304a37c6120ace80185dedf",
+        "B2-S2": "75301efb75b203a0cd039bb16b11ba4212f60bcc226bdc207ae9b982a36d8c3e",
+        "B2-S3": "a7a21b007c81c6c0b761c38f9ddb319d63484148c6fda3c31d4fb21b55c59c8b",
+        "B3-S0": "e67cd827b7d1eb218735498763c4f8bea6087f0ca162abe3bb5e8040c2919dd2",
+        "B3-S2": "e0f9664653f248161d7f3a8e77f6477d3649872e2fe0d754eaf5ae2f4f4915ac",
+        "B3-S4": "32781e6e2d6a9cec7485c03dc571eb6d06966e4bfbf944bb46cf1eb53d3a3665"
+      },
+      "fixture_sha256": "7e8e28247e92cbed1c2f77d61dba5295b52438811e28d855c60832fef5a489ae",
+      "pair_id": "ecf5453c-026e-5b31-b6f7-83f526120132",
+      "seed": 900000
+    },
+    {
+      "build_ids": [
+        "b609d846-8012-5c65-b3bb-301fd2768323",
+        "8f15e1c4-2ecb-56cc-b852-f2d5ab4d4892",
+        "44509c80-db4d-55ba-96d6-ccf79667edb6"
+      ],
+      "checkpoint_fingerprints": {
+        "B2-S0": "eb22e0a3a791bb860b5ff3d2095d431679ff87d21f3b9a82e041fa71c743aa99",
+        "B2-S2": "6ed363823f2be83cffad1171744488885444529cad468701242aeb1ef40ca91c",
+        "B2-S3": "dae752c7b49ea33797c9f08382b2609b5d3316d6a9faebc03e2925328f237a4b",
+        "B3-S0": "921e72057a360d57e8d6ee925c3bb870ed2710ee60d8c2c8c8397d6d22fb1550",
+        "B3-S2": "93fed3657cec6e3192d3c9954e27ebf29240100d59651814233cecff8e74d369",
+        "B3-S4": "084f6941b64472bb61de73375ddc9fb9f50b455daa21171a7fe0198d6092f8dd"
+      },
+      "fixture_sha256": "d8589ee70245b5532b81b88d0dd3e5adb21a00058b5c213f352ead51fbaeb7ed",
+      "pair_id": "a1d82401-1e4f-5055-895f-e8b70771d357",
+      "seed": 900001
+    },
+    {
+      "build_ids": [
+        "469eaef9-102e-57a9-b40a-722c0a9bd305",
+        "43ce216c-e1a9-5523-a201-b0a94b6d54b2",
+        "2713a445-f170-59f0-982e-c1855e3abcf8"
+      ],
+      "checkpoint_fingerprints": {
+        "B2-S0": "086406c706e5ca1ac7148e2c34baf501d0a6c87c1df9621eb54b23ddd82f1ba9",
+        "B2-S2": "ea3ef1b6c4f7f32a072a383a16f07018e567dc4c8f79e36cc919503f7a453e5d",
+        "B2-S3": "6240f5ee4aae19687de126b9b69a50293f2faa5be25324d90177ae8121313f2b",
+        "B3-S0": "56458b00011c9310352362a022996d7ebe79e51adada53b4ee3597e8e1ad406e",
+        "B3-S2": "ca1ffc5f6e8be57ffd4b875a6a67eafce59492ec1e7d07ce26961b5c308109b7",
+        "B3-S4": "28b30121466cba89c3f9a227a93f2091498b04dfd1222065faddf325dc3acd85"
+      },
+      "fixture_sha256": "1cfa5909b414c6c906b7c11936a6e6350da4767c7145b670c788aa9d4e323080",
+      "pair_id": "86813a1c-a975-509a-9cd7-c404366295b3",
+      "seed": 900002
+    },
+    {
+      "build_ids": [
+        "abc762d6-7995-5d3d-8609-e7f87569a183",
+        "2f4090cb-8ac9-52ca-9824-eda132a93058",
+        "1cb6eed4-9f5a-5a57-a751-813cfa016334"
+      ],
+      "checkpoint_fingerprints": {
+        "B2-S0": "a15446c8ce0fd0d8014ed81a11be84470f12391a77df49a2409ffd0eba0fcea6",
+        "B2-S2": "2dc923515e86404db92f39be7044938b1d6b33bf61a65d69a6436c3f58478967",
+        "B2-S3": "4fb42d38524b62d25f127adc0be8d0d2f0da993c561485cf96dc40b71fa7c282",
+        "B3-S0": "921dd797cb420694c30df7aecdc2b9e2126fcdf61e61d5375ee4467340b36f6c",
+        "B3-S2": "174107f8aec35163ad52920d30f32e7331e2c5901856f0c0e6faa12009669255",
+        "B3-S4": "7de3a2860528f423fd512848ee9bd7271ba1d4315e451d2142a9c1ead105ce3b"
+      },
+      "fixture_sha256": "54a65764fbf5d20782a3eb97560518db9e723e4d54fe7bf0b8ba0c4d918eead3",
+      "pair_id": "7889808b-705e-5522-bd5b-4b60853a76a1",
+      "seed": 900003
+    },
+    {
+      "build_ids": [
+        "bb3481dc-b694-51d4-ba1e-fb21a80b5a24",
+        "0b92da4f-0fdb-5f33-baee-8b11c544f03e",
+        "442c11fe-0cc0-5cab-baf8-5107ecbb7180"
+      ],
+      "checkpoint_fingerprints": {
+        "B2-S0": "d5dbb57e31688f8ac86b73efbe1546717b4450832cd546b4f4066844df45c1eb",
+        "B2-S2": "111e7ed2bbc520899bc9b0f646a0d4436d94bb381d9e2af012103907a7d5fe2b",
+        "B2-S3": "fba1a9b01182193442278122e14da178ad04d4e53693584f754c4e38cefae4d5",
+        "B3-S0": "cc2061c37434f2f5d009f0caec36424bd6035764420021e52c5e0232de6c7a94",
+        "B3-S2": "d68c393667630633ce64495ce0b9f37621787f8c1bfc5b794d99672d1d26500a",
+        "B3-S4": "74256197380dfccc62bc5cf21d8b65a8169240e3a2b618532c328c4332b045a0"
+      },
+      "fixture_sha256": "2d8d7be7fa825148912bf4ad5e2fc447a49af61cc7f3e83f408091688b41a6f8",
+      "pair_id": "c7a43e95-e55f-5728-8af6-17407812b7c8",
+      "seed": 900004
+    },
+    {
+      "build_ids": [
+        "b53e144d-9cef-5e44-953e-ab199fbb0116",
+        "090b8fa5-9b64-50c3-a08b-c40d39459838",
+        "58ed1101-f97f-5d1b-8b56-232ec9f468ec"
+      ],
+      "checkpoint_fingerprints": {
+        "B2-S0": "60c4246fed0ee3de130ef3ef3d44d1f00b23c98a3d38464589515bdcb263b994",
+        "B2-S2": "7c41d0fc13c8037fbe76e379be601946dbf388fba6427bdb698b5cd7b1c69e0b",
+        "B2-S3": "50149b645bf8d391d9847f432343db35133dc9cbecd6b8dfbc9c23c2f51ad6a7",
+        "B3-S0": "6e021772e2354ddfa92484bdf960efb5ecdc8d3d7e920989151aeab703d063e0",
+        "B3-S2": "2593a15bff7924412b41bddd72c65b79a4673d23422489e13a383f7719fd4312",
+        "B3-S4": "5fd9d8346b443a74815efb7ad0dbdbca4408d1ce39c643f0a56e0c5fcc0d45a1"
+      },
+      "fixture_sha256": "7db703b7bfb14b585df11bfe091e28395193fc64732dcd3198c3d21f8e19f8ee",
+      "pair_id": "245f0fc3-5683-5011-b0f8-76a3eba3e7c3",
+      "seed": 900005
+    },
+    {
+      "build_ids": [
+        "1e883fda-0553-5628-acee-9590a77a8778",
+        "3d096f4c-45ee-5cc1-adce-4751635c6e2a",
+        "ba3c3804-6d59-549b-8e53-4eb27510065c"
+      ],
+      "checkpoint_fingerprints": {
+        "B2-S0": "941fc44bb4537a6f07b592d2cfff6b9073e009d9b3dc3072b41b85de2727f917",
+        "B2-S2": "fd982456f3a0f51e90fda378727195d3e5c1a8c36f234917f560e920e5ea5151",
+        "B2-S3": "010212b8646cae5e9d00fd2db0dec4c3c1709e9cfaaa33408e1eb62de61e0b57",
+        "B3-S0": "5fa1108cac87c8daa6257f8814ed8d186966a0f7c31288065411d8bbaf7e296a",
+        "B3-S2": "e646d48732563ff83c5872f1fdf88327038f13b8a2851a3b1f8690529d490798",
+        "B3-S4": "3105eeb9bbab6d212fe0d2545d2fae24cc2bc07bc769d62019060c950e914f7c"
+      },
+      "fixture_sha256": "ed0fd1e291b688265142093dfc9305837b089f730b99d507e22ab35c5c4d30d2",
+      "pair_id": "c9799b49-9f87-5cc3-840e-2901bda69a56",
+      "seed": 900006
+    },
+    {
+      "build_ids": [
+        "50080cae-78a2-5547-94fe-b5e9f03fce7f",
+        "fad4d54a-8e7a-560a-8d9f-38adc7ca0d39",
+        "fe0a109c-1c7a-5659-95c2-475c69bcb18c"
+      ],
+      "checkpoint_fingerprints": {
+        "B2-S0": "1b2fbd6e504feaa8984ca260f79f5b25e3e9c0ea80eee714f82cbf1d236af70e",
+        "B2-S2": "2f669288736a6febafd79def9537f1a5037ed84718cdd5bf8e717d0146f5fa53",
+        "B2-S3": "484fc76db134701fe33217239736636cf437e8d15303774ff58a3a79ffa97793",
+        "B3-S0": "e0fe94ca992575be9617db490b4bad4c92d3c047786d4340e63ff9db1c64ef23",
+        "B3-S2": "83d2e8f226ad59b9d437718206a546b4016becf448ca896c793e74700702e05e",
+        "B3-S4": "cb7625ebe7e6b6c8cb800af81de671b79b2dc0c47e84a49a45f47eca8560f5ba"
+      },
+      "fixture_sha256": "07a859a7378dafd5cee8ab49bc492c0208acb5d91924898b2c144d5ede84b099",
+      "pair_id": "70f0fcaa-bb77-5690-8bc0-214feabeccdb",
+      "seed": 900007
+    },
+    {
+      "build_ids": [
+        "b7200174-c8ad-5633-9a0f-dd47e9b383c8",
+        "d625b37a-4870-50d9-9ddc-1f6d1a5ce6c0",
+        "abb6e6f5-4592-59c1-aa53-6a515e24b0e8"
+      ],
+      "checkpoint_fingerprints": {
+        "B2-S0": "849cb78c84a41380a9c61bea60fb038f8825c7f6b62cb9a037f52588ae076ff0",
+        "B2-S2": "daf7f343fa3273ea36cf58536853ffda5c3c88dad573c3caeb6ff7ab3d3075e6",
+        "B2-S3": "3c84159a54d25a3df86eac7d9fa1e53c9a6a9ff331969005894b671158b3cb4d",
+        "B3-S0": "07540430e20bc29916cc1b8c7fe36218d91389611c03b759e4439574b3f2d77c",
+        "B3-S2": "c009c43eb2471ff613ee257374226fc0f51b16c0dd6382f67c6f31f4dccc4493",
+        "B3-S4": "3cfe2c1fe719aee22031a256a8e24a0e00a7f00923030bce5e80563b799acdaf"
+      },
+      "fixture_sha256": "3f9110ec3d8de71204a5d7673e219b8de365114c1640ca541b2e7b3eb875d0f7",
+      "pair_id": "da00c50b-c05a-5f7b-9194-fcaf4f7c2fc6",
+      "seed": 900008
+    },
+    {
+      "build_ids": [
+        "1555a209-c871-5bb1-82fc-65697173c8df",
+        "5c52f5d2-651d-5f0d-b49b-8a1d61d05474",
+        "ba261fc5-578f-5955-a698-025b549c768e"
+      ],
+      "checkpoint_fingerprints": {
+        "B2-S0": "a3f4e5d6c922b22181f790c6283e80105478868a82a4f6a56fe4283d35710168",
+        "B2-S2": "9969c9e5581e21e8810b5b93c7eb2e4385adac586ebddf51b9894476ebaaf1aa",
+        "B2-S3": "d9f078cc28b5ba1632a545479dbd9b06535c0a7eacafc148625306f9d2078d0f",
+        "B3-S0": "870382ee0b2778748e5ae075f1c818c2849b9ec74442335d191a3a90a69b3b6a",
+        "B3-S2": "989866bf5211a57f8a4d380a5fc4dec9bff41e58e612d27be123f9285ebc621b",
+        "B3-S4": "adf20010cf24f9b9d24f565be4f2d90c412a6e4341927adf6ed49ae06ba64961"
+      },
+      "fixture_sha256": "91439846941bf6a6da14947a5dfc24cf6fb99d2bc59f46d5cd803df47ddadd4c",
+      "pair_id": "db14f51e-d827-5c97-8428-0b225744a77c",
+      "seed": 900009
+    },
+    {
+      "build_ids": [
+        "ef18a0c1-38f3-50a5-b799-ec279ca278e4",
+        "219544ec-65b0-5f81-906e-d04104f96d20",
+        "5f5b063d-329e-5eb9-9c45-956b6eb468b9"
+      ],
+      "checkpoint_fingerprints": {
+        "B2-S0": "0a1abb86dba4cd1c2b4540f5e0ffda45fc673a691efed14fa473be427501f671",
+        "B2-S2": "ad4dc8546667dc4af94a2d082bf3285b273e1c7df05f880bb8dc03e569db188e",
+        "B2-S3": "9fe81e418dbf6d4696bf85c5fef7bac1afe0b02f785114ae45514eb6192222c5",
+        "B3-S0": "67f7155e3e3960d544fb8cc951e396eb743f72dd60f3493b2023660ff3686e34",
+        "B3-S2": "aa08f78e97e0b30be5ef4d9b9dcf67b33d5794a0d7efe0ed71f31173faf5b538",
+        "B3-S4": "0b1db8fae8c36e99123a29f9324e9eeff70df2ebd89f41086db4b23377d6a71b"
+      },
+      "fixture_sha256": "1385421c4bac1d47b6fb826f9676972329a16db05159d38e77d3e5a38ba5ea2a",
+      "pair_id": "e27431f9-ca57-5d72-a666-e76075d45003",
+      "seed": 900010
+    },
+    {
+      "build_ids": [
+        "0839a296-4cbe-5c57-b0dc-0ddbbb51e6ae",
+        "8eccd665-578f-53ed-a4be-b5756b316559",
+        "a84223b0-019f-57c7-8b8d-07dbb891599c"
+      ],
+      "checkpoint_fingerprints": {
+        "B2-S0": "646958792a4b0d9957981bd2c324403dcceaeb5dc6caa735b4b213effe096f6f",
+        "B2-S2": "171e34bd6d641499dee497eadca2a96dd52d31a85a60b47810606188914b1a50",
+        "B2-S3": "e44c07e28609a9f5cf328d250d005aa1cdf4ccbb3d1f9f95913c0ff7cfb58af5",
+        "B3-S0": "d3ffeaa5d3486c7d38254118be0c60abc9e6a3fbcffc84b4bb897258497af704",
+        "B3-S2": "d11bc41cab4be5146e72e3224ed6c12d4fd45fc0ea756b2d665c836e26475524",
+        "B3-S4": "161f94ce2a6ea1544cdc12c4e8ece6082a9421f09c2238db2f39be81bd4d8cc3"
+      },
+      "fixture_sha256": "6ab30bc04fbbfe2056aa271932f12615a31e0da79e73a0afe708a195e2015866",
+      "pair_id": "10ec2a21-64e5-50d3-945c-3e41ed397a35",
+      "seed": 900011
+    },
+    {
+      "build_ids": [
+        "6b3366b9-67d3-564f-919a-a02ef83a50d7",
+        "4506c610-f29f-5f52-8a2e-883526896eab",
+        "88edd705-95f1-56e4-8eb0-d56330dfb377"
+      ],
+      "checkpoint_fingerprints": {
+        "B2-S0": "3c50fcd0b1859f66e3713ea94fffa159acb8202fcd04b87b0729e72546e0b9d2",
+        "B2-S2": "69cf9d040cac123af9426be2b994017773d72efcc8387d99d9a7f98ec01ad5d1",
+        "B2-S3": "414532946dc08e700ecfdbe15bdb3ea14c461edeb964ab5d1597e7d852ce0644",
+        "B3-S0": "0b8c7ada0d466680381ddb2c5e921e1529adfab4388c73c16aa57ea9a7ec7daf",
+        "B3-S2": "949921e692937added69bd0c8f4391380b2a2d1a1571792d0c58aa545396b55b",
+        "B3-S4": "4b642f6dd75eb78798a82866be5cdbe52b67ab83ece087aaba0c08658f5d1f53"
+      },
+      "fixture_sha256": "595288bcad1f415334ae2aac9c52862f08e4c920c5f255809e40d9108df44752",
+      "pair_id": "6bdb4b24-b285-5ead-b311-1bd29390441c",
+      "seed": 900012
+    },
+    {
+      "build_ids": [
+        "76b52858-ba59-5076-8bdd-8b5b8b9fa6e3",
+        "718365a3-e7c4-5268-a26d-f40df21c027c",
+        "7be7578a-925e-5f09-81f7-5342d139d0c1"
+      ],
+      "checkpoint_fingerprints": {
+        "B2-S0": "d3a4a7b2e6a2d7862480012827ff0dacc0eba510be9e804203b6e03328d8c086",
+        "B2-S2": "175744c84539cd2296a4afbe92cc80774c292caaff81ab5de33d6953014eed96",
+        "B2-S3": "e631d18415022525b5875a83efe8513e343acb792434828af5028df2483718f8",
+        "B3-S0": "1ba6a15bc13c4adf3aadcfd9db9c25520456f9a8e2bbad82dd87e46bd9c9a018",
+        "B3-S2": "3ba9882891e0273604b7e68a4befb8ac878ae96d8a52b81080e0dbc5d760b6b1",
+        "B3-S4": "d4fa6ceb9fade3bc0b6bd3916df7eda5ecfdef9d2c3423a63c32b8fa829abc44"
+      },
+      "fixture_sha256": "26bd12c293d80180552e3d35469fc0ad5d630db0b3ac9e0baeb9cc9f5179e2bc",
+      "pair_id": "1ec30688-2e87-5ac6-bbf5-4e1bcf0a1dd9",
+      "seed": 900013
+    },
+    {
+      "build_ids": [
+        "1da3a745-fad1-51c9-956a-1402211996f5",
+        "f05ae116-3bb5-5d3c-9f80-27aa3ee07e58",
+        "b38862d1-8ba2-50da-8916-30ad3f54a10e"
+      ],
+      "checkpoint_fingerprints": {
+        "B2-S0": "a485894d688eb3f6444071ffe04ea71f3aa0f1b99e710be8a553f94f42f45bcd",
+        "B2-S2": "0e4539000457b1e91c0cb918d6324d2ae06f592e77ccc3508fd830bf9677829e",
+        "B2-S3": "d64cfd520f187fc4352b2214a36d22a89f4a1d73dcbf5106ec5293bb8ff92dcc",
+        "B3-S0": "3b8751e95098fdfa7de76881403ccac08030a3f236283bf32102cd0ea5b7aae3",
+        "B3-S2": "2c01a0b53dc7336155fd1ec9d2a83c0002c1554e30fb53a617e2bb21a5043c89",
+        "B3-S4": "9cfb6b76a452eac93d82e1f8a71a91e17483fb99b1eccdb81190dd0c89a3797d"
+      },
+      "fixture_sha256": "94552cd34a48a0720971f29b4c1355a499111cc3826bfc7189ddb916222d8947",
+      "pair_id": "7b572c99-9f33-5022-aea8-038a614f5ab1",
+      "seed": 900014
+    },
+    {
+      "build_ids": [
+        "5d340aa2-f951-57b8-bd1e-80ae9b7b8adf",
+        "14164426-03c8-5f92-9c02-1fede3585e20",
+        "92aa83e1-6858-5e59-9a48-afd832d32cc8"
+      ],
+      "checkpoint_fingerprints": {
+        "B2-S0": "c65bad688e1ab4de037edda7de2e7f84472e69f7ea57cf9b0f0ed518a7bdb845",
+        "B2-S2": "3d090a743278de13fb84eb35c4b04c0a57bba08ea86ac42e8204ef5c7b524d62",
+        "B2-S3": "f1bcb38b5f38cc04c5783b0b4b237ffc4734b9a43983868689df768a77ca77d6",
+        "B3-S0": "05173006fe7674322c1fc5a9a617e01fd46201bcd1858f4823f3ab5068bc24be",
+        "B3-S2": "80f44b1a2f9890945ecf4599c430fa335f56c2cb9d287246a71575a30e26cd5a",
+        "B3-S4": "57dc75abf6e26f2ae7a669aabe00bbda03cf97ca7781a4fccf0f1450a0fa71bf"
+      },
+      "fixture_sha256": "8c1ebfc0d2e3a514fa9c1c511e4ba55e678e3f13a9c810a1e1cb790143bec0d1",
+      "pair_id": "ea53a1af-620b-52d9-8bc9-34dc79f439de",
+      "seed": 900015
+    },
+    {
+      "build_ids": [
+        "f747e530-886f-536d-b37c-d5eba9cd147f",
+        "8f0ef3ae-5a8d-5a20-b85e-ac27dc120d1e",
+        "431e767e-5cdc-5dcc-a174-6feb58e701f1"
+      ],
+      "checkpoint_fingerprints": {
+        "B2-S0": "41690518ae77891c04644c4b58a8104e2b1e5e06f0ce6c4f2ce06e6087a67be4",
+        "B2-S2": "32833600ba62bfef4e7552e61e77aa83fe6c675bab8651ddbfc6f129d889b8ae",
+        "B2-S3": "f5a3f89a621ed6210106840068a97b902476892152aacf0f30a5b49c02ea073c",
+        "B3-S0": "ae71b3726890d2a4e213d2043bd401aaa9ff73dde2e7a9b33b4b554a82ccddec",
+        "B3-S2": "74d65d021f22035f725972c292041f2b7ca20a42d90479e1b14698454a41c655",
+        "B3-S4": "157a90eaebc413e9639bc6383d026fe74fed674490b95a7aa7a222afe59c19a1"
+      },
+      "fixture_sha256": "00cb7f8f90e655e0b5ef17d005daa16ce0bf752617ec95b8db376f5530d96840",
+      "pair_id": "00d76b70-2e7b-5801-a112-ef8066247638",
+      "seed": 900016
+    },
+    {
+      "build_ids": [
+        "f54178a9-0ec0-5ad3-afdf-dac8274b38ca",
+        "33313e57-fce0-5c26-8ef6-dc71f089c9a4",
+        "96ed3b56-d633-5893-8d37-68a9f16a6b25"
+      ],
+      "checkpoint_fingerprints": {
+        "B2-S0": "a97252181bb7cf5e5d1dc111265e0ce57132cdfff3b0e192cc90ca3bd6930c80",
+        "B2-S2": "c67026d4d48274a31d8b7f58d916a64f69f1f7f4740a9e1e92251c450b543aa6",
+        "B2-S3": "e2d466cb6ed4877aef7b4677199f235de7f779a830824892ca2ff8a29e251d33",
+        "B3-S0": "918706db5cb902b2660b4d82f2f754db757939226a91fcbbe35a2b082f20a576",
+        "B3-S2": "390ddb98c117fc7e61c1745c1d984b75056327aedee7d1c3d6d46f4169e8a16e",
+        "B3-S4": "9d6016e48f0187d121681bde67bdbee0731367bcf414a49b9be49753aa8ca042"
+      },
+      "fixture_sha256": "302cb4e6fbe6ab46294299d625d505c1b74281f2131aa25caf9d8a17d4a92faf",
+      "pair_id": "68895547-4f5b-59fa-83d1-4d442bef00f2",
+      "seed": 900017
+    },
+    {
+      "build_ids": [
+        "74aac273-7bb3-56e0-ac2c-c9bfa6531092",
+        "e9235d9e-76ac-561d-b11d-bcf7a76f46e5",
+        "b5f6b87d-d5c0-5e94-9f20-3602784ef9be"
+      ],
+      "checkpoint_fingerprints": {
+        "B2-S0": "064724a61ecd6ea6a09c6a9efaecc500814eb754d8f9eda92c40dd41994b46e0",
+        "B2-S2": "e4c6e29b7a147e0763020d059fdce578dc0aab0955cc855f644fae2d221ed45f",
+        "B2-S3": "3514f700557951be558aad506e24250c15a73c7a8789d79fba553848fa5d2d54",
+        "B3-S0": "2a16526ac59a7d167529f36c9f7fc2eb2c640950f1850f7d9f4387fedfc2736f",
+        "B3-S2": "dae8702f51892df76f39ccdf5c273ce6d8f53273a94261145f7d428e71b3b0db",
+        "B3-S4": "20ba25bd3930fcd26755b632cdb67851987d7fe3e8aa12912411c2cd215107c1"
+      },
+      "fixture_sha256": "0fb775a745d2859b27c1688ccdf90914ba1edc2915997afe55c21e128fdd9e98",
+      "pair_id": "6872fb2e-2685-5b5a-bfeb-cc34f202c7a5",
+      "seed": 900018
+    },
+    {
+      "build_ids": [
+        "9c764186-bc7a-5aa8-90d3-881ec1cbd14f",
+        "f191073d-9972-5fa2-a0c1-d20a2c5a885e",
+        "04e665a1-8593-5b80-916f-7594eb46617e"
+      ],
+      "checkpoint_fingerprints": {
+        "B2-S0": "277267e7c2b8575ead6553eb70eace844959f22c70dc13b5c267eeaaec134424",
+        "B2-S2": "7e1610b66b0a9e8f4638adffab9ac13dfabbca32126060bef689b9de3a68ce8f",
+        "B2-S3": "c6a4053e96db02f7cc45f84ac8f235a27c6b656cb01d7b397a3be476d4089521",
+        "B3-S0": "edd48fdaec54a9459851a19780bd93b541d1914ef8b9f9cc8c0df9e8592000ba",
+        "B3-S2": "8a3c122dc0c7ebf9cf18357e1ae88cf976909546eaca157b64add73430370030",
+        "B3-S4": "7952e86f99b3162d35e872f2b7871a5635058082493095f3ccae828f21c7287d"
+      },
+      "fixture_sha256": "d4de1fc4cd47e2bcfbcedf0a2a20a15cecd7527f4c83eabca9861fde76fc478a",
+      "pair_id": "2e3b3415-75a0-5e83-a38d-825f2e4b80e4",
+      "seed": 900019
+    },
+    {
+      "build_ids": [
+        "c1d4a1fa-4c18-5fc6-a3d6-8ce58fbbefd1",
+        "9e81fa41-12fd-5cde-9f14-31a0b24ea368",
+        "b25c95a7-dd5e-5d64-8b36-e5fccc1896bd"
+      ],
+      "checkpoint_fingerprints": {
+        "B2-S0": "5dafb37af7e44b9059d5d7d69af66247b0260bab6d2610ca965af1a9f7a915f8",
+        "B2-S2": "21725296e4a33369c82e0097fd3bfeee9889b2c34547ee334e5cbc3d09dfc02b",
+        "B2-S3": "df58451f56d51aff3d31a5debaab11c64eb4c6c60ba031754fe88b63a1bcab12",
+        "B3-S0": "483b32f45b8e5f88f414f1fa887a66ca92cbf287d7cee04b97ddc562ed38f92e",
+        "B3-S2": "02a2a2ecd6277479d4930de1ef2f555ccdf3967a4b618d1d31969b685a331472",
+        "B3-S4": "58c065c480f118416563cfa682b9857b6637abe13dc8a01ec239afd0f610dd1c"
+      },
+      "fixture_sha256": "0f43b2f04668ac2e2c02caa1eac4c89474cf5c6e5506d4b2eaf8b2eed6c28da4",
+      "pair_id": "ff401c65-7b4a-5ba6-91c0-d9639d1534ec",
+      "seed": 900020
+    },
+    {
+      "build_ids": [
+        "76490e04-ab3a-5109-baa8-43b934639acb",
+        "4c58239a-c1c6-5627-8caa-57250f8abf64",
+        "a6860300-7382-5708-a70d-57ee313ae995"
+      ],
+      "checkpoint_fingerprints": {
+        "B2-S0": "07d856d0ab800312161812e8ae09f4f9ba2d1fda3ebae0b7b71b5a37b9e1d00e",
+        "B2-S2": "46b291e2c37b0446deaefca88e7078e31cdad756829b165d5d029fa9d2f0ba2a",
+        "B2-S3": "6b0b230333b5a05e658cea41ef2f60bfd2074e12e7a78cc5126e24a4f272dd65",
+        "B3-S0": "cafe60629ebf05364c38f2da6671be564b0d0e1a020223ce5b5930a00ce57565",
+        "B3-S2": "d093187dcd8fc48a3d92f9ba7cb154ce234446fd8bf127f594a47ae015ddebcb",
+        "B3-S4": "2f8dcf3c475f36c841368b6e02d7dc36c1a40a4fecb6b1991bd938718e33f8f1"
+      },
+      "fixture_sha256": "926eea786608f25845079b71fbf993510b9898dd1f74d6c591c8cf68f2af3624",
+      "pair_id": "2e1e6d65-2623-5c26-8633-5089d14a13ab",
+      "seed": 900021
+    },
+    {
+      "build_ids": [
+        "d99e2e60-723a-5a00-b090-e3b25ae46044",
+        "3245685e-59a7-50bf-a33a-ff348045cfeb",
+        "7a3251ec-3f8e-53c5-869e-ce67431e06c6"
+      ],
+      "checkpoint_fingerprints": {
+        "B2-S0": "e668ef6dab0af8135c9b414785380a31ecb137e364e65ff92e9817ef594e8cf2",
+        "B2-S2": "b1678d65bf47fc16c2c9471d2ce456ff434669f8ff59efb634e906744494ef2a",
+        "B2-S3": "ef83ee3e1aedf078c00c2eb8564b4719e8ea0f4d7f9bafa868be1bd80579f707",
+        "B3-S0": "8d5c04e9eb7c40547857861fd8bcfed19ec4b522e65cdaf015c967850724e40b",
+        "B3-S2": "b18c9c2cfbf55aa6dafe7d8a25078a4b8392013537e31a2bc7293e230efb79a2",
+        "B3-S4": "dd45364d95d4dc066ef8086f33fb392530cb7e0cf16524f1465aba836ed2e630"
+      },
+      "fixture_sha256": "f32af207cf877053510260f999276837553f86d5694436a6d0a3ed83db7e9df4",
+      "pair_id": "de371c9d-77bd-594f-acbd-bd9167d00b0d",
+      "seed": 900022
+    },
+    {
+      "build_ids": [
+        "684655e3-f07b-564f-a0f5-a9ebf8c94a3c",
+        "e46ee6f1-30f5-5487-8f90-5e8122470e5a",
+        "18a1577b-de39-544f-b298-902a105edfef"
+      ],
+      "checkpoint_fingerprints": {
+        "B2-S0": "706d33b880f42c8c2ebcab1a054ba2c82526164ce0cd356a56c507d2d547a161",
+        "B2-S2": "56a72f7c5fe54a0d46e09c5a42cf6f3ea997b56dd99655babd8aaa94ccb49b43",
+        "B2-S3": "96fa7d81e66621ec9cb0633b35c08540eeb0f610bf29ebbb18a10c9a02e16005",
+        "B3-S0": "20b433393fec37a98eeff9bd5499c70ecd658c0a3753232e83dcf58a76356a2a",
+        "B3-S2": "8e5016a000c7f49f4293d7d1a57452e13f39c07adac168ba9cf21584afce3706",
+        "B3-S4": "b94e182f16d0401e7d0ddd8c8770baab2f15510d8df7b19f74d84977c06a7282"
+      },
+      "fixture_sha256": "fe91411047e81de1bce3ca5040366eb6f7260888428d0ce41745f00473d65713",
+      "pair_id": "611398b4-6cf9-535d-ac50-bbeba67869e4",
+      "seed": 900023
+    }
+  ],
+  "simulated_state_machine": {
+    "cases": 288,
+    "junit_sha256": "371a8e0c00851948af9b6d548d756b45dd12665840c843251bd70a67bbb5a874",
+    "model_calls": 0,
+    "seeds": 24,
+    "status": "passed",
+    "variants_per_checkpoint": 2
+  },
+  "source_commit": "ac5dcce663813133b29b9d869c5767fe4c8c5917",
+  "source_file_sha256": {
+    "src/offsecgym/experiment/critical_checkpoint.py": "cdc136745ea7f9583845c65f31ca03f77fce9bab30a62cd474cf720beefd6157",
+    "src/offsecgym/research/m661_checkpoint_analysis.py": "b28be45dec0e82cdb88b133fa51d2c9cadba477d47e1aace5a1205e9dcb4f517",
+    "src/offsecgym/research/m661_checkpoints.py": "25b7683f419bd12636d84561cb3789ef7eb8e213315a9fde881c23c5d94c145e"
+  }
+}
