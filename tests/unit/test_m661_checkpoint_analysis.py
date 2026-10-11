@@ -296,3 +296,10 @@ async def test_provider_failed_preterminal_b2_stage_is_retained_only_with_intact
     assert unstarted["terminal_status"] == "unstarted"
     assert unstarted["score_valid"] is None
     assert unstarted["trace_auditable"] is False
+
+    last_evidence.write_text(evidence.model_dump_json())
+    trace[3] = trace[3].model_copy(update={"evidence_id": None})
+    absent_event_evidence = await extract_checkpoint_assignment(
+        assignment, tmp_path, Events(), oracle, fixture
+    )
+    assert absent_event_evidence["trace_auditable"] is False

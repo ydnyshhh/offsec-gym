@@ -257,13 +257,15 @@ def _model_artifact_index(
         for item in model_trace
         if isinstance(item, ActionRequested) and item.source_phase is None
     ]
-    completed = [
+    completed_events = [
         item
         for item in model_trace
         if isinstance(item, ActionCompleted)
-        and item.evidence_id is not None
         and any(request.action_id == item.action_id for request in requests)
     ]
+    if any(item.evidence_id is None for item in completed_events):
+        raise ValueError("completed model action lacks required evidence artifact")
+    completed = completed_events
     by_request = {item.request.action_id: item for item in model_requests}
     by_action = {item.request.action_id: item for item in model_actions}
     if (
@@ -375,7 +377,9 @@ def audit_checkpoint_model_artifacts(
             raise ValueError("model request artifact differs from event")
         if asked.source_phase is None:
             requests.append(ObservedRequest(asked.sequence_number, request))
-        if not isinstance(done, ActionCompleted) or done.evidence_id is None:
+        if isinstance(done, ActionCompleted) and done.evidence_id is None:
+            raise ValueError("completed model action lacks required evidence artifact")
+        if not isinstance(done, ActionCompleted):
             continue
         evidence = Evidence.model_validate_json(
             (instance_dir / "evidence" / f"{done.evidence_id.hex}.json").read_bytes()
