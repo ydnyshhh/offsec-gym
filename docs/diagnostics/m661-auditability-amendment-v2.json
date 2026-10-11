@@ -1,0 +1,17 @@
+{
+  "additional_integrity_gate": "completed model action without evidence ID is unauditable",
+  "amendment": "checkpoint-trace-auditability-v2",
+  "analysis_module_sha256": "6a58bd7d148f8010e7365321949b2815f7d64052a641bb52634255d4f2a2ba7f",
+  "analysis_test_sha256": "1955928883616b12c038358bb70441e9467dfc3443a19651514bcf830871fa55",
+  "created_at": "2026-10-11T17:47:18.715893+00:00",
+  "full_local_junit_sha256": "eee8c9c3c028fd09a4b7a89620fa081fc0edf5870d4c60f5ba479b1ce0a0450f",
+  "local_tests": {
+    "failed": 0,
+    "passed": 634,
+    "skipped": 72
+  },
+  "paid_model_calls": 0,
+  "predecessor_amendment_sha256": "19f03e401f93e35d04d9b5052de9d364ca610b0737b265d64fe4e9eb5c62103d",
+  "protocol": "m661-critical-state-branching-v1",
+  "source_commit": "6f6a29b30a3c9225a902d20d636ccb119a1f43e3"
+}
