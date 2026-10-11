@@ -51,6 +51,7 @@ SOURCE_PATHS = (
     "src/offsecgym/schemas/workers.py",
 )
 PROTOCOL_PATHS = (
+    CONFIG_PATH,
     "src/offsecgym/research/m661_feasibility_protocol.py",
     "src/offsecgym/research/m661_checkpoint_analysis.py",
     "src/offsecgym/research/m661_seed_exclusions.py",
@@ -159,8 +160,16 @@ def _base_spec(root: Path) -> ExperimentSpec:
         or spec.budget.max_model_calls != 20
         or spec.budget.max_actions != 120
         or spec.budget.max_http_requests != 120
+        or spec.budget.max_output_tokens_per_call != 8192
+        or spec.budget.max_wall_seconds != 900
+        or spec.budget.max_workers != 6
+        or spec.budget.max_concurrency != 1
         or spec.bootstrap_budget is None
+        or spec.bootstrap_budget.max_actions != 40
+        or spec.bootstrap_budget.max_http_requests != 40
+        or spec.bootstrap_budget.max_wall_seconds != 120
         or spec.bootstrap_budget.max_model_calls != 0
+        or spec.bootstrap_budget.max_total_tokens != 0
         or spec.model is None
         or spec.model.provider != "openrouter"
         or spec.model.name != REQUESTED_MODEL
@@ -168,6 +177,8 @@ def _base_spec(root: Path) -> ExperimentSpec:
         or spec.model.reasoning != "high"
         or spec.model.input_usd_per_million_tokens != INPUT_PRICE_PER_MILLION
         or spec.model.output_usd_per_million_tokens != OUTPUT_PRICE_PER_MILLION
+        or spec.model.input_reservation_bytes_per_token != 2.0
+        or spec.model.input_reservation_margin_tokens != 1024
     ):
         raise ValueError("feasibility template differs from baseline monolithic policy")
     return spec
@@ -236,6 +247,8 @@ def plan_feasibility(
                         "max_model_calls": spec.budget.max_model_calls,
                         "max_actions": spec.budget.max_actions,
                         "max_http_requests": spec.budget.max_http_requests,
+                        "max_output_tokens_per_call": spec.budget.max_output_tokens_per_call,
+                        "max_wall_seconds": spec.budget.max_wall_seconds,
                     }
                 )
     if len(rows) != CELL_COUNT or len({row["cell_id"] for row in rows}) != CELL_COUNT:
@@ -273,6 +286,7 @@ def plan_feasibility(
         },
         "cells": rows,
         "config": {"path": CONFIG_PATH, "sha256": _sha((root / CONFIG_PATH).read_bytes())},
+        "trusted_setup_budget": base.bootstrap_budget.model_dump(mode="json"),
         "source_file_hashes": {path: _sha((root / path).read_bytes()) for path in SOURCE_PATHS},
         "protocol_file_hashes": {path: _sha((root / path).read_bytes()) for path in PROTOCOL_PATHS},
         "checkpoint_module_sha256": _sha((root / SOURCE_PATHS[0]).read_bytes()),
