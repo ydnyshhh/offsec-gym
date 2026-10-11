@@ -143,7 +143,10 @@ async def test_real_checkpoint_is_audited_isolated_and_patch_correct(
         assert audited["trusted_setup_http_actions"] == receipt["setup_http_count"]
         assert checkpoint_id not in bound[0].model_dump_json()
         corrupt = dict(receipt)
-        corrupt["state_assertions"] = {**receipt["state_assertions"], "role_active_at_start": False}
+        corrupt["state_assertions"] = {
+            **receipt["state_assertions"],
+            "receipt_tampered": True,
+        }
         corrupt_bytes = (
             json.dumps(corrupt, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode()
             + b"\n"

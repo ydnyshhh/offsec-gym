@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import subprocess
 import xml.etree.ElementTree as ET
 from datetime import UTC, datetime
 from pathlib import Path
@@ -82,6 +83,9 @@ def simulated_result(junit_path: Path) -> dict[str, object]:
 def qualify(
     repository_root: Path, state_dir: Path, compose_junit: Path, simulated_junit: Path
 ) -> dict[str, object]:
+    source_commit = subprocess.check_output(
+        ["git", "rev-parse", "HEAD"], cwd=repository_root, text=True
+    ).strip()
     excluded, registry_sha = load_exclusion_registry(repository_root)
     registry = json.loads((repository_root / REGISTRY_PATH).read_bytes())
     seeds = registry["qualification_seeds"]
@@ -142,6 +146,7 @@ def qualify(
         )
     return {
         "protocol": VERSION,
+        "source_commit": source_commit,
         "created_at": datetime.now(UTC).isoformat(),
         "registry_sha256": registry_sha,
         "qualification_seed_count": len(seeds),
