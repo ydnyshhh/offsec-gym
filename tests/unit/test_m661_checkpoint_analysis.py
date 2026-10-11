@@ -281,9 +281,12 @@ async def test_provider_failed_preterminal_b2_stage_is_retained_only_with_intact
     assert corrupt["score_valid"] is False
     assert corrupt["trace_auditable"] is False
     assert corrupt["full_transition"] is None
-    assert checkpoint_response_curves([corrupt], bootstrap_replicates=100)["curves"][0][
-        "full_transition"
-    ]["missingness_bounds"] == [0.0, 1.0]
+    assert corrupt["model_calls"] is None
+    assert corrupt["resource_auditable"] is False
+    corrupt_curve = checkpoint_response_curves([corrupt], bootstrap_replicates=100)["curves"][0]
+    assert corrupt_curve["full_transition"]["missingness_bounds"] == [0.0, 1.0]
+    assert corrupt_curve["model_calls"] is None
+    assert corrupt_curve["resource_missing_cells"] == 1
 
     last_evidence.unlink()
     absent = await extract_checkpoint_assignment(assignment, tmp_path, Events(), oracle, fixture)
@@ -296,10 +299,21 @@ async def test_provider_failed_preterminal_b2_stage_is_retained_only_with_intact
     assert unstarted["terminal_status"] == "unstarted"
     assert unstarted["score_valid"] is None
     assert unstarted["trace_auditable"] is False
+    assert unstarted["http_actions"] is None
 
     last_evidence.write_text(evidence.model_dump_json())
+    original_action = trace[3]
     trace[3] = trace[3].model_copy(update={"evidence_id": None})
     absent_event_evidence = await extract_checkpoint_assignment(
         assignment, tmp_path, Events(), oracle, fixture
     )
     assert absent_event_evidence["trace_auditable"] is False
+
+    trace[3] = original_action
+
+    def faulty_analyzer(*_args):
+        raise ValueError("analysis implementation defect")
+
+    monkeypatch.setattr("offsecgym.research.m661_checkpoint_analysis._b2_stages", faulty_analyzer)
+    with pytest.raises(ValueError, match="analysis implementation defect"):
+        await extract_checkpoint_assignment(assignment, tmp_path, Events(), oracle, fixture)

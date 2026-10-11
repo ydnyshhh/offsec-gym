@@ -575,6 +575,7 @@ def extract_checkpoint_cell(
         "score_valid": score_valid,
         "trace_auditable": True,
         "auditable": True,
+        "resource_auditable": True,
         "terminal_status": terminal[0].status,
         "experiment_completed": bool(experiment),
         "full_transition": bool(full_transition),
@@ -620,15 +621,16 @@ def missing_checkpoint_cell(
         else None,
         "trace_auditable": False,
         "auditable": False,
+        "resource_auditable": False,
         "audit_failure": reason,
         "terminal_status": terminal_status,
         "validation_comparable": assignment["checkpoint_id"].endswith("S0"),
         "witness_comparable": assignment["checkpoint_id"].endswith("S0"),
-        "model_calls": 0,
-        "input_tokens": 0,
-        "output_tokens": 0,
-        "http_actions": 0,
-        "trusted_setup_http_actions": 0,
+        "model_calls": None,
+        "input_tokens": None,
+        "output_tokens": None,
+        "http_actions": None,
+        "trusted_setup_http_actions": None,
         **dict.fromkeys(METRICS),
     }
 
@@ -646,29 +648,51 @@ async def extract_checkpoint_assignment(
         return missing_checkpoint_cell(
             assignment, terminal_status="unstarted", reason="no_model_run"
         )
-    model_trace: list[TraceEvent] = []
+    model_run_id = UUID(str(run_id))
+    model_trace: list[TraceEvent] = await events.read_run(model_run_id)
     try:
-        model_run_id = UUID(str(run_id))
-        model_trace = await events.read_run(model_run_id)
         receipt_path = state_root / "critical_checkpoints" / f"{model_run_id.hex}.json"
         receipt = json.loads(receipt_path.read_bytes())
-        setup_trace = await events.read_run(UUID(receipt["setup_run_id"]))
-        await audit_checkpoint_receipt(state_root, events, model_run_id)
-        actions, requests = audit_checkpoint_model_artifacts(state_root, model_trace)
-        row = extract_checkpoint_cell(
-            receipt_path.read_bytes(), model_trace, setup_trace, actions, requests, oracle, fixture
-        )
-        if any(
-            row[key] != assignment[key] for key in ("root_id", "checkpoint_id", "seed", "variant")
-        ):
-            raise ValueError("checkpoint row differs from frozen assignment")
-        return row
-    except (BuildIntegrityError, OSError, ValueError, KeyError, TypeError) as exc:
+        setup_run_id = UUID(receipt["setup_run_id"])
+    except (
+        FileNotFoundError,
+        PermissionError,
+        IsADirectoryError,
+        ValueError,
+        KeyError,
+        TypeError,
+    ) as exc:
         terminal = [item for item in model_trace if isinstance(item, RunCompleted)]
         status = terminal[0].status if len(terminal) == 1 else "unstarted"
         return missing_checkpoint_cell(
             assignment, terminal_status=status, reason=f"integrity_failed:{type(exc).__name__}"
         )
+    setup_trace = await events.read_run(setup_run_id)
+    try:
+        await audit_checkpoint_receipt(state_root, events, model_run_id)
+        actions, requests = audit_checkpoint_model_artifacts(state_root, model_trace)
+    except (
+        BuildIntegrityError,
+        FileNotFoundError,
+        PermissionError,
+        IsADirectoryError,
+        ValueError,
+        KeyError,
+        TypeError,
+    ) as exc:
+        terminal = [item for item in model_trace if isinstance(item, RunCompleted)]
+        status = terminal[0].status if len(terminal) == 1 else "unstarted"
+        return missing_checkpoint_cell(
+            assignment, terminal_status=status, reason=f"integrity_failed:{type(exc).__name__}"
+        )
+    # Stage extraction and frozen assignment checks run outside the data-integrity
+    # catch: an analyzer bug must abort the authoritative postcheck globally.
+    row = extract_checkpoint_cell(
+        receipt_path.read_bytes(), model_trace, setup_trace, actions, requests, oracle, fixture
+    )
+    if any(row[key] != assignment[key] for key in ("root_id", "checkpoint_id", "seed", "variant")):
+        raise ValueError("checkpoint row differs from frozen assignment")
+    return row
 
 
 def checkpoint_response_curves(
@@ -688,6 +712,13 @@ def checkpoint_response_curves(
         rows.sort(key=lambda row: row["seed"])
         counts = Counter(row["terminal_status"] for row in rows)
         auditable = [row for row in rows if row["trace_auditable"]]
+        resources = (
+            "model_calls",
+            "input_tokens",
+            "output_tokens",
+            "http_actions",
+            "trusted_setup_http_actions",
+        )
         group: dict[str, object] = {
             "root_id": root,
             "checkpoint_id": checkpoint,
@@ -696,13 +727,19 @@ def checkpoint_response_curves(
             "auditable_cells": len(auditable),
             "trace_auditable_cells": len(auditable),
             "score_valid_cells": sum(row["score_valid"] is True for row in rows),
+            "resource_auditable_cells": sum(row.get("resource_auditable", True) for row in rows),
+            "resource_missing_cells": sum(not row.get("resource_auditable", True) for row in rows),
             "seed_count": len({row["seed"] for row in rows}),
             "terminal_statuses": dict(sorted(counts.items())),
-            "model_calls": sum(row["model_calls"] for row in rows),
-            "input_tokens": sum(row["input_tokens"] for row in rows),
-            "output_tokens": sum(row["output_tokens"] for row in rows),
-            "http_actions": sum(row["http_actions"] for row in rows),
-            "trusted_setup_http_actions": sum(row["trusted_setup_http_actions"] for row in rows),
+            **{
+                key: sum(row[key] for row in rows)
+                if all(row[key] is not None for row in rows)
+                else None
+                for key in resources
+            },
+            "known_resource_totals": {
+                key: sum(row[key] for row in rows if row[key] is not None) for key in resources
+            },
             "validation_comparable": all(row["validation_comparable"] for row in rows),
             "witness_comparable": all(row["witness_comparable"] for row in rows),
         }
