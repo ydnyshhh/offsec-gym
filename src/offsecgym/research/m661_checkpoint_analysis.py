@@ -70,6 +70,27 @@ def _body(action: ProofAction) -> dict[str, object]:
     return action.body or {}
 
 
+def _model_usage(trace: list[TraceEvent]) -> dict[str, int | bool | None]:
+    """Mark token totals unknown when any started call lacks a completion."""
+    started = [item for item in trace if isinstance(item, ModelCallStarted)]
+    completed = [item for item in trace if isinstance(item, ModelCallCompleted)]
+    started_ids = {item.call_id for item in started}
+    completed_ids = {item.call_id for item in completed}
+    token_usage_known = (
+        len(started_ids) == len(started)
+        and len(completed_ids) == len(completed)
+        and started_ids == completed_ids
+    )
+    return {
+        "model_calls": len(started),
+        "input_tokens": sum(item.input_tokens for item in completed) if token_usage_known else None,
+        "output_tokens": sum(item.output_tokens for item in completed)
+        if token_usage_known
+        else None,
+        "resource_auditable": token_usage_known,
+    }
+
+
 def _valid_trace(trace: list[TraceEvent]) -> None:
     if (
         not trace
@@ -575,7 +596,7 @@ def extract_checkpoint_cell(
         and item.result.matched_root_cause_id == prop.root_cause_id
         for item in verdicts
     )
-    completed_calls = [item for item in model_trace if isinstance(item, ModelCallCompleted)]
+    usage = _model_usage(model_trace)
     model_requests_count = sum(
         isinstance(item, ActionRequested) and item.source_phase is None for item in model_trace
     )
@@ -591,7 +612,7 @@ def extract_checkpoint_cell(
         "score_valid": score_valid,
         "trace_auditable": True,
         "auditable": True,
-        "resource_auditable": True,
+        "resource_auditable": usage["resource_auditable"],
         "terminal_status": terminal[0].status,
         "experiment_completed": bool(experiment),
         "full_transition": bool(full_transition),
@@ -612,9 +633,9 @@ def extract_checkpoint_cell(
         ),
         "validation_comparable": receipt["checkpoint_id"].endswith("S0"),
         "witness_comparable": receipt["checkpoint_id"].endswith("S0"),
-        "model_calls": sum(isinstance(item, ModelCallStarted) for item in model_trace),
-        "input_tokens": sum(item.input_tokens for item in completed_calls),
-        "output_tokens": sum(item.output_tokens for item in completed_calls),
+        "model_calls": usage["model_calls"],
+        "input_tokens": usage["input_tokens"],
+        "output_tokens": usage["output_tokens"],
         "http_actions": model_requests_count,
         "trusted_setup_http_actions": receipt["setup_http_count"],
         **details,

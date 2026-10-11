@@ -12,6 +12,7 @@ from uuid import uuid4
 import pytest
 
 from offsecgym.research.m661_checkpoint_analysis import (
+    _model_usage,
     checkpoint_response_curves,
     extract_checkpoint_assignment,
     extract_checkpoint_cell,
@@ -26,6 +27,9 @@ from offsecgym.runtime.enterprise import FAMILY, fixture_for_seed, oracle_for_fi
 from offsecgym.schemas.events import (
     ActionCompleted,
     ActionRequested,
+    ModelCallCompleted,
+    ModelCallFailed,
+    ModelCallStarted,
     RangeStarted,
     RunCompleted,
     RunStarted,
@@ -122,6 +126,45 @@ def test_patched_submissions_include_inconclusive_claims_and_missingness() -> No
     missing = {**second, "trace_auditable": False, "patched_submitted_findings": None}
     group = checkpoint_response_curves([first, missing], bootstrap_replicates=100)["curves"][0]
     assert group["patched_findings"]["patched_submitted_findings"] is None
+
+
+def test_started_provider_call_without_completion_has_unknown_tokens() -> None:
+    run_id, call_id = uuid4(), uuid4()
+    started = ModelCallStarted(
+        schema_version="1",
+        run_id=run_id,
+        actor="controller",
+        sequence_number=1,
+        call_id=call_id,
+        provider="openrouter",
+        model="moonshotai/kimi-k3",
+        input_sha256="0" * 64,
+    )
+    failed = ModelCallFailed(
+        run_id=run_id,
+        actor="controller",
+        sequence_number=2,
+        call_id=call_id,
+        reason_code="provider_unavailable",
+    )
+    assert _model_usage([started, failed]) == {
+        "model_calls": 1,
+        "input_tokens": None,
+        "output_tokens": None,
+        "resource_auditable": False,
+    }
+    completed = ModelCallCompleted(
+        schema_version="1",
+        run_id=run_id,
+        actor="controller",
+        sequence_number=2,
+        call_id=call_id,
+        provider_status="completed",
+        tool_call_count=0,
+        input_tokens=123,
+        output_tokens=45,
+    )
+    assert _model_usage([started, completed])["input_tokens"] == 123
 
 
 def test_seed_registry_reconstructs_pinned_historical_union() -> None:
