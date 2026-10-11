@@ -51,20 +51,19 @@ traces, and the predeclared analysis.
 
 ## Next questions
 
-1. [M6.6](milestone-6.6.md) should test a generic, event-backed
-   before/action/after witness ledger against the same exploration policy
-   without that scaffold. This targets successful-action-to-complete-proof
-   conversion, especially for temporal authorization tests. Keep the
-   intervention oracle-free and include patched false-finding checks. The
-   event-derived ledger and policy runner are implemented; a full paired
-   fake-range parity test and frozen collection protocol remain.
-2. Add a second state-changing range family before claiming the witness
-   mechanism generalizes beyond the current synthetic SaaS workflow.
+1. Interpret the completed [M6.6 v2 confirmatory result](diagnostics/m66-confirmatory-v2-results.md)
+   by range family. The generic event-backed witness ledger increased
+   complete-proof conversion in Range A, while the separately qualified
+   Range B showed almost no conversion in either arm. The frozen study is
+   complete; investigate the mechanism using its existing traces before
+   proposing an independent replication.
+2. Preserve the distinct patched false-finding, provider-failure, and
+   score-valid matched analyses when assessing whether this witness scaffold
+   generalizes beyond the synthetic ranges and pinned model endpoint.
 
 Keep model, bootstrap, validator, range visibility, budget, provider endpoint,
 and stopping rules explicit in every new manifest. Preserve distinct root
 recall, duplicate submissions, false findings, latency, token/cost use, and
-score-invalid failures separately. M6.6 remains a design, not an approved
-model collection. No new collection starts without a costed, frozen
-protocol and approval. The completed M6.5.2 dataset remains separate from
-the earlier M6.4 and M6.5 collections.
+score-invalid failures separately. M6.6 v2 is complete; no new collection
+starts without a costed, frozen protocol and separate approval. The completed
+M6.5.2 dataset remains separate from the earlier M6.4 and M6.5 collections.
