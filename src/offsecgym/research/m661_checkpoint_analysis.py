@@ -16,6 +16,8 @@ from pathlib import Path
 from typing import Any
 from uuid import UUID
 
+from pydantic import ValidationError
+
 from offsecgym.research import m661_checkpoints
 from offsecgym.research.m66_pilot_analysis import (
     ObservedRequest,
@@ -60,6 +62,10 @@ METRICS = (
 )
 
 
+class CheckpointDataIntegrityError(ValueError):
+    """Expected malformed checkpoint evidence; eligible for assigned missingness."""
+
+
 def _body(action: ProofAction) -> dict[str, object]:
     return action.body or {}
 
@@ -71,7 +77,7 @@ def _valid_trace(trace: list[TraceEvent]) -> None:
         or len({event.event_id for event in trace}) != len(trace)
         or [event.sequence_number for event in trace] != list(range(1, len(trace) + 1))
     ):
-        raise ValueError("checkpoint trace identity or sequence invalid")
+        raise CheckpointDataIntegrityError("checkpoint trace identity or sequence invalid")
 
 
 def _verify_binding(
@@ -81,15 +87,15 @@ def _verify_binding(
     _valid_trace(setup_trace)
     receipt: dict[str, object] = json.loads(receipt_bytes)
     if _canonical(receipt) + b"\n" != receipt_bytes:
-        raise ValueError("checkpoint receipt bytes are not canonical")
+        raise CheckpointDataIntegrityError("checkpoint receipt bytes are not canonical")
     if receipt.get("protocol") != VERSION or receipt.get("checkpoint_version") != VERSION:
-        raise ValueError("checkpoint receipt version differs")
+        raise CheckpointDataIntegrityError("checkpoint receipt version differs")
     if receipt.get("model_run_id") != str(model_trace[0].run_id) or receipt.get(
         "setup_run_id"
     ) != str(setup_trace[0].run_id):
-        raise ValueError("checkpoint receipt run binding differs")
+        raise CheckpointDataIntegrityError("checkpoint receipt run binding differs")
     if _digest(receipt["verified_public_state"]) != receipt.get("public_state_digest"):
-        raise ValueError("public checkpoint state digest differs")
+        raise CheckpointDataIntegrityError("public checkpoint state digest differs")
     expected_private = _digest(
         {
             "version": VERSION,
@@ -104,7 +110,7 @@ def _verify_binding(
         }
     )
     if expected_private != receipt.get("private_checkpoint_digest"):
-        raise ValueError("private checkpoint digest differs")
+        raise CheckpointDataIntegrityError("private checkpoint digest differs")
     bound = [event for event in model_trace if isinstance(event, CriticalCheckpointBound)]
     bootstrap = [
         event for event in model_trace if isinstance(event, PrerequisiteBootstrapCompleted)
@@ -131,12 +137,12 @@ def _verify_binding(
         or (model_calls and bound[0].sequence_number >= model_calls[0].sequence_number)
         or (model_calls and setup_end[0].occurred_at > model_calls[0].occurred_at)
     ):
-        raise ValueError("checkpoint did not bind before model inference")
+        raise CheckpointDataIntegrityError("checkpoint did not bind before model inference")
     if any(
         isinstance(event, ActionRequested) and event.source_phase == "critical_checkpoint"
         for event in model_trace
     ) or any(isinstance(event, ModelCallStarted) for event in setup_trace):
-        raise ValueError("setup/model event isolation broken")
+        raise CheckpointDataIntegrityError("setup/model event isolation broken")
     first_inference = model_calls[0].sequence_number if model_calls else None
     if any(
         isinstance(event, ActionRequested)
@@ -144,7 +150,7 @@ def _verify_binding(
         and (first_inference is None or event.sequence_number < first_inference)
         for event in model_trace
     ):
-        raise ValueError("model run mutated checkpoint before first inference")
+        raise CheckpointDataIntegrityError("model run mutated checkpoint before first inference")
     if any(
         getattr(model_ranges[0], field) != getattr(setup_ranges[0], field)
         for field in ("build_id", "range_instance_id", "range_generation")
@@ -153,7 +159,7 @@ def _verify_binding(
         or str(model_ranges[0].range_instance_id) != receipt["range_instance_id"]
         or model_ranges[0].range_generation != receipt["range_generation"]
     ):
-        raise ValueError("checkpoint and model range binding differs")
+        raise CheckpointDataIntegrityError("checkpoint and model range binding differs")
     requested = [item for item in setup_trace if isinstance(item, ActionRequested)]
     completed = [item for item in setup_trace if isinstance(item, ActionCompleted)]
     if (
@@ -165,7 +171,7 @@ def _verify_binding(
         or any(item.source_phase != "critical_checkpoint" for item in requested)
         or any(item.originating_call_id is not None for item in requested)
     ):
-        raise ValueError("trusted setup provenance differs")
+        raise CheckpointDataIntegrityError("trusted setup provenance differs")
     return receipt
 
 
@@ -179,7 +185,7 @@ async def audit_checkpoint_receipt(
         or not receipt_path.is_file()
         or stat.S_IMODE(receipt_path.stat().st_mode) & 0o077
     ):
-        raise ValueError("checkpoint receipt is absent or not private")
+        raise CheckpointDataIntegrityError("checkpoint receipt is absent or not private")
     raw = receipt_path.read_bytes()
     receipt = json.loads(raw)
     model_trace = await events.read_run(model_run_id)
@@ -201,7 +207,7 @@ async def audit_checkpoint_receipt(
         or hashlib.sha256(Path(m661_checkpoints.__file__).read_bytes()).hexdigest()
         != receipt["checkpoint_module_sha256"]
     ):
-        raise ValueError("checkpoint build, pair, or fixture provenance differs")
+        raise CheckpointDataIntegrityError("checkpoint build, pair, or fixture provenance differs")
     requested = [event for event in setup_trace if isinstance(event, ActionRequested)]
     completed = [event for event in setup_trace if isinstance(event, ActionCompleted)]
     instance_dir = state.instance_dir(UUID(receipt["range_instance_id"]))
@@ -209,7 +215,7 @@ async def audit_checkpoint_receipt(
         receipt["trusted_setup_actions"], requested, completed, strict=True
     ):
         if asked.request_artifact_id is None or done.evidence_id is None:
-            raise ValueError("checkpoint gateway artifact ID absent")
+            raise CheckpointDataIntegrityError("checkpoint gateway artifact ID absent")
         request = RequestArtifact.model_validate_json(
             (instance_dir / "requests" / f"{asked.request_artifact_id.hex}.json").read_bytes()
         )
@@ -234,7 +240,7 @@ async def audit_checkpoint_receipt(
             or evidence.http_status != done.http_status
             or evidence.response_sha256 != recorded["response_sha256"]
         ):
-            raise ValueError("checkpoint request/evidence provenance differs")
+            raise CheckpointDataIntegrityError("checkpoint request/evidence provenance differs")
     return {
         "receipt_sha256": hashlib.sha256(raw).hexdigest(),
         "model_run_id": str(model_run_id),
@@ -264,7 +270,9 @@ def _model_artifact_index(
         and any(request.action_id == item.action_id for request in requests)
     ]
     if any(item.evidence_id is None for item in completed_events):
-        raise ValueError("completed model action lacks required evidence artifact")
+        raise CheckpointDataIntegrityError(
+            "completed model action lacks required evidence artifact"
+        )
     completed = completed_events
     by_request = {item.request.action_id: item for item in model_requests}
     by_action = {item.request.action_id: item for item in model_actions}
@@ -276,7 +284,9 @@ def _model_artifact_index(
         or set(by_request) != {item.action_id for item in requests}
         or set(by_action) != {item.action_id for item in completed}
     ):
-        raise ValueError("model request or evidence artifact is absent or duplicated")
+        raise CheckpointDataIntegrityError(
+            "model request or evidence artifact is absent or duplicated"
+        )
     for event in requests:
         observed = by_request[event.action_id]
         request = observed.request
@@ -293,7 +303,9 @@ def _model_artifact_index(
             or request.identity_id != event.identity_id
             or hashlib.sha256(request.path.encode()).hexdigest() != event.path_sha256
         ):
-            raise ValueError("model request artifact differs from authoritative event")
+            raise CheckpointDataIntegrityError(
+                "model request artifact differs from authoritative event"
+            )
     for event in completed:
         action = by_action[event.action_id]
         evidence = action.evidence
@@ -310,7 +322,9 @@ def _model_artifact_index(
             or evidence.http_status != event.http_status
             or evidence.response_sha256 != event.response_sha256
         ):
-            raise ValueError("model evidence artifact differs from authoritative event")
+            raise CheckpointDataIntegrityError(
+                "model evidence artifact differs from authoritative event"
+            )
 
 
 def audit_checkpoint_model_artifacts(
@@ -320,10 +334,10 @@ def audit_checkpoint_model_artifacts(
     _valid_trace(model_trace)
     terminal = [event for event in model_trace if isinstance(event, RunCompleted)]
     if len(terminal) != 1 or terminal[0].sequence_number != len(model_trace):
-        raise ValueError("model run terminal boundary is absent or not final")
+        raise CheckpointDataIntegrityError("model run terminal boundary is absent or not final")
     ranges = [event for event in model_trace if isinstance(event, RangeStarted)]
     if len(ranges) != 1:
-        raise ValueError("model run range binding differs")
+        raise CheckpointDataIntegrityError("model run range binding differs")
     range_event = ranges[0]
     instance_dir = StateStore(state_root).instance_dir(range_event.range_instance_id)
     requested = [event for event in model_trace if isinstance(event, ActionRequested)]
@@ -333,12 +347,12 @@ def audit_checkpoint_model_artifacts(
         if isinstance(event, (ActionBlocked, ActionCompleted, ActionFailed))
     ]
     if len({event.action_id for event in requested}) != len(requested):
-        raise ValueError("model run repeats an action request")
+        raise CheckpointDataIntegrityError("model run repeats an action request")
     by_terminal = {event.action_id: event for event in terminal_events}
     if len(by_terminal) != len(terminal_events) or set(by_terminal) != {
         event.action_id for event in requested
     }:
-        raise ValueError("model run action terminal is absent or duplicated")
+        raise CheckpointDataIntegrityError("model run action terminal is absent or duplicated")
     actions: list[ProofAction] = []
     requests: list[ObservedRequest] = []
     for asked in requested:
@@ -350,7 +364,7 @@ def audit_checkpoint_model_artifacts(
             or asked.sequence_number >= done.sequence_number
             or done.causation_id != asked.event_id
         ):
-            raise ValueError("model action event provenance differs")
+            raise CheckpointDataIntegrityError("model action event provenance differs")
         request = RequestArtifact.model_validate_json(
             (instance_dir / "requests" / f"{asked.request_artifact_id.hex}.json").read_bytes()
         )
@@ -374,11 +388,13 @@ def audit_checkpoint_model_artifacts(
             )
             != asked.body_sha256
         ):
-            raise ValueError("model request artifact differs from event")
+            raise CheckpointDataIntegrityError("model request artifact differs from event")
         if asked.source_phase is None:
             requests.append(ObservedRequest(asked.sequence_number, request))
         if isinstance(done, ActionCompleted) and done.evidence_id is None:
-            raise ValueError("completed model action lacks required evidence artifact")
+            raise CheckpointDataIntegrityError(
+                "completed model action lacks required evidence artifact"
+            )
         if not isinstance(done, ActionCompleted):
             continue
         evidence = Evidence.model_validate_json(
@@ -394,7 +410,7 @@ def audit_checkpoint_model_artifacts(
             or evidence.http_status != done.http_status
             or evidence.response_sha256 != done.response_sha256
         ):
-            raise ValueError("model evidence artifact differs from event")
+            raise CheckpointDataIntegrityError("model evidence artifact differs from event")
         if asked.source_phase is None:
             actions.append(ProofAction(request, evidence, done.sequence_number))
     _model_artifact_index(model_trace, actions, requests)
@@ -672,13 +688,13 @@ async def extract_checkpoint_assignment(
         await audit_checkpoint_receipt(state_root, events, model_run_id)
         actions, requests = audit_checkpoint_model_artifacts(state_root, model_trace)
     except (
+        CheckpointDataIntegrityError,
         BuildIntegrityError,
         FileNotFoundError,
         PermissionError,
         IsADirectoryError,
-        ValueError,
-        KeyError,
-        TypeError,
+        json.JSONDecodeError,
+        ValidationError,
     ) as exc:
         terminal = [item for item in model_trace if isinstance(item, RunCompleted)]
         status = terminal[0].status if len(terminal) == 1 else "unstarted"
