@@ -1,0 +1,407 @@
+{
+  "audit_sha256": "970c57a7d8465905cbd7f2fc0075d93141374df29f0b84a1a3b489046a32af3e",
+  "journal_sha256": "0c72f16ceba1f86b0da2eaa6cc58da38cf1748b63d176c808eed108e10014119",
+  "manifest_sha256": "a8aa98654360945ad69f350c38153dccaf827434a4e157819f558ae8da05916c",
+  "observed_cells": 280,
+  "protocol": "m66-confirmatory-v2",
+  "results": {
+    "analysis": "all-assigned trace-auditable witness outcome",
+    "bootstrap_replicates": 10000,
+    "failure_counts_by_family_variant_arm_status": [
+      {
+        "arm": "control",
+        "count": 9,
+        "range_family": "enterprise_change_control_v1",
+        "status": "budget_exhausted",
+        "variant": "patched"
+      },
+      {
+        "arm": "control",
+        "count": 1,
+        "range_family": "enterprise_change_control_v1",
+        "status": "provider_failed",
+        "variant": "patched"
+      },
+      {
+        "arm": "witness",
+        "count": 10,
+        "range_family": "enterprise_change_control_v1",
+        "status": "budget_exhausted",
+        "variant": "patched"
+      },
+      {
+        "arm": "control",
+        "count": 3,
+        "range_family": "enterprise_change_control_v1",
+        "status": "agent_failed",
+        "variant": "vulnerable"
+      },
+      {
+        "arm": "control",
+        "count": 53,
+        "range_family": "enterprise_change_control_v1",
+        "status": "budget_exhausted",
+        "variant": "vulnerable"
+      },
+      {
+        "arm": "control",
+        "count": 4,
+        "range_family": "enterprise_change_control_v1",
+        "status": "provider_failed",
+        "variant": "vulnerable"
+      },
+      {
+        "arm": "witness",
+        "count": 7,
+        "range_family": "enterprise_change_control_v1",
+        "status": "agent_failed",
+        "variant": "vulnerable"
+      },
+      {
+        "arm": "witness",
+        "count": 52,
+        "range_family": "enterprise_change_control_v1",
+        "status": "budget_exhausted",
+        "variant": "vulnerable"
+      },
+      {
+        "arm": "witness",
+        "count": 1,
+        "range_family": "enterprise_change_control_v1",
+        "status": "provider_failed",
+        "variant": "vulnerable"
+      },
+      {
+        "arm": "control",
+        "count": 10,
+        "range_family": "saas",
+        "status": "budget_exhausted",
+        "variant": "patched"
+      },
+      {
+        "arm": "witness",
+        "count": 10,
+        "range_family": "saas",
+        "status": "budget_exhausted",
+        "variant": "patched"
+      },
+      {
+        "arm": "control",
+        "count": 8,
+        "range_family": "saas",
+        "status": "agent_failed",
+        "variant": "vulnerable"
+      },
+      {
+        "arm": "control",
+        "count": 48,
+        "range_family": "saas",
+        "status": "budget_exhausted",
+        "variant": "vulnerable"
+      },
+      {
+        "arm": "control",
+        "count": 1,
+        "range_family": "saas",
+        "status": "completed",
+        "variant": "vulnerable"
+      },
+      {
+        "arm": "control",
+        "count": 3,
+        "range_family": "saas",
+        "status": "provider_failed",
+        "variant": "vulnerable"
+      },
+      {
+        "arm": "witness",
+        "count": 9,
+        "range_family": "saas",
+        "status": "agent_failed",
+        "variant": "vulnerable"
+      },
+      {
+        "arm": "witness",
+        "count": 50,
+        "range_family": "saas",
+        "status": "budget_exhausted",
+        "variant": "vulnerable"
+      },
+      {
+        "arm": "witness",
+        "count": 1,
+        "range_family": "saas",
+        "status": "provider_failed",
+        "variant": "vulnerable"
+      }
+    ],
+    "failure_rates_by_arm": {
+      "control": {
+        "assigned_cells": 140,
+        "rates": {
+          "agent_failed": 0.07857142857142857,
+          "environment_failed": 0.0,
+          "provider_failed": 0.05714285714285714
+        }
+      },
+      "witness": {
+        "assigned_cells": 140,
+        "rates": {
+          "agent_failed": 0.11428571428571428,
+          "environment_failed": 0.0,
+          "provider_failed": 0.014285714285714285
+        }
+      }
+    },
+    "patched_findings": {
+      "enterprise_change_control_v1": {
+        "control": {
+          "assigned_cells": 10,
+          "auditable_cells": 10,
+          "inconclusive_findings_observed": 0,
+          "missing_cells": 0,
+          "rejected_findings_observed": 0,
+          "submitted_findings_observed": 0
+        },
+        "witness": {
+          "assigned_cells": 10,
+          "auditable_cells": 10,
+          "inconclusive_findings_observed": 0,
+          "missing_cells": 0,
+          "rejected_findings_observed": 0,
+          "submitted_findings_observed": 0
+        }
+      },
+      "saas": {
+        "control": {
+          "assigned_cells": 10,
+          "auditable_cells": 10,
+          "inconclusive_findings_observed": 0,
+          "missing_cells": 0,
+          "rejected_findings_observed": 4,
+          "submitted_findings_observed": 4
+        },
+        "witness": {
+          "assigned_cells": 10,
+          "auditable_cells": 10,
+          "inconclusive_findings_observed": 0,
+          "missing_cells": 0,
+          "rejected_findings_observed": 3,
+          "submitted_findings_observed": 3
+        }
+      }
+    },
+    "primary_by_family": {
+      "enterprise_change_control_v1": {
+        "assigned_arm_root_outcomes": 360,
+        "assigned_root_pairs": 180,
+        "control_complete_observed": 0,
+        "control_missing_root_outcomes": 0,
+        "control_observed_root_outcomes": 180,
+        "difference_per_assigned_root": 0.005555555555555556,
+        "seed_bootstrap_95pct": [
+          0.0,
+          0.016666666666666666
+        ],
+        "witness_complete_observed": 1,
+        "witness_missing_root_outcomes": 0,
+        "witness_observed_root_outcomes": 180,
+        "worst_best_bounds": [
+          0.005555555555555556,
+          0.005555555555555556
+        ]
+      },
+      "saas": {
+        "assigned_arm_root_outcomes": 120,
+        "assigned_root_pairs": 60,
+        "control_complete_observed": 7,
+        "control_missing_root_outcomes": 0,
+        "control_observed_root_outcomes": 60,
+        "difference_per_assigned_root": 0.5166666666666667,
+        "seed_bootstrap_95pct": [
+          0.38333333333333336,
+          0.65
+        ],
+        "witness_complete_observed": 38,
+        "witness_missing_root_outcomes": 0,
+        "witness_observed_root_outcomes": 60,
+        "worst_best_bounds": [
+          0.5166666666666667,
+          0.5166666666666667
+        ]
+      }
+    },
+    "primary_by_root": {
+      "B1-SOD": {
+        "assigned_arm_root_outcomes": 120,
+        "assigned_root_pairs": 60,
+        "control_complete_observed": 0,
+        "control_missing_root_outcomes": 0,
+        "control_observed_root_outcomes": 60,
+        "difference_per_assigned_root": 0.016666666666666666,
+        "seed_bootstrap_95pct": [
+          0.0,
+          0.05
+        ],
+        "witness_complete_observed": 1,
+        "witness_missing_root_outcomes": 0,
+        "witness_observed_root_outcomes": 60,
+        "worst_best_bounds": [
+          0.016666666666666666,
+          0.016666666666666666
+        ]
+      },
+      "B2-REVOKED-ROLE": {
+        "assigned_arm_root_outcomes": 120,
+        "assigned_root_pairs": 60,
+        "control_complete_observed": 0,
+        "control_missing_root_outcomes": 0,
+        "control_observed_root_outcomes": 60,
+        "difference_per_assigned_root": 0.0,
+        "seed_bootstrap_95pct": [
+          0.0,
+          0.0
+        ],
+        "witness_complete_observed": 0,
+        "witness_missing_root_outcomes": 0,
+        "witness_observed_root_outcomes": 60,
+        "worst_best_bounds": [
+          0.0,
+          0.0
+        ]
+      },
+      "B3-CANCELLED-JOB": {
+        "assigned_arm_root_outcomes": 120,
+        "assigned_root_pairs": 60,
+        "control_complete_observed": 0,
+        "control_missing_root_outcomes": 0,
+        "control_observed_root_outcomes": 60,
+        "difference_per_assigned_root": 0.0,
+        "seed_bootstrap_95pct": [
+          0.0,
+          0.0
+        ],
+        "witness_complete_observed": 0,
+        "witness_missing_root_outcomes": 0,
+        "witness_observed_root_outcomes": 60,
+        "worst_best_bounds": [
+          0.0,
+          0.0
+        ]
+      },
+      "MEMBER-REFUND": {
+        "assigned_arm_root_outcomes": 120,
+        "assigned_root_pairs": 60,
+        "control_complete_observed": 7,
+        "control_missing_root_outcomes": 0,
+        "control_observed_root_outcomes": 60,
+        "difference_per_assigned_root": 0.5166666666666667,
+        "seed_bootstrap_95pct": [
+          0.38333333333333336,
+          0.65
+        ],
+        "witness_complete_observed": 38,
+        "witness_missing_root_outcomes": 0,
+        "witness_observed_root_outcomes": 60,
+        "worst_best_bounds": [
+          0.5166666666666667,
+          0.5166666666666667
+        ]
+      }
+    },
+    "protocol": "m66-confirmatory-v2",
+    "resources": {
+      "control": {
+        "http_actions": {
+          "assigned_cells": 140,
+          "missing_cells": 0,
+          "observed_cells": 140,
+          "observed_total": 4350
+        },
+        "input_tokens": {
+          "assigned_cells": 140,
+          "missing_cells": 0,
+          "observed_cells": 140,
+          "observed_total": 11762909
+        },
+        "output_tokens": {
+          "assigned_cells": 140,
+          "missing_cells": 0,
+          "observed_cells": 140,
+          "observed_total": 1723632
+        }
+      },
+      "witness": {
+        "http_actions": {
+          "assigned_cells": 140,
+          "missing_cells": 0,
+          "observed_cells": 140,
+          "observed_total": 4317
+        },
+        "input_tokens": {
+          "assigned_cells": 140,
+          "missing_cells": 0,
+          "observed_cells": 140,
+          "observed_total": 12151410
+        },
+        "output_tokens": {
+          "assigned_cells": 140,
+          "missing_cells": 0,
+          "observed_cells": 140,
+          "observed_total": 1698569
+        }
+      }
+    },
+    "secondary_pooled": {
+      "assigned_arm_root_outcomes": 480,
+      "assigned_root_pairs": 240,
+      "control_complete_observed": 7,
+      "control_missing_root_outcomes": 0,
+      "control_observed_root_outcomes": 240,
+      "difference_per_assigned_root": 0.13333333333333333,
+      "interpretation": "secondary opportunity-weighted pooled contrast",
+      "witness_complete_observed": 39,
+      "witness_missing_root_outcomes": 0,
+      "witness_observed_root_outcomes": 240,
+      "worst_best_bounds": [
+        0.13333333333333333,
+        0.13333333333333333
+      ]
+    },
+    "secondary_score_valid_matched": {
+      "enterprise_change_control_v1": {
+        "assigned_arm_root_outcomes": 360,
+        "assigned_root_pairs": 180,
+        "control_complete_in_matched_pairs": 0,
+        "difference_per_assigned_root": 0.005952380952380952,
+        "excluded_pairs_due_to_score_invalid": 4,
+        "excluded_root_pairs_due_to_score_invalid": 12,
+        "matched_score_valid_pairs": 56,
+        "matched_score_valid_root_pairs": 168,
+        "seed_bootstrap_95pct": [
+          0.0,
+          0.017857142857142856
+        ],
+        "witness_complete_in_matched_pairs": 1
+      },
+      "saas": {
+        "assigned_arm_root_outcomes": 120,
+        "assigned_root_pairs": 60,
+        "control_complete_in_matched_pairs": 7,
+        "difference_per_assigned_root": 0.543859649122807,
+        "excluded_pairs_due_to_score_invalid": 3,
+        "excluded_root_pairs_due_to_score_invalid": 3,
+        "matched_score_valid_pairs": 57,
+        "matched_score_valid_root_pairs": 57,
+        "seed_bootstrap_95pct": [
+          0.40350877192982454,
+          0.6842105263157895
+        ],
+        "witness_complete_in_matched_pairs": 38
+      }
+    },
+    "vulnerable_assigned_pairs": 120,
+    "vulnerable_trace_auditable_pairs": 120
+  },
+  "unstarted_cells": 0
+}
