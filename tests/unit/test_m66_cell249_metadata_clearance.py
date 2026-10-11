@@ -45,6 +45,10 @@ def _approval() -> dict:
 def test_paid_continuation_requires_exact_new_approval(tmp_path, monkeypatch) -> None:
     path = tmp_path / "cell249-approval.json"
     path.write_text(json.dumps(_approval()))
+    assert collector.EXPECTED_CELL249_METADATA_APPROVAL_SHA256 == (
+        "073ed88c330ab88f16fa88a650261b8a35a45a84a8662ec04d6f9257bbe1cb47"
+    )
+    monkeypatch.setattr(recovery, "EXPECTED_CELL249_METADATA_APPROVAL_SHA256", "0" * 64)
     with pytest.raises(ValueError, match="lacks separate exact paid-call approval"):
         recovery._require_approval(path)
     monkeypatch.setattr(
