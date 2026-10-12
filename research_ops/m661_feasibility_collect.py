@@ -24,7 +24,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import create_async_engine
 
 import offsecgym
-from offsecgym.evaluation import evaluate_run
+from offsecgym.evaluation import evaluate_run, unscored_run
 from offsecgym.experiment.critical_checkpoint import CriticalCheckpointExperimentRunner
 from offsecgym.experiment.scripted import experiment_hash
 from offsecgym.providers.base import ModelTurn, ProviderFailure, ProviderRequestError
@@ -391,8 +391,13 @@ async def _audit_cell(
     ):
         raise ValueError("source build, fixture, or variant differs")
     projection = project_controller_events(trace)
-    if projection.active_actions or projection.model_reservations or projection.active_workers:
-        raise ValueError("source retains active action, worker, or model reservation")
+    if (
+        projection.active_actions
+        or projection.model_reservations
+        or projection.active_workers
+        or any(hold.active for hold in projection.admission_holds.values())
+    ):
+        raise ValueError("source retains an active controller reservation or lease")
     calls = [item for item in trace if isinstance(item, ModelCallCompleted)]
     starts_model = [item for item in trace if isinstance(item, ModelCallStarted)]
     failed_model = [item for item in trace if isinstance(item, ModelCallFailed)]
@@ -468,20 +473,36 @@ async def _audit_cell(
         rebuilt_stage = (json.dumps(row, sort_keys=True, indent=2) + "\n").encode()
         if saved_stage != rebuilt_stage or _sha256(saved_stage) != record["stage_sha256"]:
             raise ValueError("saved checkpoint stage differs")
+    submissions = [item.finding for item in trace if isinstance(item, FindingSubmitted)]
+    verdicts = [item.result for item in trace if isinstance(item, FindingValidated)]
+    by_id = {item.finding_id: item for item in verdicts}
+    if (
+        len({item.finding_id for item in submissions}) != len(submissions)
+        or len(by_id) != len(verdicts)
+        or set(by_id) != {item.finding_id for item in submissions}
+        or any(item.run_id != run_id for item in submissions)
+        or any(item.run_id is not None and item.run_id != run_id for item in verdicts)
+    ):
+        raise ValueError("finding and validation event linkage differs")
     if record["score_valid"]:
-        submissions = [item.finding for item in trace if isinstance(item, FindingSubmitted)]
-        verdicts = [item.result for item in trace if isinstance(item, FindingValidated)]
-        by_id = {item.finding_id: item for item in verdicts}
         replay = evaluate_run(
             tuple(submissions),
             tuple(by_id[item.finding_id] for item in submissions),
             oracle,
             status=record["status"],
         )
-        if replay.model_dump(mode="json") != record["evaluation"]:
-            raise ValueError("frozen score replay differs")
-    elif row["score_valid"] is not False:
-        raise ValueError("unscored provider source differs")
+    else:
+        replay = unscored_run(
+            record["status"],
+            candidate_count=len(submissions),
+            validated_count=sum(item.status == "validated" for item in verdicts),
+            inconclusive=sum(item.status == "inconclusive" for item in verdicts),
+        )
+    if (
+        replay.model_dump(mode="json") != record["evaluation"]
+        or row["score_valid"] != record["score_valid"]
+    ):
+        raise ValueError("frozen score replay differs")
     replay_ids = sorted(
         {
             str(item.result.replay_trace.replay_run_id)
