@@ -89,7 +89,12 @@ def _stopped_journal(manifest: dict, journal_path: Path) -> dict:
 
 
 def _local_evidence(
-    manifest: dict, private_dir: Path, state_dir: Path, *, allow_continuation: bool
+    manifest: dict,
+    private_dir: Path,
+    state_dir: Path,
+    *,
+    allow_continuation: bool,
+    allow_repaired_build: bool = False,
 ) -> dict:
     if _sha256((private_dir / "collector.log").read_bytes()) != STOP_LOG_SHA256:
         raise ValueError("stopped collector log differs")
@@ -128,8 +133,9 @@ def _local_evidence(
     ):
         raise ValueError("stopped range state differs from the first assignment")
     init_script = state.build_dir(STOP_BUILD_ID) / "init_db.py"
-    if init_script.stat().st_mode & 0o077:
-        raise ValueError("original init script permissions differ from the launch failure")
+    mode = init_script.stat().st_mode & 0o777
+    if mode != (0o644 if allow_repaired_build else 0o600):
+        raise ValueError("cached init script permissions differ from expected evidence")
     return {"endpoint_preflight_sha256": PAIR1_ENDPOINT_SHA256, "build_id": str(STOP_BUILD_ID)}
 
 
@@ -143,6 +149,7 @@ async def reconcile(
     state_dir: Path,
     *,
     allow_continuation: bool = False,
+    allow_repaired_build: bool = False,
 ) -> dict:
     manifest, _ = _approval_and_manifest(
         execution_root, source_root, protocol_root, manifest_path, approval_path
@@ -150,7 +157,11 @@ async def reconcile(
     _private_paths(approval_path, journal_path, state_dir)
     first = _stopped_journal(manifest, journal_path)
     local = _local_evidence(
-        manifest, journal_path.parent, state_dir, allow_continuation=allow_continuation
+        manifest,
+        journal_path.parent,
+        state_dir,
+        allow_continuation=allow_continuation,
+        allow_repaired_build=allow_repaired_build,
     )
     database_url = os.getenv("OFFSECGYM_DATABASE_URL")
     if not database_url:
