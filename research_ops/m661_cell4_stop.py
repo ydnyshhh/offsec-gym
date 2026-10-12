@@ -107,7 +107,7 @@ def _stopped_records(manifest: dict, private: Path) -> tuple[list[dict], dict]:
     return records, started
 
 
-def _cached_build_modes(state, manifest: dict) -> dict:
+def _cached_build_modes(state, manifest: dict, *, repaired: bool = False) -> dict:
     old = state.verify_build_integrity(STOP_BUILD_ID)
     fourth = manifest["cells"][3]
     if old.spec.seed != fourth["seed"] or not old.spec.patched:
@@ -116,14 +116,18 @@ def _cached_build_modes(state, manifest: dict) -> dict:
     if directory.is_symlink() or any(path.is_symlink() for path in directory.iterdir()):
         raise ValueError("cached build contains an unsafe path")
     modes = {path.name: stat.S_IMODE(path.stat().st_mode) for path in directory.iterdir()}
+    expected_mode = 0o644 if repaired else 0o600
     if set(modes) != set(old.artifact_digests) | {"manifest.json"} or set(modes.values()) != {
-        0o600
+        expected_mode
     }:
         raise ValueError("cached build file modes differ from stopped evidence")
     instance = state.load_instance(CELL4_INSTANCE_ID)
     if instance.build_id != STOP_BUILD_ID or instance.state != "destroyed":
         raise ValueError("cell-four range instance differs")
-    return {"build_id": str(STOP_BUILD_ID), "file_count": len(modes), "old_file_mode": "0600"}
+    result = {"build_id": str(STOP_BUILD_ID), "file_count": len(modes), "old_file_mode": "0600"}
+    if repaired:
+        result["repaired_file_mode"] = "0644"
+    return result
 
 
 async def reconcile(
@@ -134,6 +138,8 @@ async def reconcile(
     approval_path: Path,
     journal_path: Path,
     state_dir: Path,
+    *,
+    repaired: bool = False,
 ) -> dict:
     manifest, _ = _approval_and_manifest(
         execution_root, source_root, protocol_root, manifest_path, approval_path
@@ -150,11 +156,12 @@ async def reconcile(
         journal_path,
         state_dir,
         allow_continuation=True,
+        allow_repaired_build=repaired,
     )
     _scope_approval(private / "cell1-continuation-approval.json", manifest)
     records, _ = _stopped_records(manifest, private)
     state = ComposeRangeRuntime(state_dir).state
-    build_modes = _cached_build_modes(state, manifest)
+    build_modes = _cached_build_modes(state, manifest, repaired=repaired)
     if (state_dir / "critical_checkpoints" / f"{CELL4_RUN_ID.hex}.json").exists():
         raise ValueError("cell-four checkpoint receipt unexpectedly exists")
     if (private / "pair-postcheck-2.json").exists() or (
