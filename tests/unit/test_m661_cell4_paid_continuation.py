@@ -18,8 +18,13 @@ ROOT = Path(__file__).parents[2]
 MANIFEST = json.loads((ROOT / "experiments/manifests/m661-feasibility-v1.json").read_bytes())
 
 
-def test_paid_continuation_closed_before_receipt_read(tmp_path: Path) -> None:
-    assert continuation.EXPECTED_PAID_APPROVAL_SHA256 == "0" * 64
+def test_paid_continuation_closed_before_receipt_read(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    assert continuation.EXPECTED_PAID_APPROVAL_SHA256 != "0" * 64
+    assert continuation.OPERATIONAL_MERGE_COMMIT == "41b77717e6f059821fb9149f90c886afed87b304"
+    assert continuation.REPAIR_COMPLETION_SHA256 == repaired.COMPLETION_SHA256
+    monkeypatch.setattr(continuation, "EXPECTED_PAID_APPROVAL_SHA256", "0" * 64)
     with pytest.raises(ValueError, match="remains closed"):
         continuation._scope_approval(tmp_path / "cell4-paid-continuation-approval.json", MANIFEST)
 
@@ -33,9 +38,12 @@ def test_paid_scope_binds_both_missing_runs_and_exact_new_range(
         "approved_by": "human_user",
         "approved_for_paid_calls": True,
         "approval_scope": continuation.CONTINUATION_SCOPE,
+        "protocol": MANIFEST["protocol"],
         "manifest_sha256": continuation.EXPECTED_MANIFEST_SHA256,
         "source_commit": continuation.SOURCE_COMMIT,
         "protocol_commit": continuation.PROTOCOL_COMMIT,
+        "operational_merge_commit": continuation.OPERATIONAL_MERGE_COMMIT,
+        "repair_completion_sha256": continuation.REPAIR_COMPLETION_SHA256,
         "assignment_sha256": MANIFEST["schedule"]["cell_assignment_sha256"],
         "original_journal_sha256": continuation.STOP_JOURNAL_SHA256,
         "stopped_continuation_journal_sha256": continuation.CONTINUATION_JOURNAL_SHA256,
@@ -66,6 +74,8 @@ def test_paid_scope_binds_both_missing_runs_and_exact_new_range(
         ("retained_missing_orders", [1]),
         ("stopped_continuation_journal_sha256", "0" * 64),
         ("approved_for_paid_calls", False),
+        ("operational_merge_commit", "0" * 40),
+        ("repair_completion_sha256", "0" * 64),
     ):
         original = receipt[key]
         receipt[key] = value

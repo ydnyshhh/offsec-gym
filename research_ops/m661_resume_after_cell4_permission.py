@@ -57,7 +57,9 @@ from offsecgym.storage.event_store import PostgresEventStore
 from offsecgym.storage.tables import action_reservations, model_reservations, run_usage, runs
 
 CONTINUATION_SCOPE = "m661_feasibility_cells_5_through_96_once_after_cell4_mode_repair"
-EXPECTED_PAID_APPROVAL_SHA256 = "0" * 64
+EXPECTED_PAID_APPROVAL_SHA256 = "6502419b322454debc4f4552ff0de6d8865586319b9a11c7dc3bf801b148aa0b"
+OPERATIONAL_MERGE_COMMIT = "41b77717e6f059821fb9149f90c886afed87b304"
+REPAIR_COMPLETION_SHA256 = "2e353af79f9e3ccdfd9e04dbfea169a9584635fb62afc230146150afa8e94347"
 
 
 def _scope_approval(path: Path, manifest: dict) -> dict:
@@ -80,9 +82,12 @@ def _scope_approval(path: Path, manifest: dict) -> dict:
         or approval.get("approved_by") != "human_user"
         or approval.get("approved_for_paid_calls") is not True
         or approval.get("approval_scope") != CONTINUATION_SCOPE
+        or approval.get("protocol") != manifest["protocol"]
         or approval.get("manifest_sha256") != EXPECTED_MANIFEST_SHA256
         or approval.get("source_commit") != SOURCE_COMMIT
         or approval.get("protocol_commit") != PROTOCOL_COMMIT
+        or approval.get("operational_merge_commit") != OPERATIONAL_MERGE_COMMIT
+        or approval.get("repair_completion_sha256") != REPAIR_COMPLETION_SHA256
         or approval.get("assignment_sha256") != manifest["schedule"]["cell_assignment_sha256"]
         or approval.get("original_journal_sha256") != STOP_JOURNAL_SHA256
         or approval.get("stopped_continuation_journal_sha256") != CONTINUATION_JOURNAL_SHA256
