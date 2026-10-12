@@ -49,16 +49,19 @@ def test_stopped_prefix_rejects_changed_or_second_assignment(tmp_path: Path, mon
         recovery._stopped_journal(MANIFEST, path)
 
 
-def test_continuation_is_closed_without_separate_approval(tmp_path: Path) -> None:
-    assert resume.EXPECTED_CONTINUATION_APPROVAL_SHA256 == "0" * 64
-    with pytest.raises(ValueError, match="separate human approval"):
+def test_continuation_rejects_missing_separate_approval(tmp_path: Path) -> None:
+    assert (
+        resume.EXPECTED_CONTINUATION_APPROVAL_SHA256
+        == "5b5f7604f5930054eafb6dba6b3e69f169a1386b197d127e624220b1cf5d2860"
+    )
+    with pytest.raises(ValueError, match="absent or not private"):
         resume._scope_approval(tmp_path / "cell1-continuation-approval.json", MANIFEST)
 
 
 @pytest.mark.asyncio
 async def test_closed_scope_writes_nothing(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     monkeypatch.setattr(resume, "_approval_and_manifest", lambda *_args: (MANIFEST, {}))
-    with pytest.raises(ValueError, match="separate human approval"):
+    with pytest.raises(ValueError, match="absent or not private"):
         await resume.continue_cells(
             tmp_path,
             tmp_path,
