@@ -19,7 +19,7 @@ ROOT = Path(__file__).parents[2]
 MANIFEST = json.loads((ROOT / "experiments/manifests/m661-feasibility-v1.json").read_bytes())
 
 
-def test_new_paid_scope_is_closed_before_receipt_read(tmp_path: Path) -> None:
+def test_new_repair_scope_is_closed_before_receipt_read(tmp_path: Path) -> None:
     with pytest.raises(ValueError, match="closed pending exact human approval"):
         permissions._new_approval(tmp_path / "cell4-continuation-approval.json", MANIFEST)
 
@@ -31,7 +31,8 @@ def test_new_scope_binds_stopped_log_and_build(
     receipt = {
         "approved_at": "2026-10-12T10:00:00Z",
         "approved_by": "human_user",
-        "approved_for_paid_calls": True,
+        "approved_for_repair": True,
+        "approved_for_paid_calls": False,
         "approval_scope": permissions.SCOPE,
         "manifest_sha256": permissions.EXPECTED_MANIFEST_SHA256,
         "source_commit": permissions.SOURCE_COMMIT,
@@ -41,8 +42,7 @@ def test_new_scope_binds_stopped_log_and_build(
         "stopped_continuation_log_sha256": stop.CONTINUATION_LOG_SHA256,
         "retained_cell4_run_id": str(stop.CELL4_RUN_ID),
         "cached_build_id": str(stop.STOP_BUILD_ID),
-        "first_paid_cell_order": 5,
-        "last_paid_cell_order": 96,
+        "paid_cells_authorized": 0,
         "no_retry_or_replacement": True,
         "mode_only_cached_build_repair": True,
         "cumulative_cost_ceiling_usd": str(permissions.CAP),
@@ -59,6 +59,11 @@ def test_new_scope_binds_stopped_log_and_build(
     write_receipt()
     assert permissions._new_approval(path, MANIFEST) == receipt
     receipt["stopped_continuation_log_sha256"] = "0" * 64
+    write_receipt()
+    with pytest.raises(ValueError, match="exact stopped scope"):
+        permissions._new_approval(path, MANIFEST)
+    receipt["stopped_continuation_log_sha256"] = stop.CONTINUATION_LOG_SHA256
+    receipt["approved_for_paid_calls"] = True
     write_receipt()
     with pytest.raises(ValueError, match="exact stopped scope"):
         permissions._new_approval(path, MANIFEST)

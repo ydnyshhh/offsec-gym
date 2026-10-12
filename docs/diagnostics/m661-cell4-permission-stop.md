@@ -47,13 +47,14 @@ so the causal attribution remains an inference from the exact cached build,
 its modes, the two-event source trace, and the disposable test.
 
 `m661_cached_build_permissions.py` is deliberately closed with an all-zero new
-approval hash. If separately approved and pinned, it would write create-only
-intent and completion receipts, change only the 16 cached build file modes,
-and verify byte-for-byte integrity. A partial repair must stop for separate
-reconciliation. It must never retry cells 1 or 4.
+repair approval hash. Its receipt must expressly authorize the mode-only
+repair and **zero paid cells**. If separately approved and pinned, the helper
+would write create-only intent and completion receipts, change only the 16
+cached build file modes, and verify byte-for-byte integrity. A partial repair
+must stop for separate reconciliation. It must never retry cells 1 or 4.
 
 The proposed future paid scope is only frozen cells 5–96 once, with all earlier
 outcomes retained and the original $172.80 **cumulative** cap. A separate
-approved continuation and postcheck must account for the missing cell 4 and
+paid-call approval, continuation, and postcheck must account for missing cell 4 and
 the partial pair 2 before any paid call. This proposal alone does not approve
 that continuation or permit a write to the original study state.

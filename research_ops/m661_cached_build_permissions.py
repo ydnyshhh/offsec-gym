@@ -1,8 +1,8 @@
 """Versioned, fail-closed mode-only repair for the cell-1 cached build.
 
 The frozen compiler output bytes remain unchanged. This helper has no model or
-endpoint client; its real-study entry point is closed until a new human receipt
-is pinned in a separate provenance commit.
+endpoint client and grants no paid-cell authority. Its real-study entry point
+is closed until a repair-only human receipt is pinned in a separate commit.
 """
 
 from __future__ import annotations
@@ -35,12 +35,12 @@ from m661_feasibility_collect import (
     _write_json,
 )
 
-SCOPE = "m661_feasibility_cells_5_through_96_once_after_cell4_and_mode_only_cached_build_repair"
+SCOPE = "m661_feasibility_mode_only_cached_build_repair_after_cell4_no_paid_calls"
 
 
 def _new_approval(path: Path, manifest: dict) -> dict:
     if EXPECTED_NEW_APPROVAL_SHA256 == "0" * 64:
-        raise ValueError("cell-four recovery remains closed pending exact human approval")
+        raise ValueError("cell-four repair remains closed pending exact human approval")
     if path.name != "cell4-continuation-approval.json" or path.is_symlink():
         raise ValueError("cell-four approval path differs")
     if not path.is_file() or stat.S_IMODE(path.stat().st_mode) & 0o077:
@@ -56,7 +56,8 @@ def _new_approval(path: Path, manifest: dict) -> dict:
         approved_at.utcoffset() is None
         or approved_at <= datetime(2026, 10, 12, 9, 38, tzinfo=UTC)
         or approval.get("approved_by") != "human_user"
-        or approval.get("approved_for_paid_calls") is not True
+        or approval.get("approved_for_repair") is not True
+        or approval.get("approved_for_paid_calls") is not False
         or approval.get("approval_scope") != SCOPE
         or approval.get("manifest_sha256") != EXPECTED_MANIFEST_SHA256
         or approval.get("source_commit") != SOURCE_COMMIT
@@ -66,8 +67,7 @@ def _new_approval(path: Path, manifest: dict) -> dict:
         or approval.get("stopped_continuation_log_sha256") != CONTINUATION_LOG_SHA256
         or approval.get("retained_cell4_run_id") != str(CELL4_RUN_ID)
         or approval.get("cached_build_id") != str(STOP_BUILD_ID)
-        or approval.get("first_paid_cell_order") != 5
-        or approval.get("last_paid_cell_order") != 96
+        or approval.get("paid_cells_authorized") != 0
         or approval.get("no_retry_or_replacement") is not True
         or approval.get("mode_only_cached_build_repair") is not True
         or Decimal(str(approval.get("cumulative_cost_ceiling_usd"))) != CAP
@@ -119,7 +119,7 @@ def _mode_plan(directory: Path, names: set[str]) -> dict[str, dict[str, str]]:
 
 
 def _apply_mode_plan(directory: Path, plan: dict[str, dict[str, str]]) -> None:
-    """Mutate file modes only; callers must first pass the paid approval gate."""
+    """Mutate file modes only; callers must first pass the repair approval gate."""
     for name, expected in plan.items():
         path = directory / name
         if path.is_symlink() or not path.is_file():
