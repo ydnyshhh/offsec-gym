@@ -543,6 +543,9 @@ async def _inventory(engine, events, records: list[dict], audits: list[dict]) ->
         if (
             not trace
             or [item.sequence_number for item in trace] != list(range(1, len(trace) + 1))
+            or any(item.run_id != replay_id for item in trace)
+            or len({item.event_id for item in trace}) != len(trace)
+            or sum(isinstance(item, RunStarted) for item in trace) != 1
             or any(isinstance(item, (ModelCallStarted, ModelCallCompleted)) for item in trace)
             or [item.status for item in trace if isinstance(item, RunCompleted)] != ["completed"]
         ):
