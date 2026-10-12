@@ -45,7 +45,7 @@ from m661_feasibility_collect import (
     _write_bytes,
     _write_json,
 )
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import create_async_engine
 
 from offsecgym.experiment.critical_checkpoint import CriticalCheckpointExperimentRunner
@@ -54,7 +54,7 @@ from offsecgym.runtime.compose import ComposeRangeRuntime
 from offsecgym.runtime.oracle import StateOracleStore
 from offsecgym.schemas.events import ModelCallCompleted, ModelCallStarted, RunCompleted, RunStarted
 from offsecgym.storage.event_store import PostgresEventStore
-from offsecgym.storage.tables import runs
+from offsecgym.storage.tables import action_reservations, model_reservations, run_usage, runs
 
 CONTINUATION_SCOPE = "m661_feasibility_cells_5_through_96_once_after_cell4_mode_repair"
 EXPECTED_PAID_APPROVAL_SHA256 = "0" * 64
@@ -126,6 +126,7 @@ async def _inventory_with_retained_missing(engine, events, records: list[dict], 
     if (
         len(source_ids) != len(records) + 2
         or len(setup_ids) != len(records)
+        or len(replay_ids) != sum(len(audit["validator_replay_run_ids"]) for audit in audits)
         or source_ids & setup_ids
         or source_ids & replay_ids
         or setup_ids & replay_ids
@@ -133,8 +134,32 @@ async def _inventory_with_retained_missing(engine, events, records: list[dict], 
         raise ValueError("source, setup, or validator replay identity overlaps")
     async with engine.connect() as connection:
         actual = set((await connection.execute(select(runs.c.run_id))).scalars().all())
-    if actual != source_ids | setup_ids | replay_ids:
-        raise ValueError("dedicated PostgreSQL has an extra or missing run")
+        actions = (
+            await connection.execute(
+                select(func.count())
+                .select_from(action_reservations)
+                .where(action_reservations.c.released_at.is_(None))
+            )
+        ).scalar_one()
+        models = (
+            await connection.execute(
+                select(func.count())
+                .select_from(model_reservations)
+                .where(model_reservations.c.settled_at.is_(None))
+            )
+        ).scalar_one()
+        usage = (
+            await connection.execute(
+                select(run_usage.c.reserved_tokens, run_usage.c.reserved_cost_microusd)
+            )
+        ).all()
+    if (
+        actual != source_ids | setup_ids | replay_ids
+        or actions
+        or models
+        or any(tokens or cost for tokens, cost in usage)
+    ):
+        raise ValueError("dedicated PostgreSQL has extra work or an active reservation")
     for replay_id in replay_ids:
         trace = await events.read_run(replay_id)
         if (
