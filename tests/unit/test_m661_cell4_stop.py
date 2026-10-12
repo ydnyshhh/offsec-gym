@@ -19,7 +19,10 @@ ROOT = Path(__file__).parents[2]
 MANIFEST = json.loads((ROOT / "experiments/manifests/m661-feasibility-v1.json").read_bytes())
 
 
-def test_new_repair_scope_is_closed_before_receipt_read(tmp_path: Path) -> None:
+def test_new_repair_scope_is_closed_before_receipt_read(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(permissions, "EXPECTED_NEW_APPROVAL_SHA256", "0" * 64)
     with pytest.raises(ValueError, match="closed pending exact human approval"):
         permissions._new_approval(tmp_path / "cell4-continuation-approval.json", MANIFEST)
 
