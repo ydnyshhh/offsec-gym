@@ -61,7 +61,7 @@ from offsecgym.storage.projection import project_controller_events
 from offsecgym.storage.tables import action_reservations, model_reservations, run_usage
 
 
-def _new_records(manifest: dict, path: Path) -> list[dict]:
+def _new_records(manifest: dict, path: Path, *, start_order: int = 5) -> list[dict]:
     if path.is_symlink() or not path.is_file():
         raise ValueError("cell-four continuation journal is absent or unsafe")
     lines = [json.loads(line) for line in path.read_bytes().splitlines()]
@@ -80,7 +80,7 @@ def _new_records(manifest: dict, path: Path) -> list[dict]:
         raise ValueError("interrupted new cell requires separate reconciliation")
     records = []
     for offset, (started, record) in enumerate(zip(lines[1::2], lines[2::2], strict=True)):
-        order = offset + 5
+        order = offset + start_order
         if order > 96:
             raise ValueError("new continuation exceeds frozen assignments")
         cell = manifest["cells"][order - 1]
@@ -101,6 +101,20 @@ def _new_records(manifest: dict, path: Path) -> list[dict]:
     if len({item["run_id"] for item in records}) != len(records):
         raise ValueError("new continuation repeats a run")
     return records
+
+
+def _health_stops_continuation(
+    records: list[dict], record_index: int, *, second_journal: bool
+) -> bool:
+    epoch = (
+        records[12 : record_index + 1]
+        if second_journal and record_index >= 12
+        else records[: record_index + 1]
+    )
+    decision = _health_decision(epoch)
+    return decision != "continue" and not (
+        second_journal and record_index == 11 and decision == "pause"
+    )
 
 
 async def _missing_trace(events, run_id: UUID, cell: dict, trace_sha: str, identity_sha: str):
@@ -161,6 +175,7 @@ async def postcheck(
     state_dir: Path,
     *,
     require_complete: bool,
+    second_journal_path: Path | None = None,
 ) -> dict:
     manifest, _ = _approval_and_manifest(
         execution_root, source_root, protocol_root, manifest_path, approval_path
@@ -199,7 +214,46 @@ async def postcheck(
     ):
         raise ValueError("paid continuation clearance or selected endpoint differs")
     new_path = private / "cell4-paid-continuation-journal.jsonl"
-    new_records = _new_records(manifest, new_path)
+    first_records = _new_records(manifest, new_path)
+    second_records: list[dict] = []
+    if second_journal_path is not None:
+        from m661_cell14_provider_stop import STOP_JOURNAL_SHA256 as CELL14_STOP_JOURNAL_SHA256
+        from m661_resume_after_cell14_pause import (
+            EXPECTED_CELL14_APPROVAL_SHA256,
+        )
+        from m661_resume_after_cell14_pause import (
+            _scope_approval as _cell14_scope_approval,
+        )
+
+        if second_journal_path != private / "cell14-paid-continuation-journal.jsonl":
+            raise ValueError("cell-14 journal path differs")
+        if _sha256(new_path.read_bytes()) != CELL14_STOP_JOURNAL_SHA256 or len(first_records) != 10:
+            raise ValueError("retained cell-14 stop journal differs")
+        _cell14_scope_approval(private / "cell14-paid-continuation-approval.json", manifest)
+        second_records = _new_records(manifest, second_journal_path, start_order=15)
+        if {item["run_id"] for item in first_records} & {item["run_id"] for item in second_records}:
+            raise ValueError("provider-pause continuation reused a source run")
+        recheck_raw = (private / "endpoint-recheck-cell-14.json").read_bytes()
+        recheck = json.loads(recheck_raw)
+        clearance = json.loads((private / "cell14-provider-clearance.json").read_bytes())
+        if (
+            clearance.get("protocol") != manifest["protocol"]
+            or clearance.get("manifest_sha256") != EXPECTED_MANIFEST_SHA256
+            or clearance.get("stopped_journal_sha256") != CELL14_STOP_JOURNAL_SHA256
+            or clearance.get("pair7_receipt_sha256")
+            != _sha256((private / "pair-postcheck-7.json").read_bytes())
+            or clearance.get("continuation_approval_sha256") != EXPECTED_CELL14_APPROVAL_SHA256
+            or clearance.get("endpoint_recheck_sha256") != _sha256(recheck_raw)
+            or clearance.get("retained_missing_orders") != [1, 4]
+            or clearance.get("retained_provider_failed_orders") != [13, 14]
+            or clearance.get("new_provider_health_epoch_start_order") != 15
+            or clearance.get("next_cell_order") != 15
+            or recheck.get("endpoint") != f"{UPSTREAM} | {REVISION}"
+            or recheck.get("input_usd_per_million_tokens") != 3.0
+            or recheck.get("output_usd_per_million_tokens") != 15.0
+        ):
+            raise ValueError("cell-14 provider clearance or endpoint differs")
+    new_records = [*first_records, *second_records]
     if require_complete and len(new_records) != 92:
         raise ValueError("approved remaining assignments are incomplete")
     database_url = os.getenv("OFFSECGYM_DATABASE_URL")
@@ -266,9 +320,9 @@ async def postcheck(
             conservative += cost if record["resource_auditable"] else Decimal("1.80")
             if cumulative > CAP or conservative > CAP:
                 raise ValueError("cumulative approved cost cap exceeded")
-            if _health_decision(
-                records[: record_index + 1]
-            ) != "continue" and record_index + 1 < len(records):
+            if record_index + 1 < len(records) and _health_stops_continuation(
+                records, record_index, second_journal=second_journal_path is not None
+            ):
                 raise ValueError("collector continued after provider-health stop")
         await _inventory_with_retained_missing(engine, events, records, audits)
         async with engine.connect() as connection:
@@ -358,10 +412,15 @@ async def postcheck(
             pair_count + len(new_records) % 2
         ):
             raise ValueError("endpoint preflight inventory differs")
-        if {item.name for item in private.glob("endpoint-recheck-cell-*.json")} != {
+        expected_rechecks = {
             "endpoint-recheck-cell-1.json",
             "endpoint-recheck-cell-4.json",
-        }:
+        }
+        if second_journal_path is not None:
+            expected_rechecks.add("endpoint-recheck-cell-14.json")
+        if {
+            item.name for item in private.glob("endpoint-recheck-cell-*.json")
+        } != expected_rechecks:
             raise ValueError("endpoint recheck inventory differs")
         if len(list((private / "stages").glob("*.json"))) != len(records):
             raise ValueError("stage artifact inventory differs")
@@ -385,6 +444,11 @@ async def postcheck(
             "original_journal_sha256": STOP_JOURNAL_SHA256,
             "stopped_continuation_journal_sha256": CONTINUATION_JOURNAL_SHA256,
             "new_continuation_journal_sha256": _sha256(new_path.read_bytes()),
+            "cell14_continuation_journal_sha256": (
+                _sha256(second_journal_path.read_bytes())
+                if second_journal_path is not None
+                else None
+            ),
             "repair": repair,
             "estimated_cost_usd": str(cumulative),
             "conservative_cost_usd": str(conservative),
@@ -411,6 +475,7 @@ def main() -> None:
     ):
         parser.add_argument(f"--{name}", required=True, type=Path)
     parser.add_argument("--allow-prefix", action="store_true")
+    parser.add_argument("--cell14-continuation-journal", type=Path)
     args = parser.parse_args()
     result = asyncio.run(
         postcheck(
@@ -422,6 +487,7 @@ def main() -> None:
             args.journal,
             args.state_dir,
             require_complete=not args.allow_prefix,
+            second_journal_path=args.cell14_continuation_journal,
         )
     )
     print(json.dumps(result, sort_keys=True))
