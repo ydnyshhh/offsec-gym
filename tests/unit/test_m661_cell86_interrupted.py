@@ -109,12 +109,15 @@ def test_later_journal_rejects_retry_and_incomplete_cell(tmp_path: Path) -> None
         postcheck._third_records(MANIFEST, path)
 
 
-def test_paid_scope_is_closed_and_cannot_include_cell_86(
+def test_paid_pin_is_exact_and_scope_cannot_include_cell_86(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    assert continuation.EXPECTED_CELL86_APPROVAL_SHA256 == "0" * 64
-    assert continuation.OPERATIONAL_MERGE_COMMIT == "0" * 40
+    assert continuation.EXPECTED_CELL86_APPROVAL_SHA256 == (
+        "a6dbed788b34ad31113de65b5992a66c81c03eeb90bc84e9232331f7b184c3c9"
+    )
+    assert continuation.OPERATIONAL_MERGE_COMMIT == ("bd909a702eaea06b3966430522f9e393f5f7a238")
     path = tmp_path / "cell86-paid-continuation-approval.json"
+    monkeypatch.setattr(continuation, "EXPECTED_CELL86_APPROVAL_SHA256", "0" * 64)
     with pytest.raises(ValueError, match="closed pending exact human approval"):
         continuation._scope_approval(path, MANIFEST)
     receipt = {
