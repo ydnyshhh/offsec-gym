@@ -72,8 +72,8 @@ from offsecgym.runtime.oracle import StateOracleStore
 from offsecgym.storage.event_store import PostgresEventStore
 
 CONTINUATION_SCOPE = "m661_feasibility_cells_15_through_96_once_after_cell14_provider_pause"
-EXPECTED_CELL14_APPROVAL_SHA256 = "0" * 64
-OPERATIONAL_MERGE_COMMIT = "0" * 40
+EXPECTED_CELL14_APPROVAL_SHA256 = "a9bfe3880e1f2d0eaa9773b588b9cde68138e5b4c19f7f3f643c4b78a2f3519a"
+OPERATIONAL_MERGE_COMMIT = "33af183147b60d05d3e0539428769266fec5946e"
 
 
 def _scope_approval(path: Path, manifest: dict) -> dict:
