@@ -27,7 +27,7 @@ def _approval() -> dict:
         "manifest_sha256": continuation.EXPECTED_MANIFEST_SHA256,
         "source_commit": continuation.SOURCE_COMMIT,
         "protocol_commit": continuation.PROTOCOL_COMMIT,
-        "operational_merge_commit": "a" * 40,
+        "operational_merge_commit": continuation.OPERATIONAL_MERGE_COMMIT,
         "prior_paid_approval_sha256": continuation.PRIOR_PAID_APPROVAL_SHA256,
         "assignment_sha256": MANIFEST["schedule"]["cell_assignment_sha256"],
         "original_journal_sha256": continuation.ORIGINAL_JOURNAL_SHA256,
@@ -52,14 +52,18 @@ def _approval() -> dict:
     }
 
 
-def test_paid_continuation_is_closed_and_exactly_scoped(
+def test_paid_continuation_is_pinned_and_exactly_scoped(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
+    assert continuation.EXPECTED_CELL14_APPROVAL_SHA256 == (
+        "a9bfe3880e1f2d0eaa9773b588b9cde68138e5b4c19f7f3f643c4b78a2f3519a"
+    )
+    assert continuation.OPERATIONAL_MERGE_COMMIT == ("33af183147b60d05d3e0539428769266fec5946e")
     path = tmp_path / "cell14-paid-continuation-approval.json"
+    monkeypatch.setattr(continuation, "EXPECTED_CELL14_APPROVAL_SHA256", "0" * 64)
     with pytest.raises(ValueError, match="remains closed"):
         continuation._scope_approval(path, MANIFEST)
     receipt = _approval()
-    monkeypatch.setattr(continuation, "OPERATIONAL_MERGE_COMMIT", "a" * 40)
 
     def write() -> None:
         raw = json.dumps(receipt, sort_keys=True).encode()
@@ -79,6 +83,7 @@ def test_paid_continuation_is_closed_and_exactly_scoped(
         ("new_provider_health_epoch_start_order", 16),
         ("stopped_cell4_paid_journal_sha256", "0" * 64),
         ("prior_paid_approval_sha256", "0" * 64),
+        ("operational_merge_commit", "0" * 40),
         ("no_retry_or_replacement", False),
     ):
         original = receipt[key]
