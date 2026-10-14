@@ -849,6 +849,47 @@ class WitnessHypothesisStarted(TraceEvent):
     state_field: str = Field(min_length=1, max_length=64)
 
 
+class ExperimentStateChanged(TraceEvent):
+    """An agent-authored experiment snapshot, separate from factual WorldState."""
+
+    type: Literal["experiment_state_changed"] = "experiment_state_changed"
+    experiment_id: UUID
+    hypothesis: str = Field(min_length=1, max_length=512)
+    subject_identity: UUID | None = None
+    target_objects: tuple[UUID, ...] = Field(default=(), max_length=8)
+    preconditions: tuple[Annotated[str, Field(min_length=1, max_length=240)], ...] = Field(
+        default=(), max_length=8
+    )
+    planned_steps: tuple[Annotated[str, Field(min_length=1, max_length=240)], ...] = Field(
+        min_length=1, max_length=12
+    )
+    expected_positive_observation: str = Field(min_length=1, max_length=512)
+    expected_negative_observation: str = Field(min_length=1, max_length=512)
+    required_evidence: tuple[Annotated[str, Field(min_length=1, max_length=240)], ...] = Field(
+        default=(), max_length=8
+    )
+    current_step: int = Field(default=0, ge=0)
+    status: Literal["active", "blocked", "completed", "abandoned"] = "active"
+    blockers: tuple[Annotated[str, Field(min_length=1, max_length=240)], ...] = Field(
+        default=(), max_length=8
+    )
+
+    @model_validator(mode="after")
+    def step_in_plan(self) -> ExperimentStateChanged:
+        if self.current_step > len(self.planned_steps):
+            raise ValueError("current_step exceeds planned steps")
+        return self
+
+
+class ReportingToolUsed(TraceEvent):
+    """Clerical reporting-tool use; contains no security verdict."""
+
+    type: Literal["reporting_tool_used"] = "reporting_tool_used"
+    tool_name: Literal["list_candidate_evidence", "preflight_finding"]
+    model_call_id: UUID
+    reason_codes: tuple[str, ...] = ()
+
+
 AnyTraceEvent = Annotated[
     RunStarted
     | RangeStarted
@@ -910,6 +951,8 @@ AnyTraceEvent = Annotated[
     | ReportingBranchStarted
     | ReportingPrefixRejected
     | WitnessHypothesisStarted
+    | ExperimentStateChanged
+    | ReportingToolUsed
     | ReporterFinished
     | RunCompleted,
     Field(discriminator="type"),

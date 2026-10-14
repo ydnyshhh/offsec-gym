@@ -1,0 +1,3 @@
+# Design-only arm selection; future protocol supplies a separately approved ExperimentSpec.
+provenance_reporting: true
+experiment_commitment: false

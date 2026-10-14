@@ -16,6 +16,14 @@ from offsecgym.providers.artifacts import ModelCallArtifacts
 from offsecgym.providers.base import ModelProvider, ProviderFailure, ProviderRequestError
 from offsecgym.providers.openrouter import selected_endpoint
 from offsecgym.providers.token_budget import estimate_input_tokens
+from offsecgym.reporting.provenance import (
+    REPORTING_TOOL_MODELS,
+    EvidenceCatalog,
+    ListCandidateEvidenceArgs,
+    PreflightFindingArgs,
+    preflight_finding,
+    select_entries,
+)
 from offsecgym.research.m652_checkpoint import ProbeCheckpointStore
 from offsecgym.runtime.enterprise import ROUTES as ENTERPRISE_ROUTES
 from offsecgym.schemas.actions import ActionRequest
@@ -39,6 +47,7 @@ from offsecgym.schemas.events import (
     ModelCallFailed,
     ModelCallStarted,
     ModelToolRejected,
+    ReportingToolUsed,
     WorkerBlocked,
     WorkerObjectiveAction,
     WorkerOriented,
@@ -46,6 +55,7 @@ from offsecgym.schemas.events import (
 )
 from offsecgym.schemas.specs import ModelSpec
 from offsecgym.solver.bootstrap_context import bootstrap_working_set
+from offsecgym.solver.experiment_state import EXPERIMENT_TOOL_MODELS, ExperimentStateStore
 from offsecgym.solver.range_surface import range_surface
 from offsecgym.solver.scripted import (
     AgentBudgetExhausted,
@@ -335,6 +345,8 @@ def model_tools(
     worker: bool = False,
     action_required: bool = False,
     witness_planning: bool = False,
+    provenance_reporting: bool = False,
+    experiment_commitment: bool = False,
     family: str = "saas",
 ) -> list[dict[str, object]]:
     descriptions = {
@@ -381,6 +393,18 @@ def model_tools(
             "The controller reports observed before/action/after evidence, not a verdict."
         ),
         "get_witness": "Inspect one tracked temporal witness and exact gateway citations.",
+        "list_candidate_evidence": (
+            "List bounded current-run model-originated gateway evidence "
+            "and canonical public routes."
+        ),
+        "preflight_finding": (
+            "Check finding syntax and same-run citations without submitting or judging the claim."
+        ),
+        "start_experiment": "Record your own hypothesis and bounded test plan.",
+        "get_active_experiment": "Read your current model-authored experiment record.",
+        "update_experiment": "Advance or block your current experiment step.",
+        "complete_experiment": "Mark your current experiment complete.",
+        "abandon_experiment": "Explicitly abandon your current experiment with a reason.",
     }
     surface = range_surface(family)
     if surface.family != "saas":
@@ -392,6 +416,10 @@ def model_tools(
     models = core | _world_tool_models(surface.family) if structured else core
     if witness_planning:
         models = models | WITNESS_TOOL_MODELS
+    if provenance_reporting:
+        models = models | REPORTING_TOOL_MODELS
+    if experiment_commitment:
+        models = models | EXPERIMENT_TOOL_MODELS
     if worker:
         models = models | {"task_blocked": TaskBlockedArgs}
     if action_required:
@@ -526,6 +554,8 @@ class MonolithicSecurityAgent:
         checkpoint_store: ProbeCheckpointStore | None = None,
         checkpoint_after_calls: int | None = None,
         witness_planning: bool = False,
+        provenance_reporting: bool = False,
+        experiment_commitment: bool = False,
     ) -> None:
         if checkpoint_after_calls is not None and (
             checkpoint_after_calls < 1 or checkpoint_store is None or memory != "structured"
@@ -547,6 +577,12 @@ class MonolithicSecurityAgent:
         self.checkpoint_store = checkpoint_store
         self.checkpoint_after_calls = checkpoint_after_calls
         self.witness_planning = witness_planning
+        self.provenance_reporting = provenance_reporting
+        self.experiment_commitment = experiment_commitment
+        self.evidence_catalog = (
+            EvidenceCatalog(events, state_root) if provenance_reporting else None
+        )
+        self.experiment_state = ExperimentStateStore(events) if experiment_commitment else None
         self.witness_ledger = EventWitnessLedger(events, state_root) if witness_planning else None
         self.world = EventWorldState(events) if memory == "structured" else None
         self.context_builder = WorldContextBuilder(self.world, events) if self.world else None
@@ -571,6 +607,8 @@ class MonolithicSecurityAgent:
             structured=structured,
             worker=task.worker_id is not None,
             witness_planning=self.witness_planning,
+            provenance_reporting=self.provenance_reporting,
+            experiment_commitment=self.experiment_commitment,
             family=family,
         )
         contract = context.worker_packet.contract if context.worker_packet is not None else None
@@ -602,6 +640,8 @@ class MonolithicSecurityAgent:
                     worker=True,
                     action_required=True,
                     witness_planning=self.witness_planning,
+                    provenance_reporting=self.provenance_reporting,
+                    experiment_commitment=self.experiment_commitment,
                     family=family,
                 )
             remaining = (
@@ -666,9 +706,14 @@ class MonolithicSecurityAgent:
                     *carry,
                     selected_item,
                 ]
+            request_input = input_items
+            if self.experiment_state is not None:
+                reminder = await self.experiment_state.reminder(context.run_id)
+                if reminder:
+                    request_input = [*input_items, {"role": "user", "content": reminder}]
             call_id = uuid4()
             request_payload = self.provider.prepare_request(
-                self.model, instructions, input_items, definitions, max_output_tokens
+                self.model, instructions, request_input, definitions, max_output_tokens
             )
             request_artifact_id, request_sha256 = self.artifacts.write(
                 context.run_id, call_id, "request", request_payload
@@ -874,7 +919,14 @@ class MonolithicSecurityAgent:
                 input_items.extend(turn.output)
             calls = [item for item in turn.output if item.get("type") == "function_call"]
             retrieval_call_count = sum(
-                item.get("name") in {"query_worldview", "get_entity", "get_witness"}
+                item.get("name")
+                in {
+                    "query_worldview",
+                    "get_entity",
+                    "get_witness",
+                    "list_candidate_evidence",
+                    "preflight_finding",
+                }
                 for item in calls
             )
             retrieval_output_limit = WORLD_TOOL_CARRY_MAX_CHARS // max(1, retrieval_call_count)
@@ -906,6 +958,10 @@ class MonolithicSecurityAgent:
                     schemas = core | _world_tool_models(family) if structured else core
                     if self.witness_planning:
                         schemas = schemas | WITNESS_TOOL_MODELS
+                    if self.provenance_reporting:
+                        schemas = schemas | REPORTING_TOOL_MODELS
+                    if self.experiment_commitment:
+                        schemas = schemas | EXPERIMENT_TOOL_MODELS
                     if contract is not None:
                         schemas = schemas | {"task_blocked": TaskBlockedArgs}
                     if action_required and call_name not in {"http_request", "task_blocked"}:
@@ -971,6 +1027,8 @@ class MonolithicSecurityAgent:
                             working_set,
                             retrieval_output_limit,
                             family,
+                            context.range.range_instance_id,
+                            context.range.range_generation,
                         )
                     if (
                         contract is not None
@@ -1051,7 +1109,13 @@ class MonolithicSecurityAgent:
                 }
                 if structured:
                     carry.append(tool_result)
-                    if call_name in {"query_worldview", "get_entity", "get_witness"}:
+                    if call_name in {
+                        "query_worldview",
+                        "get_entity",
+                        "get_witness",
+                        "list_candidate_evidence",
+                        "preflight_finding",
+                    }:
                         carried_world_output_chars += len(tool_result["output"])
                         if carried_world_output_chars > WORLD_TOOL_CARRY_MAX_CHARS:
                             raise ExperimentInfrastructureError(
@@ -1167,7 +1231,60 @@ class MonolithicSecurityAgent:
         working_set: ActiveWorkingSet | None,
         retrieval_output_limit: int,
         family: str,
+        range_instance_id: UUID | None = None,
+        range_generation: int = 0,
     ) -> dict[str, object]:
+        if name in REPORTING_TOOL_MODELS:
+            assert self.evidence_catalog is not None
+            if range_instance_id is None:
+                raise ValueError("reporting tool requires a range instance")
+            entries = await self.evidence_catalog.entries(
+                run_id,
+                range_instance_id,
+                range_generation,
+                family,
+                task_id=task_id,
+                worker_id=worker_id,
+            )
+            if name == "list_candidate_evidence":
+                assert isinstance(args, ListCandidateEvidenceArgs)
+                output = {
+                    "entries": select_entries(
+                        entries,
+                        max_chars=max(400, retrieval_output_limit - 100),
+                        **args.model_dump(mode="python"),
+                    )
+                }
+            else:
+                assert isinstance(args, PreflightFindingArgs)
+                core = TOOL_MODELS if family == "saas" else ENTERPRISE_TOOL_MODELS
+                output = (
+                    preflight_finding(
+                        args.arguments_json,
+                        core[args.finding_tool],
+                        entries,
+                        family,
+                        max_chars=max(400, retrieval_output_limit - 100),
+                    )
+                    if args.finding_tool in core and args.finding_tool.startswith("submit_")
+                    else {"ok": False, "errors": ["malformed_finding_schema"]}
+                )
+            await self.events.append(
+                ReportingToolUsed(
+                    run_id=run_id,
+                    actor="controller",
+                    causation_id=model_event_id,
+                    tool_name=name,
+                    model_call_id=originating_call_id,
+                    reason_codes=tuple(str(x) for x in output.get("errors", [])),
+                )
+            )
+            return output
+        if name in EXPERIMENT_TOOL_MODELS:
+            assert self.experiment_state is not None
+            return await self.experiment_state.change(
+                run_id, name, args, causation_id=model_event_id
+            )
         if name in WORLD_TOOL_MODELS or name in WITNESS_TOOL_MODELS:
             output = await self._dispatch_world(
                 name, args, run_id, task_id, worker_id, model_event_id, retrieval_output_limit
