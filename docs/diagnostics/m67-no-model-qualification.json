@@ -88,7 +88,7 @@
     "tests/unit/test_m67_stage_analysis.py",
     "tests/unit/test_m67_agent_integration.py"
   ],
-  "no_model_test_result": "28 passed",
+  "no_model_test_result": "29 passed",
   "pre_m67_baseline_schema_sha256": {
     "enterprise_change_control_v1": "65aaf592c8e715257676f0fe3ee11843ed5d052123506f97c0e4f5bcfe4b1a44",
     "saas": "a68a1b0863157473bfd1335ca681a6cc4c701561b186532d9c1dfa185d7a9a06"
@@ -98,24 +98,24 @@
   "real_compose_cases": [
     {
       "artifact_sha256": [
-        "f4fb51363880c9ea54da9bc2e25b0be9991fd0af5d19b678a30bead2666da5dc",
-        "b34dc902d25d28cff10034b0ea8ab7fde37c053da542d05588eb4391a4a327ca",
-        "788de18e4415315174bd017b67f5e7a0dedca9198ca32d0a2d2428103d2dcb91",
-        "f43ae4153fa4a2fb20a7215203c6c8f86b0e7c849abd5b656f1df80e85515e1f",
-        "41ef67cf90bee7548766b3bacaa4777a777e9c45898e4c8c2329035dbe1857d1",
-        "14b19432cd9107bb60388f5e99eaa503afd848b90fd7bcb08067ec656b854e48"
+        "0b065512fdd2cb22e99e60bc4dd3373e53ffd77672d7e48a5ec510ba7683c629",
+        "39871815d1e606b9062f69c4a52bfb3e53da98281e9203a00aac1d01c4a2a498",
+        "813b906c8e1e8a0e6671b5cc01e8ade70b272ac8b0e3b17051ee2ca6569d0cd3",
+        "c8432c4417c9c88381fefbf75e1a3c409f2a06e493c4584b90f5c37a7b1f0ae3",
+        "8df705671e9146b3450ea22ce8ff0aba63ad574ea440433124874645e2d71a60",
+        "07592ad690c8f4f570ff30cc84d35ad549a78ee078a4e5df53682ff19115a315"
       ],
       "case": "range_a_gateway_catalog_and_preflight",
       "passed": true
     },
     {
       "artifact_sha256": [
-        "51ba2024866cde6125b82e984400a80f78f0654547b86098bd0a1ba6b02da9b8",
-        "ec6dd737b2141285f2e26a8a144a421fe4e9d27389f36b3ea33edef86b088a4a",
-        "1aaa13738b6de358d0c03fb1dd92a0166f6d89489bc0b3d235ffa22d96f9b7b0",
-        "a4aa938fb15585d7efe81f7f9a7a561218bf77f99c37b6f2c7e2534e5bf26231",
-        "4bbf4cc81dbcee66442cdb2f41daf467d4d4831a667480027e1f378c1994b0ef",
-        "3e2239b2005b6c2b0391fddd9173b2f984dd47b219538a30209c46eba030af29"
+        "9acd86989ad0eecf1346c669c6df7057d7df6a17e90ae3bbf5f879901ff07471",
+        "28649da2e0312e9e2f4502b87ca2be322241edcc8a6523b6f668fbb42eb07be0",
+        "8f28989ece0af41833143460c86318e548b353b6b2005eaa5344132d1990ac5a",
+        "d1769f2dac2efa49aca11d0a6e59bf11e1eff6a058087d507c85bc91525c2be3",
+        "a8b7c779f6724bf39be925da7a040db896aeae4f4c96fc8d5425da15d77769f9",
+        "c1e9ab6fed57e695cb3d8100e77b6b9b89517a1888c0790eff0295bfff9e14b6"
       ],
       "case": "range_b_gateway_catalog_and_preflight",
       "passed": true
@@ -142,14 +142,14 @@
     "concrete_path": "/api/changes/8e5f3927-d0dc-48f6-b34b-8b730b2c39ca/approve",
     "malformed_rejected": true
   },
-  "source_head_at_qualification": "504c706c967259ba29c5dae00a844d9b1d515b2f",
+  "source_head_at_qualification": "8842278003d908c4bc630a8617d9b891cbdd1a41",
   "source_sha256": {
-    "docs/diagnostics/m67-stage-interventions-design.md": "38f4627ea8b381c4ac0078fde80fb07acde6bdfd147e90254c40a7aa7a743860",
+    "docs/diagnostics/m67-stage-interventions-design.md": "cc1a4ab56d859a1e50d13c4a622b46a1361ee9409e07667383574316f5b73bf7",
     "research_ops/m67_qualify.py": "ad437cc474caa89f0f92bed9dedd75965aa625786ad336867853a7a606efe68b",
     "src/offsecgym/experiment/m67.py": "01b7cfc99349167461d74c9ca158c0416c5815e3e54fca7d0e4b386f27f082a8",
     "src/offsecgym/reporting/provenance.py": "e5a4037923b498ce4c2d1df2bf0a9e43d7cbf5671b3326946dc28264393d87af",
     "src/offsecgym/research/m67_repeat_analysis.py": "e416d7871df003a793b5f1921f6b68b6326a303177689ffc44c3b5b7fb3dfb05",
-    "src/offsecgym/research/m67_stage_analysis.py": "8fd94624be5231e58c497fd4a63231fb34cb33d1821b11f2e3dd12d9212680b3",
+    "src/offsecgym/research/m67_stage_analysis.py": "a2713e9a32b74933d924ab41ef29397f4df5c914b513e6ac276047150e1bbe61",
     "src/offsecgym/schemas/events.py": "2d9e503ea530fa1af57dc5ca77700416e849f9cb9971962dfca84f867d8ed570",
     "src/offsecgym/solver/experiment_state.py": "ee944497bc93506f246859bfcb6d5b387ee81b6143bd90c815075f74801d1da0",
     "src/offsecgym/solver/monolithic.py": "dc757ba65154666f0a6e416a7069303741ee4357cb84ded3405d6baa0176bd62"
@@ -162,6 +162,6 @@
     "tests/unit/test_m67_experiment.py": "539a030beffed0f38f68e555935ecb24c41657227afc4cddb15e11c792c550c9",
     "tests/unit/test_m67_provenance.py": "c4e92af633e72328c9f72e675877a644f0ac206783d4b5af5b17189b120065c9",
     "tests/unit/test_m67_repeat_analysis.py": "f5dc7f87b09886633e4f1d6dd16beceec3cec6960e349760d9082929485b074f",
-    "tests/unit/test_m67_stage_analysis.py": "a3f47c3041df4c8d14a94c4492e342cc52a5e32f644b5dcd719997159c687cad"
+    "tests/unit/test_m67_stage_analysis.py": "1c596dabddd4380012d0feefe50602e66b7ce17235c3c2e8d316275dfbf47319"
   }
 }
