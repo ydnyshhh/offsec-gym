@@ -61,8 +61,8 @@ from offsecgym.runtime.oracle import StateOracleStore
 from offsecgym.storage.event_store import PostgresEventStore
 
 CONTINUATION_SCOPE = "m661_feasibility_cells_93_through_96_once_after_cell92_interruption"
-EXPECTED_CELL92_APPROVAL_SHA256 = "0" * 64
-OPERATIONAL_MERGE_COMMIT = "0" * 40
+EXPECTED_CELL92_APPROVAL_SHA256 = "27c836e35825d79adaf73b4c6898ddb072cef9d6936860502e3c0a7c9b987568"
+OPERATIONAL_MERGE_COMMIT = "53760ac129119c01568c75534bf7a992d0b267ca"
 
 
 def _scope_approval(path: Path, manifest: dict) -> dict:
@@ -71,7 +71,7 @@ def _scope_approval(path: Path, manifest: dict) -> dict:
     if path.name != "cell92-paid-continuation-approval.json" or path.is_symlink():
         raise ValueError("cell-92 approval path differs")
     if not path.is_file() or path.stat().st_mode & 0o077:
-        raise ValueError("cell-86 approval is absent or not private")
+        raise ValueError("cell-92 approval is absent or not private")
     raw = path.read_bytes()
     if _sha256(raw) != EXPECTED_CELL92_APPROVAL_SHA256:
         raise ValueError("cell-92 approval bytes differ")
