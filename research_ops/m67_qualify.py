@@ -138,15 +138,36 @@ def qualify() -> dict[str, object]:
         ]
         if {item["family"] for item in receipts} != {"saas", FAMILY}:
             raise RuntimeError("real Compose qualification receipts incomplete")
+    by_family = {item["family"]: item for item in receipts}
+    expected_cases = {
+        "real_gateway_artifact_binding",
+        "public_route_and_same_run_preflight",
+        "trusted_setup_excluded",
+        "cross_task_and_run_excluded",
+    }
+    if any(set(item["cases"]) != expected_cases for item in receipts):
+        raise RuntimeError("real Compose qualification case receipts incomplete")
     real_cases = [
         {
-            "family": item["family"],
-            "case": case,
+            "case": "range_a_gateway_catalog_and_preflight",
             "passed": True,
-            "artifact_sha256": item["artifact_sha256"],
-        }
-        for item in receipts
-        for case in item["cases"]
+            "artifact_sha256": by_family["saas"]["artifact_sha256"],
+        },
+        {
+            "case": "range_b_gateway_catalog_and_preflight",
+            "passed": True,
+            "artifact_sha256": by_family[FAMILY]["artifact_sha256"],
+        },
+        {
+            "case": "trusted_setup_excluded_both_ranges",
+            "passed": True,
+            "families": sorted(by_family),
+        },
+        {
+            "case": "cross_task_and_run_excluded_both_ranges",
+            "passed": True,
+            "families": sorted(by_family),
+        },
     ]
     source_head = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=ROOT, text=True).strip()
     return {
