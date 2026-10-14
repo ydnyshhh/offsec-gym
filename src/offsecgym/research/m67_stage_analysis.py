@@ -39,7 +39,8 @@ class VerifiedStageSignals:
     """IDs supplied by a separately reviewed, root-specific offline extractor."""
 
     transition_action_ids: frozenset[UUID] = frozenset()
-    decisive_action_ids: frozenset[UUID] = frozenset()
+    decisive_action_request_ids: frozenset[UUID] = frozenset()
+    decisive_action_completed_ids: frozenset[UUID] = frozenset()
     complete_witness_evidence_ids: frozenset[UUID] = frozenset()
     root_class_finding_ids: frozenset[UUID] = frozenset()
 
@@ -208,6 +209,8 @@ def _analyze_verified(
     trace: list[TraceEvent], state_root: Path, signals: VerifiedStageSignals
 ) -> dict[str, object]:
     terminal = next(e for e in trace if isinstance(e, RunCompleted))
+    requested_actions = [e for e in trace if isinstance(e, ActionRequested)]
+    requested_action_ids = {e.action_id for e in requested_actions}
     completed_actions = [e for e in trace if isinstance(e, ActionCompleted)]
     action_ids = {e.action_id for e in completed_actions}
     evidence_ids = {e.evidence_id for e in completed_actions if e.evidence_id is not None}
@@ -215,7 +218,8 @@ def _analyze_verified(
     finding_ids = {e.finding.finding_id for e in findings}
     if (
         not signals.transition_action_ids <= action_ids
-        or not signals.decisive_action_ids <= action_ids
+        or not signals.decisive_action_request_ids <= requested_action_ids
+        or not signals.decisive_action_completed_ids <= action_ids
         or not signals.complete_witness_evidence_ids <= evidence_ids
         or not signals.root_class_finding_ids <= finding_ids
     ):
@@ -335,24 +339,24 @@ def _analyze_verified(
         )
         for a, b in zip(turns, turns[1:], strict=False)
     ]
-    recorded_after = (
-        any(e.sequence_number > first_transition for e in findings)
+    findings_after = (
+        {e.finding.finding_id for e in findings if e.sequence_number > first_transition}
         if first_transition is not None
-        else False
+        else set()
     )
-    validated_after = (
-        any(
-            e.sequence_number > first_transition and e.result.status == "validated"
-            for e in verdicts
-        )
+    root_findings_after = findings_after & signals.root_class_finding_ids
+    validated_after = {
+        e.result.finding_id
+        for e in verdicts
         if first_transition is not None
-        else False
-    )
+        and e.sequence_number > first_transition
+        and e.result.status == "validated"
+    }
     attempted = any(name.startswith("submit_") and name.endswith("finding") for name in names)
     rejected = [e for e in trace if isinstance(e, ModelToolRejected)]
     reporting = [e for e in trace if isinstance(e, ReportingToolUsed)]
-    submission_after = (
-        recorded_after
+    any_submission_attempt_after = (
+        bool(findings_after)
         or any(
             e.sequence_number > first_transition
             and e.tool_name.startswith("submit_")
@@ -385,9 +389,13 @@ def _analyze_verified(
         "evidence_observed": bool(evidence_ids),
         "experiments_started": len(first_by_id),
         "experiment_started": bool(first_by_id),
-        "experiments_completed": sum(e.status == "completed" for e in last_by_id.values()),
-        "experiments_abandoned": sum(e.status == "abandoned" for e in last_by_id.values()),
-        "experiments_blocked": sum(e.status == "blocked" for e in last_by_id.values()),
+        "model_marked_experiments_completed": sum(
+            e.status == "completed" for e in last_by_id.values()
+        ),
+        "model_marked_experiments_abandoned": sum(
+            e.status == "abandoned" for e in last_by_id.values()
+        ),
+        "model_marked_experiments_blocked": sum(e.status == "blocked" for e in last_by_id.values()),
         "active_experiment_at_terminal": any(
             e.status in {"active", "blocked"} for e in last_by_id.values()
         ),
@@ -395,10 +403,11 @@ def _analyze_verified(
             min(e.sequence_number for e in first_by_id.values()) if first_by_id else None
         ),
         "distinct_hypotheses": len({e.hypothesis for e in first_by_id.values()}),
-        "experiment_step_completion": sum(e.current_step for e in last_by_id.values()),
+        "model_reported_completed_steps": sum(e.current_step for e in last_by_id.values()),
         "actions_per_experiment": actions_per_experiment,
         "tokens_per_experiment": tokens_per_experiment,
-        "decisive_root_action_attempted": bool(signals.decisive_action_ids),
+        "decisive_root_action_attempted": bool(signals.decisive_action_request_ids),
+        "decisive_root_action_completed": bool(signals.decisive_action_completed_ids),
         "target_transition": bool(transitions),
         "transition_reached": bool(transitions),
         "complete_witness": bool(signals.complete_witness_evidence_ids),
@@ -424,16 +433,19 @@ def _analyze_verified(
         "successfully_recorded_findings": len(findings),
         "root_class_submitted": bool(signals.root_class_finding_ids),
         "validated_roots": sum(
-            e.result.status == "validated" and e.result.matched_root_cause_id is not None
+            e.result.status == "validated" and e.result.finding_id in signals.root_class_finding_ids
             for e in verdicts
         ),
         "validated_root": any(
-            e.result.status == "validated" and e.result.matched_root_cause_id is not None
+            e.result.status == "validated" and e.result.finding_id in signals.root_class_finding_ids
             for e in verdicts
         ),
-        "transition_to_submission": submission_after,
-        "transition_to_recorded_finding": recorded_after,
-        "transition_to_validated_root": validated_after,
+        "any_submission_attempt_after_transition": any_submission_attempt_after,
+        "any_finding_after_transition": bool(findings_after),
+        "any_validated_finding_after_transition": bool(validated_after & findings_after),
+        "root_submission_attempt_after_transition": None,
+        "root_recorded_finding_after_transition": bool(root_findings_after),
+        "root_validated_finding_after_transition": bool(validated_after & root_findings_after),
         "exact_response_repeat_count": sum(x.exact_response_repeat for x in repeats),
         "exact_reasoning_repeat_count": sum(x.exact_reasoning_repeat for x in repeats),
         "exact_tool_batch_repeat_count": sum(x.exact_tool_batch_repeat for x in repeats),

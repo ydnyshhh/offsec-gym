@@ -13,11 +13,22 @@ from offsecgym.research.m67_stage_analysis import (
     _submitted_reference_metrics,
     analyze_run,
 )
+from offsecgym.schemas.domain import (
+    AuthorizationExpectation,
+    CandidateFinding,
+    EvidenceRef,
+    ValidationResult,
+)
 from offsecgym.schemas.events import (
+    ActionBlocked,
     ActionCompleted,
+    ActionFailed,
     ActionRequested,
     ExperimentStateChanged,
+    FindingSubmitted,
+    FindingValidated,
     ModelCallStarted,
+    ModelToolRejected,
     RunCompleted,
 )
 
@@ -226,3 +237,172 @@ def test_experiment_action_windows_do_not_absorb_search_between_experiments(tmp_
     row = m67_stage_analysis._analyze_verified(trace, tmp_path, VerifiedStageSignals())
     assert row["actions_per_experiment"] == [1, 1]
     assert row["tokens_per_experiment"] == [0, 0]
+
+
+def _finding(run_id, finding_id):
+    return CandidateFinding(
+        finding_id=finding_id,
+        run_id=run_id,
+        range_instance_id=uuid4(),
+        range_generation=0,
+        claim="A model-authored claim",
+        family="enterprise_change_control_v1",
+        asset_id=uuid4(),
+        security_property=AuthorizationExpectation(
+            subject_role="reviewer",
+            action="POST /api/changes/{id}/approve",
+            resource_type="change_request",
+            object_relation="other",
+            expected="deny",
+        ),
+        evidence=(EvidenceRef(evidence_id=uuid4(), action_id=uuid4(), description="observed"),),
+    )
+
+
+@pytest.mark.parametrize("root_later", [False, True])
+@pytest.mark.parametrize("validated", [False, True])
+def test_transition_reporting_requires_same_root_finding_id(tmp_path, root_later, validated):
+    run_id, action_id, finding_id = uuid4(), uuid4(), uuid4()
+    events = [
+        ActionCompleted(run_id=run_id, actor="gateway", action_id=action_id, duration_ms=1),
+        FindingSubmitted(run_id=run_id, actor="solver", finding=_finding(run_id, finding_id)),
+    ]
+    if validated:
+        events.append(
+            FindingValidated(
+                run_id=run_id,
+                actor="validator",
+                result=ValidationResult(run_id=run_id, finding_id=finding_id, status="validated"),
+            )
+        )
+    events.append(RunCompleted(run_id=run_id, actor="controller", status="completed"))
+    signals = VerifiedStageSignals(
+        transition_action_ids=frozenset({action_id}),
+        root_class_finding_ids=frozenset({finding_id}) if root_later else frozenset(),
+    )
+    row = m67_stage_analysis._analyze_verified(_sequence(*events), tmp_path, signals)
+    assert row["any_finding_after_transition"] is True
+    assert row["root_recorded_finding_after_transition"] is root_later
+    assert row["any_validated_finding_after_transition"] is validated
+    assert row["root_validated_finding_after_transition"] is (root_later and validated)
+    assert row["root_submission_attempt_after_transition"] is None
+
+
+def test_malformed_submit_cannot_be_inferred_as_root_attempt(tmp_path):
+    run_id, action_id = uuid4(), uuid4()
+    trace = _sequence(
+        ActionCompleted(run_id=run_id, actor="gateway", action_id=action_id, duration_ms=1),
+        ModelToolRejected(
+            run_id=run_id,
+            actor="controller",
+            model_call_id=uuid4(),
+            tool_call_id="submit-1",
+            tool_name="submit_enterprise_finding",
+            reason_code="invalid_tool_json",
+        ),
+        RunCompleted(run_id=run_id, actor="controller", status="completed"),
+    )
+    row = m67_stage_analysis._analyze_verified(
+        trace, tmp_path, VerifiedStageSignals(transition_action_ids=frozenset({action_id}))
+    )
+    assert row["any_submission_attempt_after_transition"] is True
+    assert row["root_submission_attempt_after_transition"] is None
+    assert row["root_recorded_finding_after_transition"] is False
+
+
+def test_root_verdict_requires_same_later_root_finding(tmp_path):
+    run_id, transition_id = uuid4(), uuid4()
+    root_before, root_after, unrelated = uuid4(), uuid4(), uuid4()
+    trace = _sequence(
+        FindingSubmitted(run_id=run_id, actor="solver", finding=_finding(run_id, root_before)),
+        ActionCompleted(run_id=run_id, actor="gateway", action_id=transition_id, duration_ms=1),
+        FindingSubmitted(run_id=run_id, actor="solver", finding=_finding(run_id, root_after)),
+        FindingSubmitted(run_id=run_id, actor="solver", finding=_finding(run_id, unrelated)),
+        FindingValidated(
+            run_id=run_id,
+            actor="validator",
+            result=ValidationResult(run_id=run_id, finding_id=unrelated, status="validated"),
+        ),
+        FindingValidated(
+            run_id=run_id,
+            actor="validator",
+            result=ValidationResult(run_id=run_id, finding_id=root_before, status="validated"),
+        ),
+        RunCompleted(run_id=run_id, actor="controller", status="completed"),
+    )
+    signals = VerifiedStageSignals(
+        transition_action_ids=frozenset({transition_id}),
+        root_class_finding_ids=frozenset({root_before, root_after}),
+    )
+    row = m67_stage_analysis._analyze_verified(trace, tmp_path, signals)
+    assert row["any_validated_finding_after_transition"] is True
+    assert row["root_recorded_finding_after_transition"] is True
+    assert row["root_validated_finding_after_transition"] is False
+
+
+@pytest.mark.parametrize("outcome", ["none", "failed", "blocked", "completed", "transition"])
+def test_decisive_request_completion_and_transition_are_independent(tmp_path, outcome):
+    run_id, action_id = uuid4(), uuid4()
+    events = []
+    if outcome != "none":
+        events.append(
+            ActionRequested(
+                schema_version="1",
+                run_id=run_id,
+                actor="gateway",
+                action_id=action_id,
+                action_type="http_request",
+                destination="enterprise_change_control_v1",
+            )
+        )
+    if outcome == "failed":
+        events.append(
+            ActionFailed(run_id=run_id, actor="gateway", action_id=action_id, reason_code="failed")
+        )
+    if outcome == "blocked":
+        events.append(
+            ActionBlocked(
+                run_id=run_id, actor="gateway", action_id=action_id, reason_code="blocked"
+            )
+        )
+    if outcome in {"completed", "transition"}:
+        events.append(
+            ActionCompleted(run_id=run_id, actor="gateway", action_id=action_id, duration_ms=1)
+        )
+    events.append(RunCompleted(run_id=run_id, actor="controller", status="completed"))
+    signals = VerifiedStageSignals(
+        decisive_action_request_ids=frozenset({action_id}) if outcome != "none" else frozenset(),
+        decisive_action_completed_ids=(
+            frozenset({action_id}) if outcome in {"completed", "transition"} else frozenset()
+        ),
+        transition_action_ids=frozenset({action_id}) if outcome == "transition" else frozenset(),
+    )
+    row = m67_stage_analysis._analyze_verified(_sequence(*events), tmp_path, signals)
+    assert row["decisive_root_action_attempted"] is (outcome != "none")
+    assert row["decisive_root_action_completed"] is (outcome in {"completed", "transition"})
+    assert row["target_transition"] is (outcome == "transition")
+
+
+def test_model_marked_completion_does_not_imply_verified_success(tmp_path):
+    run_id = uuid4()
+    trace = _sequence(
+        ExperimentStateChanged(
+            run_id=run_id,
+            actor="agent",
+            experiment_id=uuid4(),
+            hypothesis="Test a boundary",
+            planned_steps=("read",),
+            current_step=1,
+            status="completed",
+            expected_positive_observation="changed",
+            expected_negative_observation="unchanged",
+        ),
+        RunCompleted(run_id=run_id, actor="controller", status="completed"),
+    )
+    row = m67_stage_analysis._analyze_verified(trace, tmp_path, VerifiedStageSignals())
+    assert row["model_marked_experiments_completed"] == 1
+    assert row["model_reported_completed_steps"] == 1
+    assert not row["decisive_root_action_completed"]
+    assert not row["target_transition"]
+    assert not row["complete_witness"]
+    assert not row["root_validated_finding_after_transition"]

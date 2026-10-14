@@ -5,8 +5,10 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import os
 import subprocess
 import sys
+import tempfile
 from pathlib import Path
 from uuid import UUID
 
@@ -48,6 +50,7 @@ TESTS = (
     "tests/unit/test_m67_stage_analysis.py",
     "tests/unit/test_m67_agent_integration.py",
 )
+COMPOSE_TEST = "tests/ranges/test_m67_compose_qualification.py"
 
 
 def _sha(path: Path) -> str:
@@ -109,12 +112,52 @@ def qualify() -> dict[str, object]:
     if "passed" not in output:
         raise RuntimeError("no-model test summary missing")
     deterministic_result = output.split(" in ", 1)[0]
+    compose_command = [sys.executable, "-m", "pytest", "-q", COMPOSE_TEST]
+    with tempfile.TemporaryDirectory(prefix="m67-compose-qualification-") as receipt_dir:
+        env = os.environ.copy()
+        env["OFFSECGYM_REQUIRE_DOCKER"] = "1"
+        env["OFFSECGYM_M67_QUALIFICATION_RECEIPT"] = receipt_dir
+        compose = subprocess.run(
+            compose_command,
+            cwd=ROOT,
+            env=env,
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+        if compose.returncode:
+            raise RuntimeError(
+                f"real Compose qualification failed:\n{compose.stdout[-3000:]}"
+                f"\n{compose.stderr[-1000:]}"
+            )
+        compose_summary = compose.stdout.strip().splitlines()[-1]
+        if "2 passed" not in compose_summary:
+            raise RuntimeError("real Compose qualification did not pass both ranges")
+        receipts = [
+            json.loads(path.read_text()) for path in sorted(Path(receipt_dir).glob("*.json"))
+        ]
+        if {item["family"] for item in receipts} != {"saas", FAMILY}:
+            raise RuntimeError("real Compose qualification receipts incomplete")
+    real_cases = [
+        {
+            "family": item["family"],
+            "case": case,
+            "passed": True,
+            "artifact_sha256": item["artifact_sha256"],
+        }
+        for item in receipts
+        for case in item["cases"]
+    ]
+    source_head = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=ROOT, text=True).strip()
     return {
         "milestone": "M6.7",
         "status": "engineering_design_unapproved_unrun",
         "provider_calls": 0,
         "live_manifest_frozen": False,
-        "real_compose_cases": [],
+        "real_compose_cases": real_cases,
+        "compose_test_command": compose_command,
+        "compose_test_result": compose_summary.split(" in ", 1)[0],
+        "source_head_at_qualification": source_head,
         "factorial_arm_tool_schema_sha256": {
             name: arm.schema_sha256(family=FAMILY, structured=True) for name, arm in arms.items()
         },
@@ -122,7 +165,7 @@ def qualify() -> dict[str, object]:
         "pre_m67_baseline_schema_sha256": BASELINE_SCHEMA_SHA256,
         "config_sha256": config_hashes,
         "source_sha256": {name: _sha(ROOT / name) for name in SOURCE_PATHS},
-        "test_sha256": {name: _sha(ROOT / name) for name in TESTS},
+        "test_sha256": {name: _sha(ROOT / name) for name in (*TESTS, COMPOSE_TEST)},
         "python_version": sys.version.split()[0],
         "no_model_test_command": [sys.executable, "-m", "pytest", "-q", *TESTS],
         "no_model_test_result": deterministic_result,

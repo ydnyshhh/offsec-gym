@@ -308,4 +308,11 @@ def preflight_finding(
         facts.append(fact)
     result["citation_facts"] = facts
     result["citation_facts_truncated"] = len(facts) != len(autofill)
+    if result["ok"]:
+        # Echo the parsed JSON object exactly: schema validation does not authorize
+        # rewriting a claim, security expectation, or root hypothesis.
+        if len(json.dumps({**result, "canonical_arguments": raw})) <= max_chars:
+            result["canonical_arguments"] = raw
+        else:
+            result["canonical_arguments_omitted_reason"] = "output_limit"
     return result

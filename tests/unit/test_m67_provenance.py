@@ -193,13 +193,26 @@ async def test_preflight_is_referential_only(tmp_path):
     )
     route = canonical_route(FAMILY, "POST", path)
     assert route == "POST /api/changes/{id}/approve"
-    valid = preflight_finding(
-        _finding(action_id, evidence_id, route), EnterpriseFindingArgs, entries, FAMILY
-    )
+    finding_json = _finding(action_id, evidence_id, route)
+    valid = preflight_finding(finding_json, EnterpriseFindingArgs, entries, FAMILY)
     assert valid["ok"] is True
     assert "vulnerability_confirmed" not in json.dumps(valid)
     assert "correct_root" not in json.dumps(valid)
     assert valid["citation_facts"][0]["action_id"] == str(action_id)
+    assert valid["canonical_arguments"] == json.loads(finding_json)
+    assert "canonical_arguments" not in preflight_finding(
+        _finding(action_id, uuid4(), route), EnterpriseFindingArgs, entries, FAMILY
+    )
+    bounded = preflight_finding(
+        _finding(action_id, evidence_id, route),
+        EnterpriseFindingArgs,
+        entries,
+        FAMILY,
+        max_chars=150,
+    )
+    assert bounded["ok"] is True
+    assert "canonical_arguments" not in bounded
+    assert bounded["canonical_arguments_omitted_reason"] == "output_limit"
     assert (
         "noncanonical_route"
         in preflight_finding(

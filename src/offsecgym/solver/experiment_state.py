@@ -125,6 +125,8 @@ class ExperimentStateStore:
                 assert isinstance(args, UpdateExperimentArgs)
                 if args.current_step < current.current_step:
                     raise ValueError("experiment_step_cannot_regress")
+                if args.current_step > len(current.planned_steps):
+                    raise ValueError("experiment_step_out_of_range")
                 fields.update(
                     current_step=args.current_step, status=args.status, blockers=args.blockers
                 )

@@ -101,6 +101,46 @@ async def test_experiment_lifecycle_persists_without_root_injection():
     assert await state.active(run_id) is None
 
 
+@pytest.mark.asyncio
+async def test_update_step_is_model_declared_completed_count_bounded_by_plan():
+    events = MemoryEvents()
+    run_id, cause = uuid4(), uuid4()
+    state = ExperimentStateStore(events)
+    started = await state.change(run_id, "start_experiment", _start(), causation_id=cause)
+    experiment_id = started["experiment_id"]
+    with pytest.raises(ValueError, match="experiment_step_out_of_range"):
+        await state.change(
+            run_id,
+            "update_experiment",
+            UpdateExperimentArgs(
+                experiment_id=experiment_id, current_step=999, status="active", blockers=()
+            ),
+            causation_id=cause,
+        )
+    assert (await state.active(run_id)).current_step == 0
+    assert "current step: 0/3" in await state.reminder(run_id)
+    completed_plan = await state.change(
+        run_id,
+        "update_experiment",
+        UpdateExperimentArgs(
+            experiment_id=experiment_id, current_step=3, status="active", blockers=()
+        ),
+        causation_id=cause,
+    )
+    assert completed_plan["current_step"] == 3
+    assert "current step: 3/3" in await state.reminder(run_id)
+    assert "next planned step: none" in await state.reminder(run_id)
+    with pytest.raises(ValueError, match="experiment_step_cannot_regress"):
+        await state.change(
+            run_id,
+            "update_experiment",
+            UpdateExperimentArgs(
+                experiment_id=experiment_id, current_step=2, status="active", blockers=()
+            ),
+            causation_id=cause,
+        )
+
+
 def test_four_arms_are_explicit_and_schema_separated():
     configs = {
         name: yaml.safe_load(
