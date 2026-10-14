@@ -88,7 +88,7 @@
     "tests/unit/test_m67_stage_analysis.py",
     "tests/unit/test_m67_agent_integration.py"
   ],
-  "no_model_test_result": "29 passed",
+  "no_model_test_result": "30 passed",
   "pre_m67_baseline_schema_sha256": {
     "enterprise_change_control_v1": "65aaf592c8e715257676f0fe3ee11843ed5d052123506f97c0e4f5bcfe4b1a44",
     "saas": "a68a1b0863157473bfd1335ca681a6cc4c701561b186532d9c1dfa185d7a9a06"
@@ -98,24 +98,24 @@
   "real_compose_cases": [
     {
       "artifact_sha256": [
-        "0b065512fdd2cb22e99e60bc4dd3373e53ffd77672d7e48a5ec510ba7683c629",
-        "39871815d1e606b9062f69c4a52bfb3e53da98281e9203a00aac1d01c4a2a498",
-        "813b906c8e1e8a0e6671b5cc01e8ade70b272ac8b0e3b17051ee2ca6569d0cd3",
-        "c8432c4417c9c88381fefbf75e1a3c409f2a06e493c4584b90f5c37a7b1f0ae3",
-        "8df705671e9146b3450ea22ce8ff0aba63ad574ea440433124874645e2d71a60",
-        "07592ad690c8f4f570ff30cc84d35ad549a78ee078a4e5df53682ff19115a315"
+        "b09497ef9fa9ba6192a59abc52f899d75954a33cf4df3274e1f086a698c06716",
+        "21b11c4c069ff496c6806cf3f59685111bd5b26855efa65234d7d1392b3ffcae",
+        "a7c1d02160db55986cc34803ec14ac31f2745b56f32c44df58dd3e7fe88c89d2",
+        "15acc2058f9259e98818808f53f8688c03766289b3eea0f4d0dade3126be8afa",
+        "d652682e04a37a01e870c0ea36c06ff7a8b3f1669961454eb6bad242dc552025",
+        "f470c7584f11d5ca6d28ce51f0c873e85afdbc21cc44b46ec99bbe5d8f9ef2e2"
       ],
       "case": "range_a_gateway_catalog_and_preflight",
       "passed": true
     },
     {
       "artifact_sha256": [
-        "9acd86989ad0eecf1346c669c6df7057d7df6a17e90ae3bbf5f879901ff07471",
-        "28649da2e0312e9e2f4502b87ca2be322241edcc8a6523b6f668fbb42eb07be0",
-        "8f28989ece0af41833143460c86318e548b353b6b2005eaa5344132d1990ac5a",
-        "d1769f2dac2efa49aca11d0a6e59bf11e1eff6a058087d507c85bc91525c2be3",
-        "a8b7c779f6724bf39be925da7a040db896aeae4f4c96fc8d5425da15d77769f9",
-        "c1e9ab6fed57e695cb3d8100e77b6b9b89517a1888c0790eff0295bfff9e14b6"
+        "6cfd86b9a072b27a0259e80cbd94f7536d33f3c9bd9f86684692d40e8b877c80",
+        "4ff15e851d34449ec73fdecf511de173ed0e5f1b3171f8a0868dbb6ea4d5113c",
+        "0d44b5d474a1d874211fd897cbba409e33e36b4b3f6a9ce475d348e23a5bfa76",
+        "0a1d3724292aed1253d6277ec42dab4883b5c6052fe9dfb5c806404a54be601b",
+        "c7cf36fc67db5752ec47e0f2885de2fa12f21fc0960d88d1a2570f2791a59646",
+        "345ee89f1201e2eabefe48a9534e126b2fa78834f4e1d75276199eb1c1085549"
       ],
       "case": "range_b_gateway_catalog_and_preflight",
       "passed": true
@@ -142,7 +142,7 @@
     "concrete_path": "/api/changes/8e5f3927-d0dc-48f6-b34b-8b730b2c39ca/approve",
     "malformed_rejected": true
   },
-  "source_head_at_qualification": "8842278003d908c4bc630a8617d9b891cbdd1a41",
+  "source_head_at_qualification": "b556c959d1e0a0955196ac784a977153ba563d60",
   "source_sha256": {
     "docs/diagnostics/m67-stage-interventions-design.md": "cc1a4ab56d859a1e50d13c4a622b46a1361ee9409e07667383574316f5b73bf7",
     "research_ops/m67_qualify.py": "ad437cc474caa89f0f92bed9dedd75965aa625786ad336867853a7a606efe68b",
@@ -157,10 +157,10 @@
   "status": "engineering_design_unapproved_unrun",
   "synthetic_uuid": "8e5f3927-d0dc-48f6-b34b-8b730b2c39ca",
   "test_sha256": {
-    "tests/ranges/test_m67_compose_qualification.py": "b44a89defd7f5cc9bc4902a793158ed2db8debf2eeefd77df867512c7dd83629",
+    "tests/ranges/test_m67_compose_qualification.py": "363cf45d47d18c4575fab9b36072358802c59d68fa7cd096a428e461eec47113",
     "tests/unit/test_m67_agent_integration.py": "853d0d83e54628915d20eda595cf191a56648f199112b5f226b7506e2f481a98",
     "tests/unit/test_m67_experiment.py": "539a030beffed0f38f68e555935ecb24c41657227afc4cddb15e11c792c550c9",
-    "tests/unit/test_m67_provenance.py": "c4e92af633e72328c9f72e675877a644f0ac206783d4b5af5b17189b120065c9",
+    "tests/unit/test_m67_provenance.py": "ba7cfa0e5d6511620fee773a96f5ab2183657a71aff38e9a8200f7c1d433117a",
     "tests/unit/test_m67_repeat_analysis.py": "f5dc7f87b09886633e4f1d6dd16beceec3cec6960e349760d9082929485b074f",
     "tests/unit/test_m67_stage_analysis.py": "1c596dabddd4380012d0feefe50602e66b7ce17235c3c2e8d316275dfbf47319"
   }
