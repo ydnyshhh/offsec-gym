@@ -112,12 +112,15 @@ def test_later_journal_rejects_retry_and_unmatched_start(tmp_path: Path) -> None
         postcheck._later_records(MANIFEST, path)
 
 
-def test_paid_pin_is_zero_and_exact_scope_excludes_cell_92(
+def test_paid_pin_binds_exact_scope_and_excludes_cell_92(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    assert continuation.EXPECTED_CELL92_APPROVAL_SHA256 == "0" * 64
-    assert continuation.OPERATIONAL_MERGE_COMMIT == "0" * 40
+    assert continuation.EXPECTED_CELL92_APPROVAL_SHA256 == (
+        "27c836e35825d79adaf73b4c6898ddb072cef9d6936860502e3c0a7c9b987568"
+    )
+    assert continuation.OPERATIONAL_MERGE_COMMIT == "53760ac129119c01568c75534bf7a992d0b267ca"
     path = tmp_path / "cell92-paid-continuation-approval.json"
+    monkeypatch.setattr(continuation, "EXPECTED_CELL92_APPROVAL_SHA256", "0" * 64)
     with pytest.raises(ValueError, match="closed pending exact approval pin"):
         continuation._scope_approval(path, MANIFEST)
     receipt = {
@@ -129,7 +132,7 @@ def test_paid_pin_is_zero_and_exact_scope_excludes_cell_92(
         "manifest_sha256": continuation.EXPECTED_MANIFEST_SHA256,
         "source_commit": continuation.SOURCE_COMMIT,
         "protocol_commit": continuation.PROTOCOL_COMMIT,
-        "operational_merge_commit": "1" * 40,
+        "operational_merge_commit": "53760ac129119c01568c75534bf7a992d0b267ca",
         "prior_paid_approval_sha256": continuation.EXPECTED_CELL86_APPROVAL_SHA256,
         "assignment_sha256": MANIFEST["schedule"]["cell_assignment_sha256"],
         "stopped_journal_sha256": continuation.STOP_JOURNAL_SHA256,
@@ -159,7 +162,6 @@ def test_paid_pin_is_zero_and_exact_scope_excludes_cell_92(
             continuation, "EXPECTED_CELL92_APPROVAL_SHA256", hashlib.sha256(raw).hexdigest()
         )
 
-    monkeypatch.setattr(continuation, "OPERATIONAL_MERGE_COMMIT", "1" * 40)
     write()
     assert continuation._scope_approval(path, MANIFEST) == receipt
     for key, bad in (
