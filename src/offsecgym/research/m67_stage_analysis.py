@@ -210,15 +210,24 @@ def _analyze_verified(
 ) -> dict[str, object]:
     terminal = next(e for e in trace if isinstance(e, RunCompleted))
     requested_actions = [e for e in trace if isinstance(e, ActionRequested)]
-    requested_action_ids = {e.action_id for e in requested_actions}
+    model_requested_action_ids = {
+        e.action_id
+        for e in requested_actions
+        if e.source_phase is None
+        and e.originating_call_id is not None
+        and e.originating_tool_call_id is not None
+    }
     completed_actions = [e for e in trace if isinstance(e, ActionCompleted)]
     action_ids = {e.action_id for e in completed_actions}
     evidence_ids = {e.evidence_id for e in completed_actions if e.evidence_id is not None}
     findings = [e for e in trace if isinstance(e, FindingSubmitted)]
     finding_ids = {e.finding.finding_id for e in findings}
+    if not signals.decisive_action_completed_ids <= signals.decisive_action_request_ids:
+        raise StageDataIntegrityError("decisive completion lacks decisive request classification")
+    if not signals.decisive_action_request_ids <= model_requested_action_ids:
+        raise StageDataIntegrityError("decisive request lacks model-originated source evidence")
     if (
         not signals.transition_action_ids <= action_ids
-        or not signals.decisive_action_request_ids <= requested_action_ids
         or not signals.decisive_action_completed_ids <= action_ids
         or not signals.complete_witness_evidence_ids <= evidence_ids
         or not signals.root_class_finding_ids <= finding_ids

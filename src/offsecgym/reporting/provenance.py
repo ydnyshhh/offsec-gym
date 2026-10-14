@@ -259,6 +259,7 @@ def preflight_finding(
     by_action = {item.action_id: item for item in entries}
     citations = raw.get("evidence")
     autofill: list[dict[str, object]] = []
+    bound_routes: set[str] = set()
     seen: set[str] = set()
     if isinstance(citations, list):
         for citation in citations:
@@ -282,6 +283,8 @@ def preflight_finding(
                 errors.append("wrong_run")
             elif match.action_id != action_id:
                 errors.append("action_evidence_mismatch")
+            elif match.canonical_route_shape is not None:
+                bound_routes.add(match.canonical_route_shape)
             autofill.append(
                 {
                     "evidence_id": str(match.evidence_id),
@@ -296,6 +299,8 @@ def preflight_finding(
     if parsed is not None and isinstance(action, str):
         if action not in {item.canonical_route_shape for item in entries}:
             errors.append("noncanonical_route")
+        if action in range_surface(family).routes and action not in bound_routes:
+            errors.append("declared_action_not_cited")
     result: dict[str, object] = {
         "ok": not errors,
         "errors": sorted(set(errors)),

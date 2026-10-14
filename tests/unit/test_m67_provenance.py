@@ -287,6 +287,28 @@ async def test_preflight_is_referential_only(tmp_path):
             FAMILY,
         )["errors"]
     )
+    mismatched = preflight_finding(
+        _finding(other_action, evidence_id, route), EnterpriseFindingArgs, entries, FAMILY
+    )
+    assert "declared_action_not_cited" in mismatched["errors"]
+    read_action, read_evidence, _ = await add_action(
+        events,
+        tmp_path,
+        run_id=run_id,
+        instance_id=instance_id,
+        task_id=task_id,
+        method="GET",
+        path=f"/api/changes/{uuid4()}",
+    )
+    entries = await EvidenceCatalog(events, tmp_path).entries(
+        run_id, instance_id, 0, FAMILY, task_id=task_id, worker_id=None
+    )
+    uncited_action = preflight_finding(
+        _finding(read_action, read_evidence, route), EnterpriseFindingArgs, entries, FAMILY
+    )
+    assert "noncanonical_route" not in uncited_action["errors"]
+    assert "declared_action_not_cited" in uncited_action["errors"]
+    assert "canonical_arguments" not in uncited_action
 
 
 def test_route_and_arm_schema_are_public_and_separate():

@@ -203,6 +203,21 @@ async def test_real_compose_catalog_preflight_and_isolation(tmp_path: Path, fami
         )
         assert preflight["ok"] is True
         assert preflight["canonical_arguments"] == arguments
+        uncited = {
+            **arguments,
+            "evidence": [
+                {
+                    "action_id": str(owned[2].action_id),
+                    "evidence_id": str(owned[2].evidence_id),
+                    "description": "Read-only follow-up",
+                }
+            ],
+        }
+        uncited_preflight = preflight_finding(
+            json.dumps(uncited), finding_schema, entries, family, max_chars=4000
+        )
+        assert uncited_preflight["ok"] is False
+        assert "declared_action_not_cited" in uncited_preflight["errors"]
         assert "matched_root_cause_id" not in json.dumps(preflight)
         public_response = json.dumps([item.public() for item in entries]) + json.dumps(preflight)
         assert not any(

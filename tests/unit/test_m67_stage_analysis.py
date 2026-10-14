@@ -378,6 +378,8 @@ def test_decisive_request_completion_and_transition_are_independent(tmp_path, ou
                 action_id=action_id,
                 action_type="http_request",
                 destination="enterprise_change_control_v1",
+                originating_call_id=uuid4(),
+                originating_tool_call_id="decisive-call",
             )
         )
     if outcome == "failed":
@@ -406,6 +408,60 @@ def test_decisive_request_completion_and_transition_are_independent(tmp_path, ou
     assert row["decisive_root_action_attempted"] is (outcome != "none")
     assert row["decisive_root_action_completed"] is (outcome in {"completed", "transition"})
     assert row["target_transition"] is (outcome == "transition")
+
+
+def test_decisive_completion_requires_request_classification(tmp_path):
+    run_id, action_id = uuid4(), uuid4()
+    trace = _sequence(
+        ActionRequested(
+            schema_version="1",
+            run_id=run_id,
+            actor="gateway",
+            action_id=action_id,
+            action_type="http_request",
+            destination="enterprise_change_control_v1",
+            originating_call_id=uuid4(),
+            originating_tool_call_id="decisive-call",
+        ),
+        ActionCompleted(run_id=run_id, actor="gateway", action_id=action_id, duration_ms=1),
+        RunCompleted(run_id=run_id, actor="controller", status="completed"),
+    )
+    with pytest.raises(
+        m67_stage_analysis.StageDataIntegrityError,
+        match="decisive completion lacks decisive request classification",
+    ):
+        m67_stage_analysis._analyze_verified(
+            trace,
+            tmp_path,
+            VerifiedStageSignals(decisive_action_completed_ids=frozenset({action_id})),
+        )
+
+
+@pytest.mark.parametrize("source_phase", [None, "bootstrap", "critical_checkpoint"])
+def test_decisive_request_requires_model_origin(tmp_path, source_phase):
+    run_id, action_id = uuid4(), uuid4()
+    trace = _sequence(
+        ActionRequested(
+            schema_version="1",
+            run_id=run_id,
+            actor="gateway",
+            action_id=action_id,
+            action_type="http_request",
+            destination="enterprise_change_control_v1",
+            method="GET",
+            source_phase=source_phase,
+        ),
+        RunCompleted(run_id=run_id, actor="controller", status="completed"),
+    )
+    with pytest.raises(
+        m67_stage_analysis.StageDataIntegrityError,
+        match="decisive request lacks model-originated source evidence",
+    ):
+        m67_stage_analysis._analyze_verified(
+            trace,
+            tmp_path,
+            VerifiedStageSignals(decisive_action_request_ids=frozenset({action_id})),
+        )
 
 
 def test_model_marked_completion_does_not_imply_verified_success(tmp_path):
