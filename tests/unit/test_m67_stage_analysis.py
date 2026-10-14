@@ -340,6 +340,31 @@ def test_root_verdict_requires_same_later_root_finding(tmp_path):
     assert row["root_validated_finding_after_transition"] is False
 
 
+def test_verdict_before_recorded_finding_is_not_conversion(tmp_path):
+    run_id, transition_id, finding_id = uuid4(), uuid4(), uuid4()
+    trace = _sequence(
+        ActionCompleted(run_id=run_id, actor="gateway", action_id=transition_id, duration_ms=1),
+        FindingValidated(
+            run_id=run_id,
+            actor="validator",
+            result=ValidationResult(run_id=run_id, finding_id=finding_id, status="validated"),
+        ),
+        FindingSubmitted(run_id=run_id, actor="solver", finding=_finding(run_id, finding_id)),
+        RunCompleted(run_id=run_id, actor="controller", status="completed"),
+    )
+    row = m67_stage_analysis._analyze_verified(
+        trace,
+        tmp_path,
+        VerifiedStageSignals(
+            transition_action_ids=frozenset({transition_id}),
+            root_class_finding_ids=frozenset({finding_id}),
+        ),
+    )
+    assert row["root_recorded_finding_after_transition"] is True
+    assert row["any_validated_finding_after_transition"] is False
+    assert row["root_validated_finding_after_transition"] is False
+
+
 @pytest.mark.parametrize("outcome", ["none", "failed", "blocked", "completed", "transition"])
 def test_decisive_request_completion_and_transition_are_independent(tmp_path, outcome):
     run_id, action_id = uuid4(), uuid4()

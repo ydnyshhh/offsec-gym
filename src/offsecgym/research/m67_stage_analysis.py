@@ -340,17 +340,23 @@ def _analyze_verified(
         for a, b in zip(turns, turns[1:], strict=False)
     ]
     findings_after = (
-        {e.finding.finding_id for e in findings if e.sequence_number > first_transition}
+        {
+            e.finding.finding_id: e.sequence_number
+            for e in findings
+            if e.sequence_number > first_transition
+        }
         if first_transition is not None
-        else set()
+        else {}
     )
-    root_findings_after = findings_after & signals.root_class_finding_ids
+    root_findings_after = findings_after.keys() & signals.root_class_finding_ids
     validated_after = {
         e.result.finding_id
         for e in verdicts
         if first_transition is not None
         and e.sequence_number > first_transition
         and e.result.status == "validated"
+        and e.result.finding_id in findings_after
+        and e.sequence_number > findings_after[e.result.finding_id]
     }
     attempted = any(name.startswith("submit_") and name.endswith("finding") for name in names)
     rejected = [e for e in trace if isinstance(e, ModelToolRejected)]
@@ -442,7 +448,7 @@ def _analyze_verified(
         ),
         "any_submission_attempt_after_transition": any_submission_attempt_after,
         "any_finding_after_transition": bool(findings_after),
-        "any_validated_finding_after_transition": bool(validated_after & findings_after),
+        "any_validated_finding_after_transition": bool(validated_after),
         "root_submission_attempt_after_transition": None,
         "root_recorded_finding_after_transition": bool(root_findings_after),
         "root_validated_finding_after_transition": bool(validated_after & root_findings_after),
