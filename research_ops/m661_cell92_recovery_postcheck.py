@@ -226,17 +226,24 @@ async def postcheck(
     )
     try:
         await _missing_trace(
-            store, STOP_RUN_ID, manifest["cells"][0], STOP_TRACE_SHA256,
+            store,
+            STOP_RUN_ID,
+            manifest["cells"][0],
+            STOP_TRACE_SHA256,
             STOP_EVENT_IDENTITY_SHA256,
         )
         await _missing_trace(
-            store, CELL4_RUN_ID, manifest["cells"][3], CELL4_TRACE_SHA256,
+            store,
+            CELL4_RUN_ID,
+            manifest["cells"][3],
+            CELL4_TRACE_SHA256,
             CELL4_EVENT_IDENTITY_SHA256,
         )
         audits = {
             record["order"]: await _audit_cell(
                 store, state, analysis, manifest["cells"][record["order"] - 1], record, None
-            ) for record in records
+            )
+            for record in records
         }
         cell86_trace = await store.read_run(CELL86_RUN_ID)
         if (
@@ -256,7 +263,8 @@ async def postcheck(
         ):
             raise ValueError("interrupted cell-92 trace changed")
         replay_ids: set[UUID] = {
-            UUID(run_id) for audit in audits.values()
+            UUID(run_id)
+            for audit in audits.values()
             for run_id in audit.get("validator_replay_run_ids", [])
         }
         for number in range(1, 46):
@@ -266,7 +274,8 @@ async def postcheck(
                 if expected is not None and receipt["audits"][offset] != expected:
                     raise ValueError("retained pair audit differs from PostgreSQL")
             replay_ids.update(
-                UUID(run_id) for audit in receipt["audits"]
+                UUID(run_id)
+                for audit in receipt["audits"]
                 for run_id in audit.get("validator_replay_run_ids", [])
             )
         by_order = {record["order"]: record for record in records}
@@ -301,8 +310,12 @@ async def postcheck(
                 (Decimal(str(record["estimated_cost_usd"])) for record in through), Decimal()
             )
             conservative = CELL_RESERVATION * 2 + sum(
-                (Decimal(str(record["estimated_cost_usd"]))
-                 if record["resource_auditable"] else CELL_RESERVATION for record in through),
+                (
+                    Decimal(str(record["estimated_cost_usd"]))
+                    if record["resource_auditable"]
+                    else CELL_RESERVATION
+                    for record in through
+                ),
                 Decimal(),
             )
             if (
@@ -311,7 +324,8 @@ async def postcheck(
             ):
                 raise ValueError("pair cumulative cost differs")
             replay_ids.update(
-                UUID(run_id) for audit in receipt["audits"]
+                UUID(run_id)
+                for audit in receipt["audits"]
                 for run_id in audit.get("validator_replay_run_ids", [])
             )
         if len(list(private.glob("pair-postcheck-*.json"))) != pair_count:
@@ -319,7 +333,8 @@ async def postcheck(
         expected_preflights = 46 + (len(fourth) + 1) // 2
         allowed_preflights = (
             {expected_preflights, expected_preflights + 1}
-            if allow_next_preflight else {expected_preflights}
+            if allow_next_preflight
+            else {expected_preflights}
         )
         if len(list(private.glob("endpoint-preflight-*.json"))) not in allowed_preflights:
             raise ValueError("endpoint preflight inventory differs")
@@ -334,8 +349,7 @@ async def postcheck(
                 or len({event.event_id for event in replay}) != len(replay)
                 or sum(isinstance(event, RunStarted) for event in replay) != 1
                 or any(
-                    isinstance(event, (ModelCallStarted, ModelCallCompleted))
-                    for event in replay
+                    isinstance(event, (ModelCallStarted, ModelCallCompleted)) for event in replay
                 )
                 or [event.status for event in replay if isinstance(event, RunCompleted)]
                 != ["completed"]
@@ -343,24 +357,54 @@ async def postcheck(
                 raise ValueError("validator replay contains model work or inconsistent events")
         async with engine.connect() as connection:
             actual_runs = set((await connection.execute(select(runs.c.run_id))).scalars().all())
-            active_models = (await connection.execute(
-                select(model_reservations).where(model_reservations.c.settled_at.is_(None))
-            )).mappings().all()
-            active_actions = (await connection.execute(
-                select(action_reservations).where(action_reservations.c.released_at.is_(None))
-            )).mappings().all()
-            usage92 = (await connection.execute(
-                select(run_usage).where(run_usage.c.run_id == INTERRUPTED_RUN_ID)
-            )).mappings().one()
-            active_usage = (await connection.execute(select(
-                run_usage.c.run_id,
-                run_usage.c.reserved_tokens,
-                run_usage.c.reserved_cost_microusd,
-            ).where((run_usage.c.reserved_tokens != 0) |
-                    (run_usage.c.reserved_cost_microusd != 0)))).all()
+            active_models = (
+                (
+                    await connection.execute(
+                        select(model_reservations).where(model_reservations.c.settled_at.is_(None))
+                    )
+                )
+                .mappings()
+                .all()
+            )
+            active_actions = (
+                (
+                    await connection.execute(
+                        select(action_reservations).where(
+                            action_reservations.c.released_at.is_(None)
+                        )
+                    )
+                )
+                .mappings()
+                .all()
+            )
+            usage92 = (
+                (
+                    await connection.execute(
+                        select(run_usage).where(run_usage.c.run_id == INTERRUPTED_RUN_ID)
+                    )
+                )
+                .mappings()
+                .one()
+            )
+            active_usage = (
+                await connection.execute(
+                    select(
+                        run_usage.c.run_id,
+                        run_usage.c.reserved_tokens,
+                        run_usage.c.reserved_cost_microusd,
+                    ).where(
+                        (run_usage.c.reserved_tokens != 0)
+                        | (run_usage.c.reserved_cost_microusd != 0)
+                    )
+                )
+            ).all()
         expected_runs = {
-            STOP_RUN_ID, CELL4_RUN_ID, RETAINED_EARLY_SETUP_RUN_ID,
-            CELL86_RUN_ID, CELL86_SETUP_RUN_ID, INTERRUPTED_RUN_ID,
+            STOP_RUN_ID,
+            CELL4_RUN_ID,
+            RETAINED_EARLY_SETUP_RUN_ID,
+            CELL86_RUN_ID,
+            CELL86_SETUP_RUN_ID,
+            INTERRUPTED_RUN_ID,
             *(UUID(record[key]) for record in records for key in ("run_id", "setup_run_id")),
             *replay_ids,
         }
@@ -372,8 +416,8 @@ async def postcheck(
             or active_models[0]["worker_id"] is not None
             or active_models[0]["reserved_tokens"] != UNSETTLED_RESERVED_TOKENS
             or active_models[0]["reserved_cost_microusd"] != UNSETTLED_RESERVED_COST_MICROUSD
-            or active_usage != [(CELL86_RUN_ID, UNSETTLED_RESERVED_TOKENS,
-                                 UNSETTLED_RESERVED_COST_MICROUSD)]
+            or active_usage
+            != [(CELL86_RUN_ID, UNSETTLED_RESERVED_TOKENS, UNSETTLED_RESERVED_COST_MICROUSD)]
             or len(active_actions) != 1
             or active_actions[0]["run_id"] != INTERRUPTED_RUN_ID
             or active_actions[0]["action_id"] != ACTIVE_ACTION_ID
@@ -389,8 +433,12 @@ async def postcheck(
             (Decimal(str(record["estimated_cost_usd"])) for record in records), Decimal()
         )
         conservative = CELL_RESERVATION * 2 + sum(
-            (Decimal(str(record["estimated_cost_usd"]))
-             if record["resource_auditable"] else CELL_RESERVATION for record in records),
+            (
+                Decimal(str(record["estimated_cost_usd"]))
+                if record["resource_auditable"]
+                else CELL_RESERVATION
+                for record in records
+            ),
             Decimal(),
         )
         if conservative + CELL_RESERVATION * (4 - len(fourth)) > CAP:
@@ -407,28 +455,37 @@ async def postcheck(
             elif order in (86, 92):
                 run = CELL86_RUN_ID if order == 86 else INTERRUPTED_RUN_ID
                 reason = (
-                    "collector_interrupted_with_provider_outcome_unknown" if order == 86
+                    "collector_interrupted_with_provider_outcome_unknown"
+                    if order == 86
                     else "collector_interrupted_during_action"
                 )
-                rows.append(analysis.missing_checkpoint_cell(
-                    {**cell, "model_run_id": str(run)},
-                    terminal_status="validation_failed", reason=reason,
-                ))
+                rows.append(
+                    analysis.missing_checkpoint_cell(
+                        {**cell, "model_run_id": str(run)},
+                        terminal_status="validation_failed",
+                        reason=reason,
+                    )
+                )
             elif order in by_order:
                 rows.append(json.loads(Path(by_order[order]["stage_path"]).read_bytes()))
             else:
-                rows.append(analysis.missing_checkpoint_cell(
-                    cell, terminal_status="unstarted", reason="no_model_run",
-                ))
+                rows.append(
+                    analysis.missing_checkpoint_cell(
+                        cell,
+                        terminal_status="unstarted",
+                        reason="no_model_run",
+                    )
+                )
         curves = analysis.checkpoint_response_curves(
             rows, bootstrap_replicates=manifest["analysis_plan"]["bootstrap_replicates"]
         )
         paired = analysis.paired_checkpoint_differences(
             rows, bootstrap_replicates=manifest["analysis_plan"]["bootstrap_replicates"]
         )
-        analysis_raw = (json.dumps(
-            {"rows": rows, "curves": curves, "paired": paired}, sort_keys=True, indent=2
-        ) + "\n").encode()
+        analysis_raw = (
+            json.dumps({"rows": rows, "curves": curves, "paired": paired}, sort_keys=True, indent=2)
+            + "\n"
+        ).encode()
         return {
             "assigned_cells": 96,
             "completed_source_cells": len(records),
@@ -447,18 +504,32 @@ async def postcheck(
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
-    for name in ("execution-root", "source-root", "protocol-root", "manifest",
-                 "approval", "journal", "state-dir"):
+    for name in (
+        "execution-root",
+        "source-root",
+        "protocol-root",
+        "manifest",
+        "approval",
+        "journal",
+        "state-dir",
+    ):
         parser.add_argument(f"--{name}", required=True, type=Path)
     parser.add_argument("--allow-prefix", action="store_true")
     parser.add_argument("--allow-next-preflight", action="store_true")
     args = parser.parse_args()
-    result = asyncio.run(postcheck(
-        args.execution_root, args.source_root, args.protocol_root, args.manifest,
-        args.approval, args.journal, args.state_dir,
-        require_complete=not args.allow_prefix,
-        allow_next_preflight=args.allow_next_preflight,
-    ))
+    result = asyncio.run(
+        postcheck(
+            args.execution_root,
+            args.source_root,
+            args.protocol_root,
+            args.manifest,
+            args.approval,
+            args.journal,
+            args.state_dir,
+            require_complete=not args.allow_prefix,
+            allow_next_preflight=args.allow_next_preflight,
+        )
+    )
     print(json.dumps(result, sort_keys=True))
 
 

@@ -374,11 +374,16 @@ async def continue_cells(
                     ),
                     flush=True,
                 )
-                if guard.stopped or not record["resource_auditable"] or record["status"] not in {
-                    "completed",
-                    "budget_exhausted",
-                    "agent_failed",
-                }:
+                if (
+                    guard.stopped
+                    or not record["resource_auditable"]
+                    or record["status"]
+                    not in {
+                        "completed",
+                        "budget_exhausted",
+                        "agent_failed",
+                    }
+                ):
                     raise ValueError("provider, resource, or run status requires study stop")
                 if _health_decision(health_epoch) != "continue":
                     raise ValueError("frozen provider-health gate requires study stop")

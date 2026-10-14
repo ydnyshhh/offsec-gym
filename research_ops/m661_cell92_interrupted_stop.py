@@ -186,9 +186,10 @@ async def admit(
         raise ValueError("pair 46 or later already closed")
     if any((private / f"endpoint-preflight-{i}.json").exists() for i in range(47, 49)):
         raise ValueError("later endpoint preflight exists")
-    if len(list((private / "stages").glob("*.json"))) != 88 or len(
-        list((private / "traces").glob("*.json"))
-    ) != 88:
+    if (
+        len(list((private / "stages").glob("*.json"))) != 88
+        or len(list((private / "traces").glob("*.json"))) != 88
+    ):
         raise ValueError("stopped stage or trace inventory differs")
     _no_collector_running()
     old, _ = _stopped_records(manifest, private)
@@ -200,10 +201,18 @@ async def admit(
         raise ValueError("retained completed source inventory differs")
     estimated = sum((Decimal(str(r["estimated_cost_usd"])) for r in records), Decimal())
     estimated += Decimal(RECORDED_USED_COST_MICROUSD) / 1_000_000
-    conservative = sum(
-        (Decimal(str(r["estimated_cost_usd"])) if r["resource_auditable"] else CELL_RESERVATION
-         for r in records), Decimal()
-    ) + CELL_RESERVATION * 2
+    conservative = (
+        sum(
+            (
+                Decimal(str(r["estimated_cost_usd"]))
+                if r["resource_auditable"]
+                else CELL_RESERVATION
+                for r in records
+            ),
+            Decimal(),
+        )
+        + CELL_RESERVATION * 2
+    )
     if estimated != COMPLETED_ESTIMATED_COST or conservative != CONSERVATIVE_WITH_MISSING:
         raise ValueError("stopped cumulative cost differs")
     if conservative + CELL_RESERVATION * 4 > CAP:
@@ -220,17 +229,24 @@ async def admit(
     )
     try:
         await _missing_trace(
-            store, STOP_RUN_ID, manifest["cells"][0], STOP_TRACE_SHA256,
+            store,
+            STOP_RUN_ID,
+            manifest["cells"][0],
+            STOP_TRACE_SHA256,
             STOP_EVENT_IDENTITY_SHA256,
         )
         await _missing_trace(
-            store, CELL4_RUN_ID, manifest["cells"][3], CELL4_TRACE_SHA256,
+            store,
+            CELL4_RUN_ID,
+            manifest["cells"][3],
+            CELL4_TRACE_SHA256,
             CELL4_EVENT_IDENTITY_SHA256,
         )
         audits = {
             record["order"]: await _audit_cell(
                 store, state, analysis, manifest["cells"][record["order"] - 1], record, None
-            ) for record in records
+            )
+            for record in records
         }
         replay_ids: set[UUID] = set()
         by_order = {r["order"]: r for r in records}
@@ -245,14 +261,20 @@ async def admit(
                 raise ValueError("retained pair receipt differs from authoritative replay")
             for offset, order in enumerate(orders):
                 expected_audit = interrupted_pair_audit() if order == 86 else audits.get(order)
-                expected_run = (str(CELL86_RUN_ID) if order == 86 else
-                                by_order[order]["run_id"] if order in by_order else None)
+                expected_run = (
+                    str(CELL86_RUN_ID)
+                    if order == 86
+                    else by_order[order]["run_id"]
+                    if order in by_order
+                    else None
+                )
                 if expected_audit is not None and receipt["audits"][offset] != expected_audit:
                     raise ValueError("retained pair audit differs from PostgreSQL replay")
                 if expected_run is not None and receipt["run_ids"][offset] != expected_run:
                     raise ValueError("retained pair run differs")
             replay_ids.update(
-                UUID(run_id) for audit in receipt["audits"]
+                UUID(run_id)
+                for audit in receipt["audits"]
                 for run_id in audit.get("validator_replay_run_ids", [])
             )
         cell86_trace = await store.read_run(CELL86_RUN_ID)
@@ -279,26 +301,63 @@ async def admit(
             total_events = (
                 await connection.execute(select(func.count()).select_from(events))
             ).scalar_one()
-            active_models = (await connection.execute(
-                select(model_reservations).where(model_reservations.c.settled_at.is_(None))
-            )).mappings().all()
-            active_actions = (await connection.execute(
-                select(action_reservations).where(action_reservations.c.released_at.is_(None))
-            )).mappings().all()
-            reserved_usage = (await connection.execute(select(
-                run_usage.c.run_id, run_usage.c.reserved_tokens,
-                run_usage.c.reserved_cost_microusd,
-            ).where((run_usage.c.reserved_tokens != 0) |
-                    (run_usage.c.reserved_cost_microusd != 0)))).all()
-            usage92 = (await connection.execute(
-                select(run_usage).where(run_usage.c.run_id == INTERRUPTED_RUN_ID)
-            )).mappings().one()
-            usage86 = (await connection.execute(
-                select(run_usage).where(run_usage.c.run_id == CELL86_RUN_ID)
-            )).mappings().one()
+            active_models = (
+                (
+                    await connection.execute(
+                        select(model_reservations).where(model_reservations.c.settled_at.is_(None))
+                    )
+                )
+                .mappings()
+                .all()
+            )
+            active_actions = (
+                (
+                    await connection.execute(
+                        select(action_reservations).where(
+                            action_reservations.c.released_at.is_(None)
+                        )
+                    )
+                )
+                .mappings()
+                .all()
+            )
+            reserved_usage = (
+                await connection.execute(
+                    select(
+                        run_usage.c.run_id,
+                        run_usage.c.reserved_tokens,
+                        run_usage.c.reserved_cost_microusd,
+                    ).where(
+                        (run_usage.c.reserved_tokens != 0)
+                        | (run_usage.c.reserved_cost_microusd != 0)
+                    )
+                )
+            ).all()
+            usage92 = (
+                (
+                    await connection.execute(
+                        select(run_usage).where(run_usage.c.run_id == INTERRUPTED_RUN_ID)
+                    )
+                )
+                .mappings()
+                .one()
+            )
+            usage86 = (
+                (
+                    await connection.execute(
+                        select(run_usage).where(run_usage.c.run_id == CELL86_RUN_ID)
+                    )
+                )
+                .mappings()
+                .one()
+            )
         expected_runs = {
-            STOP_RUN_ID, CELL4_RUN_ID, RETAINED_EARLY_SETUP_RUN_ID,
-            CELL86_RUN_ID, CELL86_SETUP_RUN_ID, INTERRUPTED_RUN_ID,
+            STOP_RUN_ID,
+            CELL4_RUN_ID,
+            RETAINED_EARLY_SETUP_RUN_ID,
+            CELL86_RUN_ID,
+            CELL86_SETUP_RUN_ID,
+            INTERRUPTED_RUN_ID,
             *(UUID(r[k]) for r in records for k in ("run_id", "setup_run_id")),
             *replay_ids,
         }
@@ -311,8 +370,8 @@ async def admit(
             or active_models[0]["call_id"] != UNSETTLED_CALL_ID
             or active_models[0]["reserved_tokens"] != UNSETTLED_RESERVED_TOKENS
             or active_models[0]["reserved_cost_microusd"] != UNSETTLED_RESERVED_COST_MICROUSD
-            or reserved_usage != [(CELL86_RUN_ID, UNSETTLED_RESERVED_TOKENS,
-                                   UNSETTLED_RESERVED_COST_MICROUSD)]
+            or reserved_usage
+            != [(CELL86_RUN_ID, UNSETTLED_RESERVED_TOKENS, UNSETTLED_RESERVED_COST_MICROUSD)]
             or len(active_actions) != 1
             or active_actions[0]["run_id"] != INTERRUPTED_RUN_ID
             or active_actions[0]["action_id"] != ACTIVE_ACTION_ID
@@ -345,14 +404,33 @@ async def admit(
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
-    for name in ("execution-root", "source-root", "protocol-root", "manifest",
-                 "approval", "journal", "state-dir"):
+    for name in (
+        "execution-root",
+        "source-root",
+        "protocol-root",
+        "manifest",
+        "approval",
+        "journal",
+        "state-dir",
+    ):
         parser.add_argument(f"--{name}", required=True, type=Path)
     args = parser.parse_args()
-    print(json.dumps(asyncio.run(admit(
-        args.execution_root, args.source_root, args.protocol_root, args.manifest,
-        args.approval, args.journal, args.state_dir,
-    )), sort_keys=True))
+    print(
+        json.dumps(
+            asyncio.run(
+                admit(
+                    args.execution_root,
+                    args.source_root,
+                    args.protocol_root,
+                    args.manifest,
+                    args.approval,
+                    args.journal,
+                    args.state_dir,
+                )
+            ),
+            sort_keys=True,
+        )
+    )
 
 
 if __name__ == "__main__":

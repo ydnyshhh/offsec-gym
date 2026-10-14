@@ -22,32 +22,46 @@ def test_stopped_prefix_has_exactly_one_unmatched_cell_92(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     path = tmp_path / "cell86-paid-continuation-journal.jsonl"
-    lines = [{
-        "type": "batch_started",
-        "manifest_sha256": stopped.EXPECTED_MANIFEST_SHA256,
-        "expected_model_revision": stopped.REVISION,
-        "expected_upstream_provider": stopped.UPSTREAM,
-        "max_estimated_usd": float(stopped.CAP),
-    }]
+    lines = [
+        {
+            "type": "batch_started",
+            "manifest_sha256": stopped.EXPECTED_MANIFEST_SHA256,
+            "expected_model_revision": stopped.REVISION,
+            "expected_upstream_provider": stopped.UPSTREAM,
+            "max_estimated_usd": float(stopped.CAP),
+        }
+    ]
     for order in range(87, 92):
         cell = MANIFEST["cells"][order - 1]
         started = {
-            "type": "cell_started", "cell_id": cell["cell_id"],
-            "order": order, "run_id": f"run-{order}",
+            "type": "cell_started",
+            "cell_id": cell["cell_id"],
+            "order": order,
+            "run_id": f"run-{order}",
         }
-        lines.extend((started, {
-            **started, "type": "cell_completed",
-            "experiment_sha256": cell["experiment_sha256"],
-            "status": "provider_failed" if order == 91 else "budget_exhausted",
-            "failure_reason": "provider_unavailable" if order == 91 else None,
-            "score_valid": order != 91,
-            "resource_auditable": order != 91,
-        }))
+        lines.extend(
+            (
+                started,
+                {
+                    **started,
+                    "type": "cell_completed",
+                    "experiment_sha256": cell["experiment_sha256"],
+                    "status": "provider_failed" if order == 91 else "budget_exhausted",
+                    "failure_reason": "provider_unavailable" if order == 91 else None,
+                    "score_valid": order != 91,
+                    "resource_auditable": order != 91,
+                },
+            )
+        )
     cell92 = MANIFEST["cells"][91]
-    lines.append({
-        "type": "cell_started", "cell_id": cell92["cell_id"],
-        "order": 92, "run_id": str(stopped.INTERRUPTED_RUN_ID),
-    })
+    lines.append(
+        {
+            "type": "cell_started",
+            "cell_id": cell92["cell_id"],
+            "order": 92,
+            "run_id": str(stopped.INTERRUPTED_RUN_ID),
+        }
+    )
 
     def write() -> None:
         path.write_text("".join(json.dumps(line) + "\n" for line in lines))
@@ -74,14 +88,17 @@ def test_later_journal_rejects_retry_and_unmatched_start(tmp_path: Path) -> None
     path = tmp_path / "cell92-paid-continuation-journal.jsonl"
     cell = MANIFEST["cells"][92]
     header = {
-        "type": "batch_started", "manifest_sha256": stopped.EXPECTED_MANIFEST_SHA256,
+        "type": "batch_started",
+        "manifest_sha256": stopped.EXPECTED_MANIFEST_SHA256,
         "expected_model_revision": stopped.REVISION,
         "expected_upstream_provider": stopped.UPSTREAM,
         "max_estimated_usd": float(stopped.CAP),
     }
     started = {"type": "cell_started", "cell_id": cell["cell_id"], "order": 93, "run_id": "run-93"}
     completed = {
-        **started, "type": "cell_completed", "experiment_sha256": cell["experiment_sha256"]
+        **started,
+        "type": "cell_completed",
+        "experiment_sha256": cell["experiment_sha256"],
     }
     path.write_text("".join(json.dumps(line) + "\n" for line in (header, started, completed)))
     assert len(postcheck._later_records(MANIFEST, path)) == 1
@@ -105,7 +122,8 @@ def test_paid_pin_is_zero_and_exact_scope_excludes_cell_92(
         continuation._scope_approval(path, MANIFEST)
     receipt = {
         "approved_at": "2026-10-14T00:00:00Z",
-        "approved_by": "human_user", "approved_for_paid_calls": True,
+        "approved_by": "human_user",
+        "approved_for_paid_calls": True,
         "approval_scope": continuation.CONTINUATION_SCOPE,
         "protocol": MANIFEST["protocol"],
         "manifest_sha256": continuation.EXPECTED_MANIFEST_SHA256,
@@ -123,7 +141,8 @@ def test_paid_pin_is_zero_and_exact_scope_excludes_cell_92(
         "retained_cell86_model_reservation": True,
         "retained_cell92_action_reservation": True,
         "missing_cell_conservative_usd": str(continuation.CELL_RESERVATION),
-        "first_paid_cell_order": 93, "last_paid_cell_order": 96,
+        "first_paid_cell_order": 93,
+        "last_paid_cell_order": 96,
         "paid_cells_authorized": 4,
         "retained_missing_orders": [1, 4, 86, 92],
         "retained_provider_failed_orders": [13, 14, 91],
