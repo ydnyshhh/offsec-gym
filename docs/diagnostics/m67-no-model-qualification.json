@@ -88,7 +88,7 @@
     "tests/unit/test_m67_stage_analysis.py",
     "tests/unit/test_m67_agent_integration.py"
   ],
-  "no_model_test_result": "30 passed",
+  "no_model_test_result": "34 passed",
   "pre_m67_baseline_schema_sha256": {
     "enterprise_change_control_v1": "65aaf592c8e715257676f0fe3ee11843ed5d052123506f97c0e4f5bcfe4b1a44",
     "saas": "a68a1b0863157473bfd1335ca681a6cc4c701561b186532d9c1dfa185d7a9a06"
@@ -98,24 +98,24 @@
   "real_compose_cases": [
     {
       "artifact_sha256": [
-        "b09497ef9fa9ba6192a59abc52f899d75954a33cf4df3274e1f086a698c06716",
-        "21b11c4c069ff496c6806cf3f59685111bd5b26855efa65234d7d1392b3ffcae",
-        "a7c1d02160db55986cc34803ec14ac31f2745b56f32c44df58dd3e7fe88c89d2",
-        "15acc2058f9259e98818808f53f8688c03766289b3eea0f4d0dade3126be8afa",
-        "d652682e04a37a01e870c0ea36c06ff7a8b3f1669961454eb6bad242dc552025",
-        "f470c7584f11d5ca6d28ce51f0c873e85afdbc21cc44b46ec99bbe5d8f9ef2e2"
+        "2b51368f24a5c775fcc1912e7973724438241e014fdf16e7c8dd5e6813d09f4c",
+        "629077641dfb41c9cc2c8cea71af3b44d013767e823d64d36f40ef32ee7d9e0a",
+        "551a8ede60da90a833009629e256531e27f398bea3797705b25517957999ce60",
+        "04ceb3093ebdc01a6cf3db60be48854645b87fba6a1fd2ba7b12886dea73d83c",
+        "bdac413c6d6c4d6b6ab631e08cc1f67dc4926464da9fa91c80423baa52e781c5",
+        "65e9e8932f5f028e9a4670bd416bb1aa22aaedecadc5b03e7a03dd40e3cbc416"
       ],
       "case": "range_a_gateway_catalog_and_preflight",
       "passed": true
     },
     {
       "artifact_sha256": [
-        "6cfd86b9a072b27a0259e80cbd94f7536d33f3c9bd9f86684692d40e8b877c80",
-        "4ff15e851d34449ec73fdecf511de173ed0e5f1b3171f8a0868dbb6ea4d5113c",
-        "0d44b5d474a1d874211fd897cbba409e33e36b4b3f6a9ce475d348e23a5bfa76",
-        "0a1d3724292aed1253d6277ec42dab4883b5c6052fe9dfb5c806404a54be601b",
-        "c7cf36fc67db5752ec47e0f2885de2fa12f21fc0960d88d1a2570f2791a59646",
-        "345ee89f1201e2eabefe48a9534e126b2fa78834f4e1d75276199eb1c1085549"
+        "f6827fb4e215943e8cf4b89da7ba2f83be52d020e72a9b3dcc938ba981710f9e",
+        "38b03286f51b9020a7926bd47332a994a0c1cb4ab45f90f5e1346774797910fc",
+        "60a696fd4a5b513b3a13f3efd3b59696059fea96b571c9cd8333be190e3976bc",
+        "48bcbb041f52ed0ee24062f9b00f253b082698bcb4f2310c9c43e8d29b00a71b",
+        "65f37c9e479260793809fb2a77ebc0ebfe6a20bba94fdfda927f7b001b085f38",
+        "e97952a09003d4c61d1412e2fb26a8d7797cdc81c1e248014b4354707bfafdc3"
       ],
       "case": "range_b_gateway_catalog_and_preflight",
       "passed": true
@@ -142,14 +142,14 @@
     "concrete_path": "/api/changes/8e5f3927-d0dc-48f6-b34b-8b730b2c39ca/approve",
     "malformed_rejected": true
   },
-  "source_head_at_qualification": "b556c959d1e0a0955196ac784a977153ba563d60",
+  "source_head_at_qualification": "d91620659dd16c54dd85b16e6d1eb8dff01b523f",
   "source_sha256": {
-    "docs/diagnostics/m67-stage-interventions-design.md": "cc1a4ab56d859a1e50d13c4a622b46a1361ee9409e07667383574316f5b73bf7",
+    "docs/diagnostics/m67-stage-interventions-design.md": "e0bb9d2b24e984d271a17dbeb99280e928d22e5d47ee1e81500e5ea68d14c9df",
     "research_ops/m67_qualify.py": "ad437cc474caa89f0f92bed9dedd75965aa625786ad336867853a7a606efe68b",
     "src/offsecgym/experiment/m67.py": "01b7cfc99349167461d74c9ca158c0416c5815e3e54fca7d0e4b386f27f082a8",
-    "src/offsecgym/reporting/provenance.py": "e5a4037923b498ce4c2d1df2bf0a9e43d7cbf5671b3326946dc28264393d87af",
+    "src/offsecgym/reporting/provenance.py": "38ce3685f14ebc2666d29e25c1bd57b34d1074eecd88fa8c295bf3d7e45c1408",
     "src/offsecgym/research/m67_repeat_analysis.py": "e416d7871df003a793b5f1921f6b68b6326a303177689ffc44c3b5b7fb3dfb05",
-    "src/offsecgym/research/m67_stage_analysis.py": "a2713e9a32b74933d924ab41ef29397f4df5c914b513e6ac276047150e1bbe61",
+    "src/offsecgym/research/m67_stage_analysis.py": "b8c203de4e9b4c9fea83f0401c8f6e4e03c6085e98947ad40d3d0888cc34ed3b",
     "src/offsecgym/schemas/events.py": "2d9e503ea530fa1af57dc5ca77700416e849f9cb9971962dfca84f867d8ed570",
     "src/offsecgym/solver/experiment_state.py": "ee944497bc93506f246859bfcb6d5b387ee81b6143bd90c815075f74801d1da0",
     "src/offsecgym/solver/monolithic.py": "dc757ba65154666f0a6e416a7069303741ee4357cb84ded3405d6baa0176bd62"
@@ -157,11 +157,11 @@
   "status": "engineering_design_unapproved_unrun",
   "synthetic_uuid": "8e5f3927-d0dc-48f6-b34b-8b730b2c39ca",
   "test_sha256": {
-    "tests/ranges/test_m67_compose_qualification.py": "363cf45d47d18c4575fab9b36072358802c59d68fa7cd096a428e461eec47113",
+    "tests/ranges/test_m67_compose_qualification.py": "d34f6a9d2a2c942d9185a04839fe45c4395e9b397ba2b5730d0fab7377c23ea0",
     "tests/unit/test_m67_agent_integration.py": "853d0d83e54628915d20eda595cf191a56648f199112b5f226b7506e2f481a98",
     "tests/unit/test_m67_experiment.py": "539a030beffed0f38f68e555935ecb24c41657227afc4cddb15e11c792c550c9",
-    "tests/unit/test_m67_provenance.py": "ba7cfa0e5d6511620fee773a96f5ab2183657a71aff38e9a8200f7c1d433117a",
+    "tests/unit/test_m67_provenance.py": "d306ac9d316bcc3f7b22dd8758f104144f3e85f1025a19ebe80b0fec72d07ae4",
     "tests/unit/test_m67_repeat_analysis.py": "f5dc7f87b09886633e4f1d6dd16beceec3cec6960e349760d9082929485b074f",
-    "tests/unit/test_m67_stage_analysis.py": "1c596dabddd4380012d0feefe50602e66b7ce17235c3c2e8d316275dfbf47319"
+    "tests/unit/test_m67_stage_analysis.py": "25e74a46d23b73a61ecf468388e155d1e93a539b3abc85fe2547735ee4dd2c85"
   }
 }
