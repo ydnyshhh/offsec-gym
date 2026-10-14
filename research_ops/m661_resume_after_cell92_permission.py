@@ -1,0 +1,431 @@
+"""Fail-closed continuation for only frozen cells 93–96 after cell 92.
+
+Cells 86 and 92 remain outcome-missing. Their reservations are never settled,
+and cells 91 and 92 are never retried or replaced. The approval and merge pins
+remain zero until the separate exact-scope receipt is pinned and reviewed.
+"""
+
+from __future__ import annotations
+
+import argparse
+import asyncio
+import json
+import os
+import subprocess
+from datetime import UTC, datetime
+from decimal import Decimal
+from pathlib import Path
+from uuid import uuid4
+
+from m661_cell92_interrupted_stop import (
+    ACTIVE_ACTION_ID,
+    COMPLETED_ESTIMATED_COST,
+    CONSERVATIVE_WITH_MISSING,
+    INTERRUPTED_IDENTITY_SHA256,
+    INTERRUPTED_RUN_ID,
+    INTERRUPTED_TRACE_SHA256,
+    STOP_JOURNAL_SHA256,
+    STOP_LOG_SHA256,
+    _stopped_third_records,
+    admit,
+)
+from m661_cell92_recovery_postcheck import interrupted_pair_audit, postcheck
+from m661_feasibility_collect import (
+    CAP,
+    CELL_RESERVATION,
+    EXPECTED_MANIFEST_SHA256,
+    PROTOCOL_COMMIT,
+    REVISION,
+    SOURCE_COMMIT,
+    UPSTREAM,
+    EndpointGuard,
+    _approval_and_manifest,
+    _audit_cell,
+    _endpoint,
+    _health_decision,
+    _load_module,
+    _record,
+    _sha256,
+    _spec,
+    _utc_now,
+    _write_bytes,
+    _write_json,
+)
+from m661_resume_after_cell86_permission import EXPECTED_CELL86_APPROVAL_SHA256
+from sqlalchemy.ext.asyncio import create_async_engine
+
+from offsecgym.experiment.critical_checkpoint import CriticalCheckpointExperimentRunner
+from offsecgym.research.m64_execute import Journal
+from offsecgym.runtime.compose import ComposeRangeRuntime
+from offsecgym.runtime.oracle import StateOracleStore
+from offsecgym.storage.event_store import PostgresEventStore
+
+CONTINUATION_SCOPE = "m661_feasibility_cells_93_through_96_once_after_cell92_interruption"
+EXPECTED_CELL92_APPROVAL_SHA256 = "0" * 64
+OPERATIONAL_MERGE_COMMIT = "0" * 40
+
+
+def _scope_approval(path: Path, manifest: dict) -> dict:
+    if EXPECTED_CELL92_APPROVAL_SHA256 == "0" * 64 or OPERATIONAL_MERGE_COMMIT == "0" * 40:
+        raise ValueError("cell-92 paid continuation is closed pending exact approval pin")
+    if path.name != "cell92-paid-continuation-approval.json" or path.is_symlink():
+        raise ValueError("cell-92 approval path differs")
+    if not path.is_file() or path.stat().st_mode & 0o077:
+        raise ValueError("cell-86 approval is absent or not private")
+    raw = path.read_bytes()
+    if _sha256(raw) != EXPECTED_CELL92_APPROVAL_SHA256:
+        raise ValueError("cell-92 approval bytes differ")
+    approval = json.loads(raw)
+    approved_at = datetime.fromisoformat(
+        str(approval.get("approved_at", "")).replace("Z", "+00:00")
+    )
+    if (
+        approved_at.utcoffset() is None
+        or approved_at <= datetime(2026, 10, 13, 23, 5, tzinfo=UTC)
+        or approval.get("approved_by") != "human_user"
+        or approval.get("approved_for_paid_calls") is not True
+        or approval.get("approval_scope") != CONTINUATION_SCOPE
+        or approval.get("protocol") != manifest["protocol"]
+        or approval.get("manifest_sha256") != EXPECTED_MANIFEST_SHA256
+        or approval.get("source_commit") != SOURCE_COMMIT
+        or approval.get("protocol_commit") != PROTOCOL_COMMIT
+        or approval.get("operational_merge_commit") != OPERATIONAL_MERGE_COMMIT
+        or approval.get("prior_paid_approval_sha256") != EXPECTED_CELL86_APPROVAL_SHA256
+        or approval.get("assignment_sha256") != manifest["schedule"]["cell_assignment_sha256"]
+        or approval.get("stopped_journal_sha256") != STOP_JOURNAL_SHA256
+        or approval.get("stopped_log_sha256") != STOP_LOG_SHA256
+        or approval.get("interrupted_run_id") != str(INTERRUPTED_RUN_ID)
+        or approval.get("interrupted_trace_sha256") != INTERRUPTED_TRACE_SHA256
+        or approval.get("interrupted_event_identity_sha256") != INTERRUPTED_IDENTITY_SHA256
+        or approval.get("active_action_id") != str(ACTIVE_ACTION_ID)
+        or approval.get("retained_cell86_model_reservation") is not True
+        or approval.get("retained_cell92_action_reservation") is not True
+        or approval.get("missing_cell_conservative_usd") != str(CELL_RESERVATION)
+        or approval.get("first_paid_cell_order") != 93
+        or approval.get("last_paid_cell_order") != 96
+        or approval.get("paid_cells_authorized") != 4
+        or approval.get("retained_missing_orders") != [1, 4, 86, 92]
+        or approval.get("retained_provider_failed_orders") != [13, 14, 91]
+        or approval.get("provider_health_epoch_start_order") != 93
+        or approval.get("no_retry_or_replacement") is not True
+        or Decimal(str(approval.get("cumulative_cost_ceiling_usd"))) != CAP
+    ):
+        raise ValueError("cell-92 approval does not bind exact stopped scope")
+    return approval
+
+
+def _no_collector_running() -> None:
+    output = subprocess.check_output(["ps", "-axo", "pid=,command="], text=True)
+    for line in output.splitlines():
+        fields = line.strip().split(None, 1)
+        if len(fields) != 2 or int(fields[0]) == os.getpid():
+            continue
+        executable = fields[1].split(None, 1)[0].rsplit("/", 1)[-1]
+        if "python" in executable and any(
+            name in fields[1]
+            for name in (
+                "m661_feasibility_collect.py",
+                "m661_resume_after_cell1_permission.py",
+                "m661_resume_after_cell4_permission.py",
+                "m661_resume_after_cell14_pause.py",
+                "m661_resume_after_cell86_permission.py",
+                "m661_resume_after_cell92_permission.py",
+            )
+        ):
+            raise ValueError("another M6.6.1 collector is running")
+
+
+async def continue_cells(
+    execution_root: Path,
+    source_root: Path,
+    protocol_root: Path,
+    manifest_path: Path,
+    approval_path: Path,
+    continuation_approval_path: Path,
+    journal_path: Path,
+    state_dir: Path,
+) -> dict:
+    manifest, _ = _approval_and_manifest(
+        execution_root, source_root, protocol_root, manifest_path, approval_path
+    )
+    private = approval_path.parent
+    if continuation_approval_path.parent != private:
+        raise ValueError("continuation approval directory differs")
+    _scope_approval(continuation_approval_path, manifest)
+    _no_collector_running()
+    fourth_path = private / "cell92-paid-continuation-journal.jsonl"
+    clearance_path = private / "cell92-paid-clearance.json"
+    pair46_path = private / "pair-postcheck-46.json"
+    if any(path.exists() for path in (fourth_path, clearance_path, pair46_path)):
+        raise ValueError("cell-92 continuation evidence exists; do not restart")
+    if not os.getenv("OPENROUTER_API_KEY") or not os.getenv("OFFSECGYM_DATABASE_URL"):
+        raise ValueError("private model key and database URL are required")
+    await admit(
+        execution_root,
+        source_root,
+        protocol_root,
+        manifest_path,
+        approval_path,
+        journal_path,
+        state_dir,
+    )
+    # Pair 46 closes from cell 91's retained provider failure and cell 92's
+    # exact unfinished prefix. No provider call or synthetic terminal is used.
+    previous, _ = _stopped_third_records(manifest, private)
+    cell91 = manifest["cells"][90]
+    cell92 = manifest["cells"][91]
+    record91 = previous[-1]
+    engine = create_async_engine(os.environ["OFFSECGYM_DATABASE_URL"])
+    store = PostgresEventStore(engine)
+    state = ComposeRangeRuntime(state_dir).state
+    analysis = _load_module(
+        protocol_root / "src/offsecgym/research/m661_checkpoint_analysis.py",
+        "_m661_cell92_continuation_analysis",
+    )
+    try:
+        audit91 = await _audit_cell(store, state, analysis, cell91, record91, None)
+    finally:
+        await engine.dispose()
+    preflight46_raw = (private / "endpoint-preflight-46.json").read_bytes()
+    selected46 = json.loads(preflight46_raw)
+    if (
+        selected46.get("endpoint") != f"{UPSTREAM} | {REVISION}"
+        or selected46.get("input_usd_per_million_tokens") != 3.0
+        or selected46.get("output_usd_per_million_tokens") != 15.0
+    ):
+        raise ValueError("retained pair-46 selected endpoint differs")
+    committed_cost = COMPLETED_ESTIMATED_COST
+    conservative_cost = CONSERVATIVE_WITH_MISSING
+    _write_json(
+        pair46_path,
+        {
+            "protocol": manifest["protocol"],
+            "manifest_sha256": EXPECTED_MANIFEST_SHA256,
+            "pair_number": 46,
+            "cell_ids": [cell91["cell_id"], cell92["cell_id"]],
+            "run_ids": [record91["run_id"], str(INTERRUPTED_RUN_ID)],
+            "audits": [audit91, interrupted_pair_audit()],
+            "endpoint_preflight_sha256": _sha256(preflight46_raw),
+            "original_pair1_preflight_sha256": None,
+            "cumulative_estimated_cost_usd": str(committed_cost),
+            "conservative_cost_usd": str(conservative_cost),
+        },
+    )
+    os.umask(0o022)
+    selected = _endpoint(manifest)
+    if any(
+        selected.get(field) != selected46.get(field)
+        for field in ("endpoint", "input_usd_per_million_tokens", "output_usd_per_million_tokens")
+    ):
+        raise ValueError("selected endpoint or price drifted")
+    recheck_sha = _write_json(private / "endpoint-recheck-cell-92.json", selected)
+    _write_json(
+        clearance_path,
+        {
+            "protocol": manifest["protocol"],
+            "manifest_sha256": EXPECTED_MANIFEST_SHA256,
+            "stopped_journal_sha256": STOP_JOURNAL_SHA256,
+            "pair46_receipt_sha256": _sha256(pair46_path.read_bytes()),
+            "continuation_approval_sha256": EXPECTED_CELL92_APPROVAL_SHA256,
+            "endpoint_recheck_sha256": recheck_sha,
+            "retained_missing_orders": [1, 4, 86, 92],
+            "retained_provider_failed_orders": [13, 14, 91],
+            "provider_health_epoch_start_order": 93,
+            "next_cell_order": 93,
+        },
+    )
+    _write_bytes(fourth_path, b"")
+    journal = Journal(
+        fourth_path,
+        manifest_sha256=EXPECTED_MANIFEST_SHA256,
+        expected_endpoint=(REVISION, UPSTREAM),
+        max_estimated_usd=float(CAP),
+    )
+    await postcheck(
+        execution_root,
+        source_root,
+        protocol_root,
+        manifest_path,
+        approval_path,
+        journal_path,
+        state_dir,
+        require_complete=False,
+    )
+    engine = create_async_engine(os.environ["OFFSECGYM_DATABASE_URL"])
+    events = PostgresEventStore(engine)
+    runtime = ComposeRangeRuntime(state_dir)
+    guard = EndpointGuard()
+    health_epoch = []
+    try:
+        for pair_index in range(46, 48):
+            pair = manifest["cells"][2 * pair_index : 2 * pair_index + 2]
+            if (
+                pair[0]["seed"] != pair[1]["seed"]
+                or pair[0]["checkpoint_id"] != pair[1]["checkpoint_id"]
+                or {pair[0]["variant"], pair[1]["variant"]} != {"vulnerable", "patched"}
+            ):
+                raise ValueError("frozen pair structure differs")
+            endpoint_sha = _write_json(
+                private / f"endpoint-preflight-{pair_index + 1}.json", _endpoint(manifest)
+            )
+            pair_audits = []
+            pair_records = []
+            for cell in pair:
+                if (
+                    _sha256((private / "cell86-paid-continuation-journal.jsonl").read_bytes())
+                    != STOP_JOURNAL_SHA256
+                ):
+                    raise ValueError("interrupted journal changed")
+                if conservative_cost + CELL_RESERVATION > CAP:
+                    raise ValueError("next frozen cell exceeds cumulative approved cap")
+                spec = _spec(source_root, manifest, cell)
+                run_id = uuid4()
+                journal.append(
+                    {
+                        "type": "cell_started",
+                        "cell_id": cell["cell_id"],
+                        "order": cell["order"],
+                        "run_id": str(run_id),
+                        "at": _utc_now(),
+                    }
+                )
+                outcome = await CriticalCheckpointExperimentRunner(
+                    runtime,
+                    events,
+                    guard.provider(os.environ["OPENROUTER_API_KEY"]),
+                    cell["checkpoint_id"],
+                ).run(spec, run_id=run_id)
+                if outcome.build_id is None:
+                    raise ValueError("completed cell lacks a bound build")
+                build = runtime.state.verify_build_integrity(outcome.build_id)
+                trace = await events.read_run(run_id)
+                stage_path = private / "stages" / f"{cell['cell_id']}.json"
+                record = _record(cell, outcome, trace, build, state_dir, stage_path)
+                oracle = StateOracleStore(runtime.state)._load_ground_truth(build.build_id)
+                fixture = json.loads(
+                    (runtime.state.build_dir(build.build_id) / "fixture.json").read_bytes()
+                )
+                row = await analysis.extract_checkpoint_assignment(
+                    {**cell, "model_run_id": str(run_id)}, state_dir, events, oracle, fixture
+                )
+                if not row["trace_auditable"]:
+                    raise ValueError("cell trace is unauditable; stop before next cell")
+                record["stage_sha256"] = _sha256(
+                    (json.dumps(row, sort_keys=True, indent=2) + "\n").encode()
+                )
+                trace_path = private / "traces" / f"{cell['cell_id']}.json"
+                record["trace_path"] = str(trace_path)
+                trace_raw = (
+                    json.dumps([item.model_dump(mode="json") for item in trace], sort_keys=True)
+                    + "\n"
+                ).encode()
+                if _write_bytes(trace_path, trace_raw) != record["trace_sha256"]:
+                    raise ValueError("source trace serialization differs")
+                audited = await _audit_cell(
+                    events, runtime.state, analysis, cell, record, stage_path
+                )
+                journal.append(record)
+                journal.completed[cell["cell_id"]] = record
+                pair_records.append(record)
+                pair_audits.append(audited)
+                health_epoch.append(record)
+                committed_cost += Decimal(str(record["estimated_cost_usd"]))
+                conservative_cost += (
+                    Decimal(str(record["estimated_cost_usd"]))
+                    if record["resource_auditable"]
+                    else CELL_RESERVATION
+                )
+                if len(pair_records) == 2:
+                    _write_json(
+                        private / f"pair-postcheck-{pair_index + 1}.json",
+                        {
+                            "protocol": manifest["protocol"],
+                            "manifest_sha256": EXPECTED_MANIFEST_SHA256,
+                            "pair_number": pair_index + 1,
+                            "cell_ids": [item["cell_id"] for item in pair],
+                            "run_ids": [item["run_id"] for item in pair_records],
+                            "audits": pair_audits,
+                            "endpoint_preflight_sha256": endpoint_sha,
+                            "original_pair1_preflight_sha256": None,
+                            "cumulative_estimated_cost_usd": str(committed_cost),
+                            "conservative_cost_usd": str(conservative_cost),
+                        },
+                    )
+                await postcheck(
+                    execution_root,
+                    source_root,
+                    protocol_root,
+                    manifest_path,
+                    approval_path,
+                    journal_path,
+                    state_dir,
+                    require_complete=False,
+                )
+                print(
+                    json.dumps(
+                        {
+                            "cell": cell["order"],
+                            "status": record["status"],
+                            "score_valid": record["score_valid"],
+                            "estimated_cost_usd": str(committed_cost),
+                            "conservative_cost_usd": str(conservative_cost),
+                        },
+                        sort_keys=True,
+                    ),
+                    flush=True,
+                )
+                if guard.stopped or not record["resource_auditable"] or record["status"] not in {
+                    "completed",
+                    "budget_exhausted",
+                    "agent_failed",
+                }:
+                    raise ValueError("provider, resource, or run status requires study stop")
+                if _health_decision(health_epoch) != "continue":
+                    raise ValueError("frozen provider-health gate requires study stop")
+        result = await postcheck(
+            execution_root,
+            source_root,
+            protocol_root,
+            manifest_path,
+            approval_path,
+            journal_path,
+            state_dir,
+            require_complete=True,
+        )
+        return result
+    finally:
+        journal.close()
+        await engine.dispose()
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(description=__doc__)
+    for name in (
+        "execution-root",
+        "source-root",
+        "protocol-root",
+        "manifest",
+        "approval",
+        "continuation-approval",
+        "journal",
+        "state-dir",
+    ):
+        parser.add_argument(f"--{name}", required=True, type=Path)
+    args = parser.parse_args()
+    result = asyncio.run(
+        continue_cells(
+            args.execution_root,
+            args.source_root,
+            args.protocol_root,
+            args.manifest,
+            args.approval,
+            args.continuation_approval,
+            args.journal,
+            args.state_dir,
+        )
+    )
+    print(json.dumps(result, sort_keys=True))
+
+
+if __name__ == "__main__":
+    main()
