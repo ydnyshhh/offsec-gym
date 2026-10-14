@@ -2,13 +2,16 @@
 
 from __future__ import annotations
 
+import ast
 import base64
 import hashlib
 import json
+from pathlib import Path
 from uuid import UUID, uuid4
 
 import pytest
 
+from offsecgym.reporting import provenance
 from offsecgym.reporting.provenance import (
     EvidenceCatalog,
     canonical_route,
@@ -20,6 +23,26 @@ from offsecgym.schemas.evidence import Evidence, RequestArtifact
 from offsecgym.solver.monolithic import EnterpriseFindingArgs, model_tools
 
 FAMILY = "enterprise_change_control_v1"
+
+
+def test_reporting_module_has_no_private_or_validator_imports():
+    tree = ast.parse(Path(provenance.__file__).read_text())
+    imported = {
+        node.module
+        for node in ast.walk(tree)
+        if isinstance(node, ast.ImportFrom) and node.module is not None
+    } | {
+        alias.name
+        for node in ast.walk(tree)
+        if isinstance(node, ast.Import)
+        for alias in node.names
+    }
+    forbidden = (
+        "offsecgym.validation",
+        "offsecgym.schemas.ground_truth",
+        "offsecgym.runtime.enterprise",
+    )
+    assert not any(name.startswith(prefix) for name in imported for prefix in forbidden)
 
 
 class MemoryEvents:

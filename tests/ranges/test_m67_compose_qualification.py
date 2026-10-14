@@ -204,6 +204,11 @@ async def test_real_compose_catalog_preflight_and_isolation(tmp_path: Path, fami
         assert preflight["ok"] is True
         assert preflight["canonical_arguments"] == arguments
         assert "matched_root_cause_id" not in json.dumps(preflight)
+        public_response = json.dumps([item.public() for item in entries]) + json.dumps(preflight)
+        assert not any(
+            root_label in public_response
+            for root_label in ("B2-REVOKED-ROLE", "B3-CANCELLED-JOB", "B3-JOB-PROPAGATION")
+        )
         await events.append(RunCompleted(run_id=run_id, actor="controller", status="completed"))
         # The gateway can still be called with a terminal context; producing a
         # post-terminal request would violate the valid-trace contract. Its
