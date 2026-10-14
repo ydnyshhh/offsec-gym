@@ -1,0 +1,116 @@
+{
+  "config_sha256": {
+    "m67-baseline.yaml": "41e6df648926558e8587a2f00ff6e517a41a95ed954557140ee6a1eb6e395917",
+    "m67-commitment.yaml": "fbd19a237a527dc1be6a170cd742ffa55b914b2999fe8066659b6bb19edecfa3",
+    "m67-reporting-commitment.yaml": "19afad4d671511dae91df6f477854bd38fbc928cc931ce8216e07388d3ce15d9",
+    "m67-reporting.yaml": "4c16d4746aa4f5d12524c42662f1618d89094fe48e05d8a129d878c3c05624c0"
+  },
+  "factorial_arm_tool_names": {
+    "A0B0": [
+      "claim_coverage",
+      "finish_coverage",
+      "get_entity",
+      "http_request",
+      "query_worldview",
+      "submit_finding",
+      "submit_hypothesis",
+      "submit_observation"
+    ],
+    "A0B1": [
+      "abandon_experiment",
+      "claim_coverage",
+      "complete_experiment",
+      "finish_coverage",
+      "get_active_experiment",
+      "get_entity",
+      "http_request",
+      "query_worldview",
+      "start_experiment",
+      "submit_finding",
+      "submit_hypothesis",
+      "submit_observation",
+      "update_experiment"
+    ],
+    "A1B0": [
+      "claim_coverage",
+      "finish_coverage",
+      "get_entity",
+      "http_request",
+      "list_candidate_evidence",
+      "preflight_finding",
+      "query_worldview",
+      "submit_finding",
+      "submit_hypothesis",
+      "submit_observation"
+    ],
+    "A1B1": [
+      "abandon_experiment",
+      "claim_coverage",
+      "complete_experiment",
+      "finish_coverage",
+      "get_active_experiment",
+      "get_entity",
+      "http_request",
+      "list_candidate_evidence",
+      "preflight_finding",
+      "query_worldview",
+      "start_experiment",
+      "submit_finding",
+      "submit_hypothesis",
+      "submit_observation",
+      "update_experiment"
+    ]
+  },
+  "factorial_arm_tool_schema_sha256": {
+    "A0B0": "65aaf592c8e715257676f0fe3ee11843ed5d052123506f97c0e4f5bcfe4b1a44",
+    "A0B1": "b7f7129e1134ca4e0c056bbdea6d6d28b461c5a533e5e95c68b1744530aeee8d",
+    "A1B0": "94b71fa9af9d2a80df195367bab9f4ac5e62678194284f4c97e150ecacdda2a0",
+    "A1B1": "444c31baf035f62d087aa53ba229f447d11e7efbae2fa44d416b6739617db735"
+  },
+  "live_manifest_frozen": false,
+  "milestone": "M6.7",
+  "no_model_test_command": [
+    "/Users/yadnyesh/Documents/ChatGPT/offsec-gym/.venv/bin/python",
+    "-m",
+    "pytest",
+    "-q",
+    "tests/unit/test_m67_provenance.py",
+    "tests/unit/test_m67_experiment.py",
+    "tests/unit/test_m67_repeat_analysis.py",
+    "tests/unit/test_m67_stage_analysis.py",
+    "tests/unit/test_m67_agent_integration.py"
+  ],
+  "no_model_test_result": "15 passed",
+  "pre_m67_baseline_schema_sha256": {
+    "enterprise_change_control_v1": "65aaf592c8e715257676f0fe3ee11843ed5d052123506f97c0e4f5bcfe4b1a44",
+    "saas": "a68a1b0863157473bfd1335ca681a6cc4c701561b186532d9c1dfa185d7a9a06"
+  },
+  "provider_calls": 0,
+  "python_version": "3.14.6",
+  "real_compose_cases": [],
+  "route_probe": {
+    "canonical_shape": "POST /api/changes/{id}/approve",
+    "concrete_path": "/api/changes/8e5f3927-d0dc-48f6-b34b-8b730b2c39ca/approve",
+    "malformed_rejected": true
+  },
+  "source_sha256": {
+    "docs/diagnostics/m67-stage-interventions-design.md": "8fdd7abc7a3cc6a7742e77b62c38a023097174eb7fb4faf7da39cc8349a8cb78",
+    "research_ops/m67_qualify.py": "785f23337d4aff8b56ad277bfcbff962bfffeb3e753b0a92beac79559c47fb18",
+    "src/offsecgym/experiment/m67.py": "9eb2e5babd211d2d4e3e214e96766750835b70d0d3b8f4ad932ff4250aa0c1e5",
+    "src/offsecgym/reporting/provenance.py": "9bc6b6f3fc677b513e5acc385e1bfc34ccef40c7ad2158cccab5409b285b9ad4",
+    "src/offsecgym/research/m67_repeat_analysis.py": "e416d7871df003a793b5f1921f6b68b6326a303177689ffc44c3b5b7fb3dfb05",
+    "src/offsecgym/research/m67_stage_analysis.py": "c716d6f9d8f23a93a47e51f0ff27207e1ecb7982b9a0bce48f5a4a56af313911",
+    "src/offsecgym/schemas/events.py": "2d9e503ea530fa1af57dc5ca77700416e849f9cb9971962dfca84f867d8ed570",
+    "src/offsecgym/solver/experiment_state.py": "0ab9ddf6456e9a3dc0954dd5fbd0a2eae0116a44bc692141c9f8c5efbc2f8661",
+    "src/offsecgym/solver/monolithic.py": "dc757ba65154666f0a6e416a7069303741ee4357cb84ded3405d6baa0176bd62"
+  },
+  "status": "engineering_design_unapproved_unrun",
+  "synthetic_uuid": "8e5f3927-d0dc-48f6-b34b-8b730b2c39ca",
+  "test_sha256": {
+    "tests/unit/test_m67_agent_integration.py": "853d0d83e54628915d20eda595cf191a56648f199112b5f226b7506e2f481a98",
+    "tests/unit/test_m67_experiment.py": "77497f9713a817aa8b105e9d03e176d7c01345b9cd28858431577ae47a6e8c96",
+    "tests/unit/test_m67_provenance.py": "32fedc07626a99b900caef7744e8205b1c2e49fa605cdaeb0b86ba0776168fee",
+    "tests/unit/test_m67_repeat_analysis.py": "f5dc7f87b09886633e4f1d6dd16beceec3cec6960e349760d9082929485b074f",
+    "tests/unit/test_m67_stage_analysis.py": "07ac3c4a3d655e698d249691c8d0c1f7f70717ade646262cb7a2d84f800b3aa9"
+  }
+}
