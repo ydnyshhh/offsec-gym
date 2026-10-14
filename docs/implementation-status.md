@@ -219,6 +219,10 @@ action-to-proof test. Its family-specific [audited result](diagnostics/m66-confi
 shows substantial Range A conversion and almost no Range B conversion under
 the frozen protocol. [Range B preflight](diagnostics/m66-range-b-readiness.md)
 and both excluded pilots remain preserved as separate feasibility evidence.
+The [M6.6.1 excluded feasibility study](diagnostics/m661-feasibility-v1-results.md)
+is complete with 96 assigned rows and 48 pair receipts. Four rows remain
+missing, three retain provider failures, and the frozen result is descriptive.
+No further collection is authorized by that result.
 
 ## Known architectural debt
 
