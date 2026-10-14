@@ -94,9 +94,9 @@
     "malformed_rejected": true
   },
   "source_sha256": {
-    "docs/diagnostics/m67-stage-interventions-design.md": "8fdd7abc7a3cc6a7742e77b62c38a023097174eb7fb4faf7da39cc8349a8cb78",
+    "docs/diagnostics/m67-stage-interventions-design.md": "39a66ea87dcc187a84ad58e9bb01bdb440df290e2b188bf8fd1d60dabc7d91bd",
     "research_ops/m67_qualify.py": "785f23337d4aff8b56ad277bfcbff962bfffeb3e753b0a92beac79559c47fb18",
-    "src/offsecgym/experiment/m67.py": "9eb2e5babd211d2d4e3e214e96766750835b70d0d3b8f4ad932ff4250aa0c1e5",
+    "src/offsecgym/experiment/m67.py": "01b7cfc99349167461d74c9ca158c0416c5815e3e54fca7d0e4b386f27f082a8",
     "src/offsecgym/reporting/provenance.py": "9bc6b6f3fc677b513e5acc385e1bfc34ccef40c7ad2158cccab5409b285b9ad4",
     "src/offsecgym/research/m67_repeat_analysis.py": "e416d7871df003a793b5f1921f6b68b6326a303177689ffc44c3b5b7fb3dfb05",
     "src/offsecgym/research/m67_stage_analysis.py": "c716d6f9d8f23a93a47e51f0ff27207e1ecb7982b9a0bce48f5a4a56af313911",
@@ -108,7 +108,7 @@
   "synthetic_uuid": "8e5f3927-d0dc-48f6-b34b-8b730b2c39ca",
   "test_sha256": {
     "tests/unit/test_m67_agent_integration.py": "853d0d83e54628915d20eda595cf191a56648f199112b5f226b7506e2f481a98",
-    "tests/unit/test_m67_experiment.py": "77497f9713a817aa8b105e9d03e176d7c01345b9cd28858431577ae47a6e8c96",
+    "tests/unit/test_m67_experiment.py": "019d5530f8002d23aa54590cd9d138334a9dc7c3370dee648b9d9afc409a3e12",
     "tests/unit/test_m67_provenance.py": "32fedc07626a99b900caef7744e8205b1c2e49fa605cdaeb0b86ba0776168fee",
     "tests/unit/test_m67_repeat_analysis.py": "f5dc7f87b09886633e4f1d6dd16beceec3cec6960e349760d9082929485b074f",
     "tests/unit/test_m67_stage_analysis.py": "07ac3c4a3d655e698d249691c8d0c1f7f70717ade646262cb7a2d84f800b3aa9"

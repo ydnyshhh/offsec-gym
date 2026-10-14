@@ -24,6 +24,8 @@ The added model tools are `list_candidate_evidence(identity_id, method, route_sh
 
 Two default-false flags, `provenance_reporting` (A) and `experiment_commitment` (B), independently add tools. The explicit arms are A0B0, A1B0, A0B1, and A1B1. Tool schema hashes are pinned in a no-model qualification artifact. The base prompt, model, budget, gateway, validator, visibility, and range routes do not change. A concise active-experiment reminder is the only extra context in B arms. A arms add tools only. No tool or reminder leaks into baseline.
 
+The opt-in M6.7 runner binds the arm flags and tool-schema hash into its `RunStarted.experiment_hash` alongside the unmodified base `ExperimentSpec` hash. Identical base specs in different arms therefore have distinct, reproducible run identities. The historical runner and frozen spec serialization remain unchanged.
+
 `WorldState` remains observations, `WitnessState` remains temporal proof, and `ExperimentState` is an append-only, current-run model-authored hypothesis/plan lifecycle. `ReportingState` is derived from authoritative action/evidence references and preflight events rather than duplicating responses. A second active experiment is rejected until the first is completed or explicitly abandoned. The model can abandon any experiment; no hidden root-specific plan is generated. Reminder text is bounded and contains only model-authored fields and lifecycle status.
 
 ## Response-stagnation diagnostic

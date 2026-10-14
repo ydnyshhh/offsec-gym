@@ -8,6 +8,7 @@ from uuid import uuid4
 
 import pytest
 import yaml
+from test_milestone_4 import model_spec
 
 from offsecgym.experiment.m67 import M67Arm
 from offsecgym.solver.experiment_state import (
@@ -140,4 +141,8 @@ def test_four_arms_are_explicit_and_schema_separated():
     hashes = {name: arm.schema_sha256(family=FAMILY, structured=True) for name, arm in arms.items()}
     assert len(set(hashes.values())) == 4
     assert all(len(value) == 64 for value in hashes.values())
+    spec = model_spec(calls=1).model_copy(update={"memory": "structured"})
+    run_hashes = {name: arm.run_hash(spec) for name, arm in arms.items()}
+    assert len(set(run_hashes.values())) == 4
+    assert arms["baseline"].run_hash(spec) == run_hashes["baseline"]
     assert "B2-REVOKED-ROLE" not in json.dumps({k: sorted(v) for k, v in names.items()})
