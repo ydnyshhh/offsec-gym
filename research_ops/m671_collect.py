@@ -69,7 +69,8 @@ from offsecgym.storage.tables import action_reservations, model_reservations, ru
 
 PROTOCOL_COMMIT = "86c5406024e961eaaeacb851d9bf51d4a550df04"
 MANIFEST_SHA256 = "d51ba9d9dffe12c6e809b32196f2c48937f72e33768ffb2ad050218d4be41e2f"
-APPROVAL_SHA256 = "0" * 64  # A reviewed, separate approval-pin change must open collection.
+OPERATIONAL_MERGE_COMMIT = "ff12fefa0dc1c6fdb75bb779fde7a82976de4ee3"
+APPROVAL_SHA256 = "d99150957c3465058abece0afda41d79cb56b9c903a540e2f98de77067353180"
 ENDPOINT_URL = "https://openrouter.ai/api/v1/models/moonshotai/kimi-k3/endpoints"
 MODEL = "moonshotai/kimi-k3"
 CELL_CEILING = Decimal(TOKEN_LIMIT) * max(INPUT_PRICE, OUTPUT_PRICE) / Decimal(1_000_000)
@@ -97,6 +98,15 @@ def clean(root: Path) -> None:
 def pinned_inputs(
     execution_root: Path, source_root: Path, protocol_root: Path, manifest_path: Path
 ) -> bytes:
+    if (
+        subprocess.run(
+            ["git", "merge-base", "--is-ancestor", OPERATIONAL_MERGE_COMMIT, "HEAD"],
+            cwd=execution_root,
+            check=False,
+        ).returncode
+        != 0
+    ):
+        raise ValueError("reviewed operational merge is not an execution ancestor")
     if head(source_root) != SOURCE_COMMIT or head(protocol_root) != PROTOCOL_COMMIT:
         raise ValueError("qualified source or reviewed protocol checkout differs")
     for root in (execution_root, source_root, protocol_root):
