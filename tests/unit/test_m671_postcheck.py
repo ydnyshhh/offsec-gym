@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+from decimal import Decimal
 from pathlib import Path
 from types import SimpleNamespace as Obj
 from uuid import uuid4
@@ -194,4 +195,5 @@ async def test_synthetic_unstarted_postcheck_retains_all_128(
     )
     assert result["assigned"] == 128
     assert result["started"] == result["trace_auditable"] == result["score_valid"] == 0
+    assert Decimal(result["conservative_estimated_cost_usd"]) == 0
     assert result["analysis_sha256"] == hashlib.sha256(result["analysis_bytes"]).hexdigest()

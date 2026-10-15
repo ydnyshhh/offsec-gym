@@ -343,6 +343,18 @@ async def _cell(
         if not stage["trace_auditable"]:
             raise CheckpointDataIntegrityError(str(stage["missing_reason"]))
         if (
+            len([item for item in trace if isinstance(item, ModelCallStarted)]) > 20
+            or len(model_requests) > 120
+            or any(
+                item.output_tokens > 8192 for item in trace if isinstance(item, ModelCallCompleted)
+            )
+            or (
+                stage["resource_auditable"]
+                and stage["input_tokens"] + stage["output_tokens"] > TOKEN_LIMIT
+            )
+        ):
+            raise CheckpointDataIntegrityError("source run exceeds frozen cell budget")
+        if (
             not isinstance(trace[0], RunStarted)
             or trace[0].experiment_hash != cell["experiment_sha256"]
             or not isinstance(trace[-1], RunCompleted)
@@ -483,6 +495,22 @@ async def postcheck(
         )
     if actual_runs != referenced_runs or active_actions or active_models:
         raise ValueError("dedicated PostgreSQL run inventory or reservations differ")
+    known_cost = sum(
+        (
+            Decimal(str(row["estimated_cost_usd"]))
+            for row in rows
+            if row["estimated_cost_usd"] is not None
+        ),
+        Decimal(0),
+    )
+    unknown_started = sum(
+        row["started"] is True and row["estimated_cost_usd"] is None for row in rows
+    )
+    cell_ceiling = Decimal(TOKEN_LIMIT) * max(INPUT_PRICE, OUTPUT_PRICE) / Decimal(1_000_000)
+    if known_cost + unknown_started * cell_ceiling > Decimal(
+        manifest["cumulative_estimated_cost_stop_usd"]
+    ):
+        raise ValueError("conservative cumulative estimated cost exceeds frozen cap")
     analysis = analyze_factorial(
         rows, bootstrap_replicates=manifest["analysis_plan"]["bootstrap_replicates"]
     )
@@ -511,6 +539,8 @@ async def postcheck(
         "trace_auditable": sum(row["trace_auditable"] is True for row in rows),
         "score_valid": sum(row["score_valid"] is True for row in rows),
         "resource_auditable": sum(row["resource_auditable"] is True for row in rows),
+        "recorded_estimated_cost_usd": str(known_cost),
+        "conservative_estimated_cost_usd": str(known_cost + unknown_started * cell_ceiling),
         "analysis_sha256": _sha(raw),
         "analysis_bytes": raw,
     }
