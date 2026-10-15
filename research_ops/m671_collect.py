@@ -4,12 +4,17 @@ This operational wrapper is deliberately separate from the qualified source and
 the frozen protocol. It does not create an approval, a manifest, or a database.
 """
 
+# Import order is intentional: bind protocol-only modules after the qualified
+# source package has been imported. Ruff must not move these imports earlier.
+# ruff: noqa: E402
+
 from __future__ import annotations
 
 import argparse
 import asyncio
 import fcntl
 import hashlib
+import importlib
 import json
 import os
 import stat
@@ -23,6 +28,17 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import create_async_engine
 
 import offsecgym
+import offsecgym.research
+
+# In live execution, import the unchanged runtime from the qualified source
+# checkout and only M6.7.1 research modules from the reviewed protocol checkout.
+_protocol_src = os.environ.get("M671_PROTOCOL_SRC")
+if _protocol_src:
+    _research_path = Path(_protocol_src).resolve() / "offsecgym" / "research"
+    if not _research_path.is_dir():
+        raise ValueError("pinned M6.7.1 protocol module directory absent")
+    offsecgym.research.__path__.append(str(_research_path))
+
 from offsecgym.experiment.m67 import M67Arm
 from offsecgym.providers.base import ModelTurn, ProviderFailure, ProviderRequestError
 from offsecgym.providers.openrouter import OpenRouterResponsesProvider, selected_endpoint
@@ -78,13 +94,25 @@ def clean(root: Path) -> None:
         raise ValueError("pinned checkout is dirty")
 
 
-def pinned_inputs(execution_root: Path, protocol_root: Path, manifest_path: Path) -> bytes:
-    if head(protocol_root) != PROTOCOL_COMMIT:
-        raise ValueError("protocol checkout differs from reviewed merge")
-    for root in (execution_root, protocol_root):
+def pinned_inputs(
+    execution_root: Path, source_root: Path, protocol_root: Path, manifest_path: Path
+) -> bytes:
+    if head(source_root) != SOURCE_COMMIT or head(protocol_root) != PROTOCOL_COMMIT:
+        raise ValueError("qualified source or reviewed protocol checkout differs")
+    for root in (execution_root, source_root, protocol_root):
         clean(root)
-    if not Path(offsecgym.__file__).resolve().is_relative_to((execution_root / "src").resolve()):
-        raise ValueError("runtime imports are outside execution checkout")
+    if (
+        Path(offsecgym.__file__).resolve()
+        != (source_root / "src" / "offsecgym" / "__init__.py").resolve()
+    ):
+        raise ValueError("runtime imports are outside qualified source checkout")
+    for name in ("m671_protocol", "m671_runner", "m671_postcheck", "m671_root_signals"):
+        module = importlib.import_module(f"offsecgym.research.{name}")
+        if (
+            Path(module.__file__).resolve()
+            != (protocol_root / "src" / "offsecgym" / "research" / f"{name}.py").resolve()
+        ):
+            raise ValueError(f"M6.7.1 {name} import is outside protocol checkout")
     if manifest_path != execution_root / MANIFEST_PATH or manifest_path.is_symlink():
         raise ValueError("manifest path differs from execution checkout")
     raw = manifest_path.read_bytes()
@@ -97,9 +125,11 @@ def pinned_inputs(execution_root: Path, protocol_root: Path, manifest_path: Path
         expected = subprocess.check_output(
             ["git", "show", f"{SOURCE_COMMIT}:{path}"], cwd=protocol_root
         )
-        if (execution_root / path).read_bytes() != expected or (
-            protocol_root / path
-        ).read_bytes() != expected:
+        if (
+            (execution_root / path).read_bytes() != expected
+            or (source_root / path).read_bytes() != expected
+            or (protocol_root / path).read_bytes() != expected
+        ):
             raise ValueError(f"qualified source drifted: {path}")
     for path in PROTOCOL_PATHS:
         expected = subprocess.check_output(
@@ -321,13 +351,14 @@ def health_decision(records: list[dict[str, object]]) -> str:
 
 async def collect(args: argparse.Namespace) -> dict[str, object]:
     execution_root = args.execution_root.resolve()
+    source_root = args.source_root.resolve()
     protocol_root = args.protocol_root.resolve()
     manifest_path = args.manifest.resolve()
     approval_path = args.approval.resolve()
     journal_path = args.journal.resolve()
     state_root = args.state_root.resolve()
     pair_directory = args.pair_directory.resolve()
-    manifest_raw = pinned_inputs(execution_root, protocol_root, manifest_path)
+    manifest_raw = pinned_inputs(execution_root, source_root, protocol_root, manifest_path)
     manifest = json.loads(manifest_raw)
     approval = private_approval(approval_path, manifest_raw)
     if (
@@ -391,7 +422,7 @@ async def collect(args: argparse.Namespace) -> dict[str, object]:
                         manifest["cumulative_estimated_cost_stop_usd"]
                     ):
                         raise ValueError("next full-cell ceiling exceeds cumulative cap")
-                    spec = cell_spec(execution_root, cell)
+                    spec = cell_spec(source_root, cell)
                     admission = ApprovedCell(cell["cell_id"], cell["arm"], cell["checkpoint_id"])
                     arm = M67Arm(
                         provenance_reporting=bool(cell["A"]), experiment_commitment=bool(cell["B"])
@@ -524,6 +555,7 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     for name in (
         "execution-root",
+        "source-root",
         "protocol-root",
         "manifest",
         "approval",
