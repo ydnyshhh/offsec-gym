@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 import json
 import sys
+from argparse import Namespace
 from decimal import Decimal
 from pathlib import Path
 
@@ -102,3 +103,21 @@ async def test_provider_guard_rejects_policy_drift_before_network() -> None:
             }
         )
     assert guard.stopped
+
+
+@pytest.mark.asyncio
+async def test_symlinked_study_artifact_refused_before_admission(tmp_path: Path) -> None:
+    linked = tmp_path / "manifest.json"
+    linked.symlink_to(MANIFEST_PATH)
+    args = Namespace(
+        execution_root=ROOT,
+        source_root=ROOT,
+        protocol_root=ROOT,
+        manifest=linked,
+        approval=tmp_path / "approval.json",
+        journal=tmp_path / "journal.jsonl",
+        state_root=tmp_path / "range-state",
+        pair_directory=tmp_path / "pairs",
+    )
+    with pytest.raises(ValueError, match="symlink"):
+        await collector.collect(args)

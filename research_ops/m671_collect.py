@@ -106,7 +106,13 @@ def pinned_inputs(
         != (source_root / "src" / "offsecgym" / "__init__.py").resolve()
     ):
         raise ValueError("runtime imports are outside qualified source checkout")
-    for name in ("m671_protocol", "m671_runner", "m671_postcheck", "m671_root_signals"):
+    for name in (
+        "m671_protocol",
+        "m671_runner",
+        "m671_postcheck",
+        "m671_root_signals",
+        "m671_factorial_analysis",
+    ):
         module = importlib.import_module(f"offsecgym.research.{name}")
         if (
             Path(module.__file__).resolve()
@@ -350,6 +356,15 @@ def health_decision(records: list[dict[str, object]]) -> str:
 
 
 async def collect(args: argparse.Namespace) -> dict[str, object]:
+    for path in (
+        args.manifest,
+        args.approval,
+        args.journal,
+        args.state_root,
+        args.pair_directory,
+    ):
+        if path.is_symlink():
+            raise ValueError("study artifact path cannot be a symlink")
     execution_root = args.execution_root.resolve()
     source_root = args.source_root.resolve()
     protocol_root = args.protocol_root.resolve()
