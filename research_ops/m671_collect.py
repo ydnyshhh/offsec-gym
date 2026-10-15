@@ -356,14 +356,14 @@ async def collect(args: argparse.Namespace) -> dict[str, object]:
         if run_ids or reservations:
             raise ValueError("dedicated PostgreSQL is not empty")
         endpoint_receipt()  # Public no-key check before creating any study evidence.
-        runtime = ComposeRangeRuntime(state_root)
-        guard = EndpointGuard()
-        pair_directory.mkdir(mode=0o700)
         journal = Journal(journal_path, MANIFEST_SHA256)
-        records: list[dict[str, object]] = []
-        referenced_runs: set[UUID] = set()
-        conservative = Decimal(0)
         try:
+            runtime = ComposeRangeRuntime(state_root)
+            guard = EndpointGuard()
+            pair_directory.mkdir(mode=0o700)
+            records: list[dict[str, object]] = []
+            referenced_runs: set[UUID] = set()
+            conservative = Decimal(0)
             for pair_index in range(CELL_COUNT // 2):
                 pair = manifest["cells"][2 * pair_index : 2 * pair_index + 2]
                 if pair[0]["pair_id"] != pair[1]["pair_id"] or {
