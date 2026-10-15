@@ -20,7 +20,7 @@ ROOT = Path(__file__).parents[2]
 MANIFEST_PATH = ROOT / collector.MANIFEST_PATH
 
 
-def test_live_manifest_exact_scope_and_closed_pin() -> None:
+def test_live_manifest_exact_scope_and_private_approval_pin() -> None:
     raw = MANIFEST_PATH.read_bytes()
     manifest = json.loads(raw)
     assert hashlib.sha256(raw).hexdigest() == collector.MANIFEST_SHA256
@@ -30,8 +30,12 @@ def test_live_manifest_exact_scope_and_closed_pin() -> None:
     assert manifest["paid_model_calls_authorized"] is False
     assert Decimal(manifest["cumulative_estimated_cost_stop_usd"]) == Decimal("230.4")
     assert collector.CELL_CEILING == Decimal("1.8")
-    assert collector.APPROVAL_SHA256 == "0" * 64
-    with pytest.raises(ValueError, match="closed"):
+    assert collector.OPERATIONAL_MERGE_COMMIT == "ff12fefa0dc1c6fdb75bb779fde7a82976de4ee3"
+    assert (
+        collector.APPROVAL_SHA256
+        == "d99150957c3465058abece0afda41d79cb56b9c903a540e2f98de77067353180"
+    )
+    with pytest.raises(ValueError, match="missing"):
         collector.private_approval(ROOT / "no-private-approval.json", raw)
 
 
