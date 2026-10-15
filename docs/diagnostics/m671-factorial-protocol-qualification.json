@@ -15,9 +15,9 @@
     "ruff_lint": "passed"
   },
   "configured_cost_ceiling_usd": "230.4",
-  "dry_assignment_sha256": "74f2b6f1a931fd425e590a7fc76d2b2fbb6ea4c230ac2a8f403e26e75bdd72bd",
+  "dry_assignment_sha256": "00dbeced56d93e90ff89068dd80a840eeddcc2d22cae3e0d0617418bbc2799d7",
   "dry_manifest_endpoint_receipt": "synthetic only; not a public endpoint preflight",
-  "dry_manifest_sha256": "4120a7be6a85b806330397e8df85cf213d6f2bee401f4933fee354f1387592e2",
+  "dry_manifest_sha256": "f85437015736a2093ebb1b707373d3100d9da06c61da4c0e9461370e38a30036",
   "dry_selected_seeds": [
     832927,
     668960,
@@ -31,7 +31,7 @@
   "historical_exclusion_count": 434,
   "historical_exclusion_registry_sha256": "420131569fdf55af3e5443f0f9fb7ec6eb60b97ffff1fdb2c36d674fced7bda9",
   "live_manifest_created": false,
-  "local_protocol_source_head": "c74a6f606af4b06e673d205180b92b2ffaa8d34d",
+  "local_protocol_source_head": "f816acf8f2cc02980383df76921ef80dddde03df",
   "planned_cells": 128,
   "planned_pairs": 64,
   "protocol_file_hashes": {
@@ -40,7 +40,7 @@
     "research_ops/m671_freeze.py": "6f9830cc9184803fb83285f318a1a2493d893a2c2e3954d6d2472c5cb321f771",
     "research_ops/m671_postcheck.py": "a84d8af8585260fc57d79691e3bdb21fd042c00c33ddd2f6ff8986aec1a90f45",
     "src/offsecgym/research/m671_factorial_analysis.py": "31717e86e1567ade20ec015b4da1ee4d6e7eaa2d503b4d9e4665eeda8ec21303",
-    "src/offsecgym/research/m671_postcheck.py": "20ca58f2f00c5433f465e4b15fd54e4c4b4f52b4967c504baa3664a268e5fab1",
+    "src/offsecgym/research/m671_postcheck.py": "98615766a67b49785ed8df72660ac3ffb50ab5cf310143cf35043d2f4bb4041f",
     "src/offsecgym/research/m671_protocol.py": "ae79ee487df3923c2b1a372f94258f691ebd14d5ba26afc60727db2ba43bd002",
     "src/offsecgym/research/m671_root_signals.py": "8b144e1988f3a8b4e53a9dd8b7c345e63709ac15ddaf2564221a547c49ff710b",
     "src/offsecgym/research/m671_runner.py": "532e0fbc66310ba13804df917e762f0c8e76e1baab6196cd7decb146b952c5c7",
