@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import stat
 import sys
 from pathlib import Path
 
@@ -53,6 +54,23 @@ def _journal(cells: list[dict[str, object]]) -> bytes:
     return ("\n".join(json.dumps(row, sort_keys=True) for row in lines) + "\n").encode()
 
 
+def _continuation_journal(cells: list[dict[str, object]]) -> bytes:
+    lines = _journal(cells).splitlines()
+    lines[0] = json.dumps(
+        {
+            "type": "batch_started",
+            "protocol": recovery.PROTOCOL,
+            "manifest_sha256": stopped.MANIFEST_SHA256,
+            "continuation_scope": recovery.CONTINUATION_SCOPE,
+            "stopped_journal_sha256": recovery.STOP_JOURNAL_SHA256,
+            "approval_sha256": recovery.NEW_APPROVAL_SHA256,
+            "operational_merge_commit": recovery.OPERATIONAL_MERGE_COMMIT,
+        },
+        sort_keys=True,
+    ).encode()
+    return b"\n".join(lines) + b"\n"
+
+
 def test_approval_pin_is_closed_and_original_failures_do_not_enter_new_health_epoch(
     tmp_path: Path,
 ) -> None:
@@ -69,18 +87,33 @@ def test_approval_pin_is_closed_and_original_failures_do_not_enter_new_health_ep
 
 def test_combined_journal_preserves_exact_order_and_rejects_replay() -> None:
     old = _journal(MANIFEST["cells"][:86])
-    later = _journal(MANIFEST["cells"][86:])
+    later = _continuation_journal(MANIFEST["cells"][86:])
     combined = recovery.combined_journal(old, later)
     records = journal_prefix(MANIFEST, combined, manifest_sha256=stopped.MANIFEST_SHA256)
     assert len(records) == 128
     assert [row["order"] for row in records] == list(range(1, 129))
-    replayed = _journal([MANIFEST["cells"][85], *MANIFEST["cells"][87:]])
+    replayed = _continuation_journal([MANIFEST["cells"][85], *MANIFEST["cells"][87:]])
     with pytest.raises(ValueError, match="unique frozen-order prefix"):
         journal_prefix(
             MANIFEST,
             recovery.combined_journal(old, replayed),
             manifest_sha256=stopped.MANIFEST_SHA256,
         )
+    wrong_header = later.replace(recovery.CONTINUATION_SCOPE.encode(), b"wrong_scope", 1)
+    with pytest.raises(ValueError, match="header differs"):
+        recovery.combined_journal(old, wrong_header)
+
+
+def test_continuation_journal_is_create_once_and_private(tmp_path: Path) -> None:
+    path = tmp_path / "continuation.jsonl"
+    journal = recovery.ContinuationJournal(path)
+    journal.close()
+    assert stat.S_IMODE(path.stat().st_mode) == 0o600
+    assert json.loads(path.read_bytes().splitlines()[0])["continuation_scope"] == (
+        recovery.CONTINUATION_SCOPE
+    )
+    with pytest.raises(FileExistsError):
+        recovery.ContinuationJournal(path)
 
 
 def test_stopped_evidence_is_exact_and_immutable(

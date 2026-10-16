@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import fcntl
 import json
 import os
 import stat
@@ -33,7 +34,6 @@ from m671_collect import (
     SOURCE_COMMIT,
     UPSTREAM,
     EndpointGuard,
-    Journal,
     cell_spec,
     create_json,
     endpoint_receipt,
@@ -161,7 +161,15 @@ def combined_journal(stopped: bytes, later: bytes) -> bytes:
     if not lines:
         raise ValueError("continuation journal is absent")
     header = json.loads(lines[0])
-    if header.get("type") != "batch_started" or header.get("manifest_sha256") != MANIFEST_SHA256:
+    if (
+        header.get("type") != "batch_started"
+        or header.get("protocol") != PROTOCOL
+        or header.get("manifest_sha256") != MANIFEST_SHA256
+        or header.get("continuation_scope") != CONTINUATION_SCOPE
+        or header.get("stopped_journal_sha256") != STOP_JOURNAL_SHA256
+        or header.get("approval_sha256") != NEW_APPROVAL_SHA256
+        or header.get("operational_merge_commit") != OPERATIONAL_MERGE_COMMIT
+    ):
         raise ValueError("continuation journal header differs")
     if not stopped.endswith(b"\n"):
         raise ValueError("stopped journal is not newline terminated")
@@ -174,6 +182,33 @@ def write_bytes(path: Path, raw: bytes) -> None:
         stream.write(raw)
         stream.flush()
         os.fsync(stream.fileno())
+
+
+class ContinuationJournal:
+    def __init__(self, path: Path) -> None:
+        fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o600)
+        self.stream = os.fdopen(fd, "w", encoding="utf-8")
+        fcntl.flock(self.stream.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+        self.append(
+            {
+                "type": "batch_started",
+                "protocol": PROTOCOL,
+                "manifest_sha256": MANIFEST_SHA256,
+                "continuation_scope": CONTINUATION_SCOPE,
+                "stopped_journal_sha256": STOP_JOURNAL_SHA256,
+                "approval_sha256": NEW_APPROVAL_SHA256,
+                "operational_merge_commit": OPERATIONAL_MERGE_COMMIT,
+                "at": now(),
+            }
+        )
+
+    def append(self, value: dict[str, object]) -> None:
+        self.stream.write(json.dumps(value, sort_keys=True, separators=(",", ":")) + "\n")
+        self.stream.flush()
+        os.fsync(self.stream.fileno())
+
+    def close(self) -> None:
+        self.stream.close()
 
 
 async def continue_cells(args: argparse.Namespace) -> dict[str, object]:
@@ -257,7 +292,7 @@ async def continue_cells(args: argparse.Namespace) -> dict[str, object]:
             },
         )
         journal_path = continuation_root / "journal.jsonl"
-        journal = Journal(journal_path, MANIFEST_SHA256)
+        journal = ContinuationJournal(journal_path)
         try:
             runtime = ComposeRangeRuntime(state_root)
             guard = EndpointGuard()  # One new health epoch starts at cell 87.
