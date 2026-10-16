@@ -17,13 +17,16 @@ MANIFEST = json.loads(
 )
 
 
-def test_fresh_launch_is_separate_and_closed_until_pinned(tmp_path: Path) -> None:
-    assert recovery.NEW_APPROVAL_SHA256 == "0" * 64
-    assert recovery.OPERATIONAL_MERGE_COMMIT == "0" * 40
+def test_fresh_launch_is_separate_and_approval_is_pinned(tmp_path: Path) -> None:
+    assert (
+        recovery.NEW_APPROVAL_SHA256
+        == "38af69f25668c3bcd53d50ce99f1dd189b9c153cfe81312ee612a1da9ee50fa0"
+    )
+    assert recovery.OPERATIONAL_MERGE_COMMIT == "eb3535709631aedab73990d1204a83c2c371cc7a"
     assert recovery.CONTINUATION_SCOPE != (
         "m671_feasibility_cells_87_through_128_once_after_provider_pause"
     )
-    with pytest.raises(ValueError, match="closed until exact approval pin"):
+    with pytest.raises(ValueError, match="private approval bytes, path, or mode differ"):
         recovery.scoped_approval(tmp_path / "precell-paid-approval.json", MANIFEST)
 
 
