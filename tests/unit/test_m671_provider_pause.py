@@ -71,10 +71,15 @@ def _continuation_journal(cells: list[dict[str, object]]) -> bytes:
     return b"\n".join(lines) + b"\n"
 
 
-def test_approval_pin_is_closed_and_original_failures_do_not_enter_new_health_epoch(
+def test_approval_pin_and_original_failures_do_not_enter_new_health_epoch(
     tmp_path: Path,
 ) -> None:
-    with pytest.raises(ValueError, match="closed until exact approval pin"):
+    assert (
+        recovery.NEW_APPROVAL_SHA256
+        == "df3713fc5071523ce0d5a198898b1349a4ef7de7e83e08f6c615a567ecd0d0d6"
+    )
+    assert recovery.OPERATIONAL_MERGE_COMMIT == "b1a302a25efba45dd650be08767a26b03a58e9da"
+    with pytest.raises(ValueError, match="private approval bytes, path, or mode differ"):
         recovery.scoped_approval(tmp_path / "provider-pause-paid-approval.json", MANIFEST)
     assert recovery.health_decision([]) == "continue"
     assert (
