@@ -72,3 +72,21 @@ The operational fix selects pair 44 as the first paid pair and verifies that
 all selected orders are exactly 87–128 before any endpoint or model call. The
 existing paid scope does not authorize another collector launch. A separately
 reviewed exact new human scope is required before further paid work.
+
+## Separate approved launch after the pre-cell failure
+
+The human approved exactly one fresh launch for frozen orders 87–128, once
+each, under the original $230.40 cumulative estimated model-token cap. Orders
+85–86 remain provider failures. The first failed launch consumed its approval
+and output path even though it stopped before a cell started. Its 46 files and
+log remain immutable evidence.
+
+`m671_resume_after_precell_failure.py` is a separate, fail-closed wrapper. It
+checks the original stopped prefix, the consumed receipt, all 46 failed-launch
+files, the first failed log, and authoritative PostgreSQL before making a new
+directory. It then selects only pairs 44–64 and requires frozen orders 87–128.
+The new private approval and create-once output root have distinct names.
+Approval and operational-merge pins are zero until the operational PR merges
+and a new private exact-scope receipt is created and reviewed separately.
+`m671_precell_postcheck.py` is the read-only final replay for this distinct
+output root. This remains descriptive excluded feasibility work.
