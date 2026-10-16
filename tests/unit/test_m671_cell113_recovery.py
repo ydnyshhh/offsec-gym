@@ -24,8 +24,10 @@ def test_paid_range_excludes_every_started_cell() -> None:
     assert [cell["order"] for _, pair in pairs for cell in pair if cell["order"] >= 114] == list(
         range(114, 129)
     )
-    assert recovery.NEW_APPROVAL_SHA256 == "0" * 64
-    assert recovery.OPERATIONAL_MERGE_COMMIT == "0" * 40
+    assert recovery.NEW_APPROVAL_SHA256 == (
+        "7544d7bb1a553158f467f7c065e11f0816d8860bd91a6b5b200f3262cd03ea3e"
+    )
+    assert recovery.OPERATIONAL_MERGE_COMMIT == "33f8ad8d1e7bdaac2a2178ee130ab68c7c46645f"
     changed = json.loads(json.dumps(MANIFEST))
     changed["cells"][113]["order"] = 113
     with pytest.raises(ValueError, match="exact frozen paid range"):
