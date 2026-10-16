@@ -141,6 +141,17 @@ def test_exact_private_scope_accepts_only_frozen_unstarted_cells(
         recovery.scoped_approval(path, MANIFEST)
 
 
+def test_pending_pairs_begin_after_retained_failed_pair() -> None:
+    pairs = recovery.pending_pairs(MANIFEST)
+    assert [pair_index for pair_index, _ in pairs] == list(range(44, 65))
+    assert [cell["order"] for _, pair in pairs for cell in pair] == list(range(87, 129))
+    assert not {85, 86} & {cell["order"] for _, pair in pairs for cell in pair}
+    changed = json.loads(json.dumps(MANIFEST))
+    changed["cells"][86]["order"] = 86
+    with pytest.raises(ValueError, match="exact frozen paid range"):
+        recovery.pending_pairs(changed)
+
+
 def test_combined_journal_preserves_exact_order_and_rejects_replay() -> None:
     old = _journal(MANIFEST["cells"][:86])
     later = _continuation_journal(MANIFEST["cells"][86:])

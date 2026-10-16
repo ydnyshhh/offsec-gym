@@ -47,3 +47,28 @@ journals. The frozen M6.7.1 postcheck still requires 128 assigned rows, 64
 pair receipts, exact source-run inventory, no reservations, and deterministic
 byte-identical analysis. This remains descriptive excluded feasibility work,
 not a confirmatory result.
+
+## Pre-cell continuation stop
+
+The first approval-pinned continuation exited before a `cell_started` record or
+provider model call. It had closed pair 43 from retained events and then
+selected pair 43 again for its loop; the first selected order was 85, while
+the approved first order was 87. The collector failed its own frozen-order
+gate. No retry or replacement is authorized by that failed launch.
+
+Read-only PostgreSQL reconciliation remained at 86 completed cells, 172
+referenced source runs, 143,873 events, and zero active reservations. The
+original journal, log, 42 pair receipts, and 43 endpoint preflights retained
+the hashes above. The new private journal contains only `batch_started` and
+has SHA-256
+`0140b003daeaec3a0e47efc51a00470f0c796463fcdf4c6ef79c088821a82bc0`.
+The separate private log has SHA-256
+`744f2be30d4b59e90ae9fbde6ea49321f307e25100cce218bb2ab27cf3d50eb8`.
+The 46 new files have path-and-content digest
+`5ea404a9477e0de9f2c0fdbe5ef022b847c1a0316d0e135415c2b45d82e5e3f0`.
+They remain preserved as failed-launch evidence.
+
+The operational fix selects pair 44 as the first paid pair and verifies that
+all selected orders are exactly 87–128 before any endpoint or model call. The
+existing paid scope does not authorize another collector launch. A separately
+reviewed exact new human scope is required before further paid work.
