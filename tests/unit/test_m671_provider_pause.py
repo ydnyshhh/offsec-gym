@@ -85,6 +85,57 @@ def test_approval_pin_is_closed_and_original_failures_do_not_enter_new_health_ep
     )
 
 
+def test_exact_private_scope_accepts_only_frozen_unstarted_cells(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    path = tmp_path / "provider-pause-paid-approval.json"
+    merge = "f" * 40
+    monkeypatch.setattr(recovery, "OPERATIONAL_MERGE_COMMIT", merge)
+    approval = {
+        "approved_at": "2026-10-16T06:00:00Z",
+        "approved_by": "human_user",
+        "approved_for_paid_calls": True,
+        "approval_scope": recovery.CONTINUATION_SCOPE,
+        "protocol": recovery.PROTOCOL,
+        "manifest_sha256": stopped.MANIFEST_SHA256,
+        "assignment_sha256": MANIFEST["assignment_sha256"],
+        "source_commit": recovery.SOURCE_COMMIT,
+        "protocol_commit": recovery.PROTOCOL_COMMIT,
+        "operational_merge_commit": merge,
+        "prior_paid_approval_sha256": recovery.ORIGINAL_APPROVAL_SHA256,
+        "stopped_journal_sha256": stopped.STOP_JOURNAL_SHA256,
+        "stopped_log_sha256": stopped.STOP_LOG_SHA256,
+        "stopped_pairs_sha256": stopped.STOP_PAIRS_SHA256,
+        "stopped_preflights_sha256": stopped.STOP_PREFLIGHTS_SHA256,
+        "stopped_completed_cells": 86,
+        "stopped_source_runs": 172,
+        "stopped_events": 143873,
+        "stopped_pair_receipts": 42,
+        "retained_provider_failed_orders": [85, 86],
+        "first_paid_cell_order": 87,
+        "last_paid_cell_order": 128,
+        "paid_cell_ids": [cell["cell_id"] for cell in MANIFEST["cells"][86:]],
+        "paid_cells_authorized": 42,
+        "provider_health_epoch_start_order": 87,
+        "no_retry_or_replacement": True,
+        "selected_endpoint": f"{recovery.UPSTREAM} | {recovery.REVISION}",
+        "input_usd_per_million_tokens": "3",
+        "output_usd_per_million_tokens": "15",
+        "cumulative_estimated_cost_stop_usd": MANIFEST["cumulative_estimated_cost_stop_usd"],
+    }
+    raw = json.dumps(approval, sort_keys=True).encode()
+    path.write_bytes(raw)
+    path.chmod(0o600)
+    monkeypatch.setattr(recovery, "NEW_APPROVAL_SHA256", stopped.sha(raw))
+    assert recovery.scoped_approval(path, MANIFEST) == approval
+    approval["paid_cell_ids"] = approval["paid_cell_ids"][:-1]
+    changed = json.dumps(approval, sort_keys=True).encode()
+    path.write_bytes(changed)
+    monkeypatch.setattr(recovery, "NEW_APPROVAL_SHA256", stopped.sha(changed))
+    with pytest.raises(ValueError, match="exact stopped scope"):
+        recovery.scoped_approval(path, MANIFEST)
+
+
 def test_combined_journal_preserves_exact_order_and_rejects_replay() -> None:
     old = _journal(MANIFEST["cells"][:86])
     later = _continuation_journal(MANIFEST["cells"][86:])
