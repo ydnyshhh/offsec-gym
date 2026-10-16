@@ -81,8 +81,8 @@ from offsecgym.storage.event_store import PostgresEventStore
 CONTINUATION_SCOPE = "m671_feasibility_cells_87_through_128_once_after_provider_pause"
 FIRST_PAID_ORDER = 87
 LAST_PAID_ORDER = 128
-NEW_APPROVAL_SHA256 = "0" * 64
-OPERATIONAL_MERGE_COMMIT = "0" * 40
+NEW_APPROVAL_SHA256 = "df3713fc5071523ce0d5a198898b1349a4ef7de7e83e08f6c615a567ecd0d0d6"
+OPERATIONAL_MERGE_COMMIT = "b1a302a25efba45dd650be08767a26b03a58e9da"
 STOPPED_AT = datetime.fromisoformat("2026-10-16T01:51:35.300103+00:00")
 
 
