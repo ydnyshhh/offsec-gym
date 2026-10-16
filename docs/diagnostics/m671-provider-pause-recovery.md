@@ -31,9 +31,13 @@ seeds, and assignment order remain unchanged.
 The human separately authorized **only frozen cells 87–128 once**, without
 retries or replacements, retaining cells 85 and 86 as provider failures and
 the original $230.40 cumulative estimated model-token cap. A new private
-receipt must bind that scope, the stop hashes, and the reviewed operational
-merge. Its hash remains an all-zero closed gate in this proposal. A separate
-approval-pin change is required before any paid call. Fresh public no-key
+receipt binds that scope, the stop hashes, and the reviewed operational
+merge. The operational recovery merged as
+`b1a302a25efba45dd650be08767a26b03a58e9da`. A private create-only
+mode-0600 receipt passed the exact-scope parser with SHA-256
+`df3713fc5071523ce0d5a198898b1349a4ef7de7e83e08f6c615a567ecd0d0d6`.
+This separate approval-pin change binds those two hashes; no paid call is
+permitted before its exact-head CI and merge. Fresh public no-key
 endpoint metadata and the original selected-provider response check remain
 mandatory. The continuation starts one new provider-health epoch at cell 87;
 another gate or interruption stops it again without automatic resumption.
