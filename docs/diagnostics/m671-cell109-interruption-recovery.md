@@ -28,12 +28,15 @@ Original stopped and failed first-launch evidence remain pinned and unchanged.
 
 The human has authorized **exactly one new launch for frozen cells 110–128,
 once each**, with no retry or replacement of cell 109. Cells 85–86 retain
-their provider failures. The new operational wrapper is closed with zero
-approval and merge pins. It requires a separate create-once, mode-0600 private
-approval bound to this scope, the reviewed operational merge, the interrupted
-trace and active reservation, the original model/price, and the $230.40 cap.
-No new paid call may occur before exact-head CI, merge, clean execution
-checkout, and full read-only admission.
+their provider failures. The operational wrapper initially had zero approval
+and merge pins. PR #61 passed exact-head CI and merged as
+`84a173dd5d9abcec66ba4092cea8b648cb432ede`. The separate create-once,
+mode-0600 private approval for the exact human scope passed its parser; its
+SHA-256 is
+`9753fad9f52c7768e9aa9fd8cf9e3a78fef97fbf68c93ae0273084e24a6533c2`.
+It binds the interrupted trace and active reservation, original model/price,
+and $230.40 cap. No new paid call may occur before this pin passes exact-head
+CI, merges, and a clean execution checkout passes full read-only admission.
 
 The frozen generic pre-call guard rejects every active reservation. This
 recovery admits only the pinned cell-109 reservation, charges its full cell

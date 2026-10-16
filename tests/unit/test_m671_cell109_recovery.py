@@ -25,8 +25,10 @@ def test_new_paid_range_starts_after_interrupted_cell() -> None:
     assert [cell["order"] for _, pair in pairs for cell in pair if cell["order"] >= 110] == list(
         range(110, 129)
     )
-    assert recovery.NEW_APPROVAL_SHA256 == "0" * 64
-    assert recovery.OPERATIONAL_MERGE_COMMIT == "0" * 40
+    assert recovery.NEW_APPROVAL_SHA256 == (
+        "9753fad9f52c7768e9aa9fd8cf9e3a78fef97fbf68c93ae0273084e24a6533c2"
+    )
+    assert recovery.OPERATIONAL_MERGE_COMMIT == "84a173dd5d9abcec66ba4092cea8b648cb432ede"
     changed = json.loads(json.dumps(MANIFEST))
     changed["cells"][109]["order"] = 109
     with pytest.raises(ValueError, match="exact frozen paid range"):
