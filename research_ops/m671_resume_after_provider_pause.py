@@ -143,6 +143,28 @@ def scoped_approval(path: Path, manifest: dict[str, object]) -> dict[str, object
     return approval
 
 
+def pending_pairs(manifest: dict[str, object]) -> list[tuple[int, list[dict[str, object]]]]:
+    """Select only pairs whose two cells are in the newly approved range."""
+    first_pair_index = (FIRST_PAID_ORDER + 1) // 2
+    if first_pair_index != STOP_PAIRS + 2:
+        raise ValueError("retained pair boundary differs from paid continuation")
+    pairs = []
+    cells = manifest["cells"]
+    for pair_index in range(first_pair_index, CELL_COUNT // 2 + 1):
+        pair = cells[2 * pair_index - 2 : 2 * pair_index]
+        if (
+            len(pair) != 2
+            or pair[0]["pair_id"] != pair[1]["pair_id"]
+            or {cell["variant"] for cell in pair} != {"vulnerable", "patched"}
+        ):
+            raise ValueError("frozen continuation pair differs")
+        pairs.append((pair_index, pair))
+    orders = [int(cell["order"]) for _, pair in pairs for cell in pair]
+    if orders != list(range(FIRST_PAID_ORDER, LAST_PAID_ORDER + 1)):
+        raise ValueError("continuation pairs are not the exact frozen paid range")
+    return pairs
+
+
 def no_other_collector() -> None:
     output = subprocess.check_output(["ps", "-axo", "pid=,command="], text=True)
     for line in output.splitlines():
@@ -298,12 +320,7 @@ async def continue_cells(args: argparse.Namespace) -> dict[str, object]:
             guard = EndpointGuard()  # One new health epoch starts at cell 87.
             later: list[dict[str, object]] = []
             conservative = STOP_CONSERVATIVE_COST
-            for pair_index in range(STOP_PAIRS + 1, CELL_COUNT // 2 + 1):
-                pair = manifest["cells"][2 * pair_index - 2 : 2 * pair_index]
-                if pair[0]["pair_id"] != pair[1]["pair_id"] or {
-                    cell["variant"] for cell in pair
-                } != {"vulnerable", "patched"}:
-                    raise ValueError("frozen continuation pair differs")
+            for pair_index, pair in pending_pairs(manifest):
                 endpoint = endpoint_receipt()
                 endpoint_hash = create_json(
                     continuation_root / f"endpoint-preflight-{pair_index}.json", endpoint
