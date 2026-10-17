@@ -23,8 +23,10 @@ def test_paid_range_excludes_every_started_cell() -> None:
     pairs = recovery.pending_pairs(MANIFEST)
     assert [index for index, _ in pairs] == list(range(59, 65))
     assert [cell["order"] for _, pair in pairs for cell in pair] == list(range(117, 129))
-    assert recovery.NEW_APPROVAL_SHA256 == "0" * 64
-    assert recovery.OPERATIONAL_MERGE_COMMIT == "0" * 40
+    assert recovery.NEW_APPROVAL_SHA256 == (
+        "9be3e874027e2bca95767386df988d3a08e350675c35a36db820c5b1fae527e5"
+    )
+    assert recovery.OPERATIONAL_MERGE_COMMIT == "19610f733dcd32dc83c2ad1dc938ea0659a22626"
     changed = json.loads(json.dumps(MANIFEST))
     changed["cells"][116]["order"] = 116
     with pytest.raises(ValueError, match="exact frozen paid range"):
