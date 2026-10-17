@@ -32,8 +32,12 @@ unexpected terminal status is journaled only as a sanitized failure class
 and stops the launch. A new paid launch requires a separate create-once
 mode-0600 approval bound to the exact user-authorized cells 117–128, this
 stopped evidence, the reviewed operational merge, selected endpoint and
-price, and the original cumulative cap. Approval and merge pins remain zero
-until the operational change passes exact-head CI and merges.
+price, and the original cumulative cap. Operational PR #65 passed exact-head
+CI and merged as `19610f733dcd32dc83c2ad1dc938ea0659a22626` with both
+reviewed commits preserved. The separate private create-once approval passed
+the exact-scope parser; only its SHA-256 is pinned in the wrapper. The paid
+launch still requires this approval-pin change to pass exact-head CI and merge,
+then all read-only prelaunch gates to pass.
 
 This is descriptive excluded feasibility work. Frozen source, protocol,
 manifest, model, checkpoints, seeds, assignment order, prior journals, and
