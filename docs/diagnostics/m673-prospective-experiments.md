@@ -8,6 +8,8 @@ Fresh seeds come from a precommitted hash of a future public protocol identifier
 
 The future controller must preserve synthetic-range gateway boundaries, record model-visible request/response hashes, tool-call IDs, source trace and checkpoint hashes, decision opportunities, provider usage, and endpoint health. Preflight requires a no-model public-information path, no hidden anchor in any model-visible request, and exact source/protocol pins. Stop on provider drift, unauditable source events, unexpected reservation state, cap pressure, or contaminated randomization. A later paid approval must specify a conservative cumulative estimated token cap; the ceiling is `assigned cells × per-cell input/output token ceilings × pinned prices`, plus retained reservations and prior study charges when sharing the cap. These proposals do not reserve funds.
 
+For scale only, applying M6.7.1's **$1.80 per-cell ceiling** to the proposed sizes yields E1 $57.60, E2A $86.40, E2B $57.60, and E3 $115.20. Applying that deliberately generous per-call ceiling to E4's 56 proposed requests yields $100.80. These figures are independent planning ceilings, not a combined budget or paid authorization. A future protocol must recalculate from then-current pinned model pricing, input/output token ceilings, and any cumulative prior charges before seeking approval.
+
 ## E1 — Argument representation and experiment activation
 
 - **Question and alternatives:** Does a typed UUID boundary suppress model-authored experiment activation? A tolerant parser could raise acceptance while public object grounding and subsequent action remain unchanged.
