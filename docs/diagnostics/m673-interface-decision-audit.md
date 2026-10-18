@@ -84,7 +84,7 @@ The strict UUID argument representation demonstrably blocked all observed experi
 
 ## E. Implications for independent follow-up
 
-E1 changes only argument representation and measures assignment-level activation **plus** grounding and later use. E2A changes only deadline slack; E2B separately changes public information. E3 offers only a generic model-authored postcondition reminder and measures action-plus-observation among all assigned cells. E4 statically specifies relevant/irrelevant request deltas for a separately approved capped diagnostic. The protocols, missingness rules, negative controls, and proposed balanced cohort sizes are specified in the companion document. The synthetic no-model qualification passed **10/10** cases with zero provider calls; [`m673-no-model-qualification.json`](m673-no-model-qualification.json) has SHA-256 `4780eac2660adbafb447a4aa3b89a1ad1c2cb2be7120779142d753229228d3b6`.
+E1 changes only argument representation and measures assignment-level activation **plus** grounding and later use. E2A changes only deadline slack; E2B separately changes public information. E3 offers only a generic model-authored postcondition reminder and measures action-plus-observation among all assigned cells. E4 statically specifies relevant/irrelevant request deltas for a separately approved capped diagnostic. The protocols, missingness rules, negative controls, and proposed balanced cohort sizes are specified in the companion document. The synthetic no-model qualification passed **11/11** cases with zero provider calls; [`m673-no-model-qualification.json`](m673-no-model-qualification.json) has SHA-256 `3a26858a6353109794175df9f52f148e62b796a5e1bc9093bc5aec94dd7b6659`.
 
 ## F. Boundaries and reproducibility
 

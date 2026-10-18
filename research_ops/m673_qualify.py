@@ -11,6 +11,7 @@ from offsecgym.research.m673_audit import sha
 from offsecgym.research.m673_experiment_design import (
     public_queue_qualification,
     qualify_model_authored_closure,
+    replay_argument_schemas,
     simulate_http_opportunities,
     static_request_perturbation,
 )
@@ -28,7 +29,22 @@ def qualification() -> dict[str, object]:
         "total": 2,
     }
     route = {"identity_visible": True, "jobs_route_visible": True, "cancel_route_visible": True}
+    schema_replay = replay_argument_schemas(
+        {
+            "hypothesis": "Synthetic hypothesis",
+            "subject_identity": None,
+            "target_objects": ["change:123e4567-e89b-12d3-a456-426614174000"],
+            "preconditions": [],
+            "planned_steps": ["observe"],
+            "expected_positive_observation": "changed",
+            "expected_negative_observation": "unchanged",
+            "required_evidence": [],
+        }
+    )
     cases = {
+        "tolerant_schema_accepts_wrapped_uuid_only_as_data": (
+            schema_replay["opaque_string"] and not schema_replay["strict_uuid"]
+        ),
         "oracle_only_reference_is_ungrounded": not ground_reference(
             "hidden-object", [{"instructions": "Synthetic public task", "input": []}]
         )["supported_by_context"],
