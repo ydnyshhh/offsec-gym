@@ -106,7 +106,7 @@ def main() -> None:
                 path.relative_to(root).as_posix(): sha(path)
                 for path in (
                     root / "src/offsecgym/research/m673_experiment_design.py",
-                root / "src/offsecgym/research/m673_interface_grounding.py",
+                    root / "src/offsecgym/research/m673_interface_grounding.py",
                     root / "src/offsecgym/research/m673_opportunity.py",
                     root / "research_ops/m673_qualify.py",
                 )
