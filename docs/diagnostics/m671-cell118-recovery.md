@@ -15,3 +15,7 @@ The prior cell 116 approval is consumed. This collector remains closed until a d
 An isolated synthetic range with seed 900001 started healthy and was destroyed with zero provider calls. Its separate qualification receipt SHA-256 is `8d086e9bdbd3a7e66c7c15e4e19efa1d36b51ee44ac435ef5f86bb974ec1e131`. This qualifies the current Docker path; it does not establish the historical cause of cell 118's failure or guarantee future range starts.
 
 The collector stops on any unexpected terminal status or integrity drift and writes only sanitized failure evidence. No additional paid launch or started-cell retry is implied by this recovery.
+
+## CI validation window
+
+The same full Docker-backed `pytest -q` gate passed for PR #67 in about 56–58 minutes. Both exact-head PR #68 jobs reached the existing 60-minute Test-step deadline without an assertion failure; their last completed progress markers were 8% and 16%. The Test-step deadline is now 75 minutes and its containing job deadline is 80 minutes. The workflow triggers, check name, permissions, and test command are unchanged. This gives the observed workload room to finish while retaining a bounded failure deadline; PR #68 still requires new exact-head CI success before merge.
