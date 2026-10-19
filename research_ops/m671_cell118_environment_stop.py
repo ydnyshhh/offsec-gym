@@ -76,7 +76,9 @@ def stopped_cell118_records(
     failure_path = root / "failed-cell-118.json"
     preflight = root / "endpoint-preflight-59.json"
     if (
-        any(
+        root.is_symlink()
+        or not root.is_dir()
+        or any(
             path.is_symlink() or not path.is_file()
             for path in (journal, log, failure_path, preflight)
         )
