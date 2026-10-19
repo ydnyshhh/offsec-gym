@@ -4,7 +4,7 @@
     "missing_public_listing_remains_unknown": true,
     "one_call_is_insufficient": true,
     "one_public_candidate_two_calls": true,
-    "oracle_only_reference_is_ungrounded": true,
+    "oracle_only_reference_is_not_context_observed": true,
     "read_advances_worker_tick": true,
     "reminder_does_not_execute_observation": true,
     "request_perturbation_is_detached": true,
@@ -12,7 +12,7 @@
     "two_queued_candidates_remain_ambiguous": true,
     "wrong_identity_rejected": true
   },
-  "code_sha256": "365ee50d3d7aad51e7b9ab273df423082dbaffeba5472ace7d8e94ffc05e8765",
+  "code_sha256": "806ad487ab5644ee3b6b93ed425d2e6f8197aa2359097245e2940df7ce5327e6",
   "effect_estimate": null,
   "kind": "synthetic_no_model_qualification",
   "passed": 11,

@@ -45,9 +45,9 @@ def qualification() -> dict[str, object]:
         "tolerant_schema_accepts_wrapped_uuid_only_as_data": (
             schema_replay["opaque_string"] and not schema_replay["strict_uuid"]
         ),
-        "oracle_only_reference_is_ungrounded": not ground_reference(
+        "oracle_only_reference_is_not_context_observed": not ground_reference(
             "hidden-object", [{"instructions": "Synthetic public task", "input": []}]
-        )["supported_by_context"],
+        )["context_observed"],
         "one_public_candidate_two_calls": public_queue_qualification(
             listing=unique, opportunities=2, **route
         )["feasible_before_deadline"]

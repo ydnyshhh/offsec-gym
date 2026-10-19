@@ -32,7 +32,7 @@ def test_embedded_uuid_is_representation_mismatch_and_opaque_parse_only() -> Non
         "structured_public_reference": False,
     }
     assert not ground_reference(reference, [{"instructions": "synthetic", "input": []}])[
-        "supported_by_context"
+        "context_observed"
     ]
 
 
@@ -55,7 +55,7 @@ def test_rejection_echo_is_not_public_grounding() -> None:
     assert not ground_reference(reference, [request])["identifier_observed"]
 
 
-def test_public_uuid_observation_can_ground_wrapped_reference_without_oracle() -> None:
+def test_delivered_uuid_is_context_observed_without_source_provenance() -> None:
     reference = "change:123e4567-e89b-12d3-a456-426614174000"
     request = {
         "input": [
@@ -72,11 +72,28 @@ def test_public_uuid_observation_can_ground_wrapped_reference_without_oracle() -
     }
     result = ground_reference(reference, [request])
     assert result["identifier_observed"]
-    assert result["uniquely_resolvable"]
-    assert result["public_candidate_count"] == 1
+    assert result["context_observed"]
+    assert result["public_source_grounded"] is None
+    assert result["object_resolved"] is None
+
+
+def test_model_authored_echo_does_not_establish_public_source_grounding() -> None:
+    reference = "change:123e4567-e89b-12d3-a456-426614174000"
+    request = {
+        "input": [
+            {
+                "type": "function_call_output",
+                "output": json.dumps({"hypothesis_echo": reference}),
+            }
+        ]
+    }
+    result = ground_reference(reference, [request])
+    assert result["context_observed"]
+    assert result["public_source_grounded"] is None
+    assert result["object_resolved"] is None
 
 
 def test_invented_reference_and_hidden_only_id_are_unsupported() -> None:
     result = ground_reference("invented-change", [{"instructions": "synthetic", "input": []}])
-    assert not result["supported_by_context"]
-    assert result["public_candidate_ids"] == []
+    assert not result["context_observed"]
+    assert result["public_source_grounded"] is None

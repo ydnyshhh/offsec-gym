@@ -14,7 +14,7 @@ The first model request and its verified later request artifacts define model-vi
 
 ## Analysis units and limits
 
-The experiment-interface unit is a model-originated `start_experiment` function call, keyed by run, model call, and tool-call ID. Replay proposed JSON against the unchanged strict Pydantic schema and offline alternate schemas. Parse acceptance, public grounding, uniqueness, target correctness, controller feedback, and later repair are separate fields. Alternate schemas are never dispatched to the event store.
+The experiment-interface unit is a model-originated `start_experiment` function call, keyed by run, model call, and tool-call ID. Replay proposed JSON against the unchanged strict Pydantic schema and offline alternate schemas. Context occurrence, verified public-source grounding, and typed object resolution are distinct: only the first is classified by this audit, since delivered tool content can echo model-authored text. Parse acceptance, target correctness, controller feedback, and later repair are separate fields. Alternate schemas are never dispatched to the event store.
 
 B3 opportunity reconstruction begins with the exact first model request. Physical reachability may use a private target anchor for a separate counterfactual, while epistemic identifiability uses only public data and route relationships. Ambiguous candidate sets and inaccessible prerequisites remain unknown or underdetermined. The historical worker clock is read from verified event and checkpoint evidence; no environment is restarted.
 

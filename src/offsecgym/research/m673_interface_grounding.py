@@ -67,10 +67,9 @@ def reference_category(value: object) -> str:
     return "opaque_or_entity_name"
 
 
-def _external_visible(requests: list[dict[str, object]]) -> tuple[str, list[object]]:
-    """Exclude model-authored assistant history and proposed arguments."""
+def _delivered_context(requests: list[dict[str, object]]) -> str:
+    """Find delivered text, including tool echoes; this does not establish provenance."""
     texts: list[str] = []
-    outputs: list[object] = []
     for request in requests:
         instructions = request.get("instructions")
         if isinstance(instructions, str):
@@ -89,55 +88,18 @@ def _external_visible(requests: list[dict[str, object]]) -> tuple[str, list[obje
                     if "invalid_tool_arguments" in raw and "invalid_tool_call" in raw:
                         continue
                     texts.append(raw)
-                    try:
-                        outputs.append(json.loads(raw))
-                    except ValueError:
-                        pass
-    return "\n".join(texts).casefold(), outputs
-
-
-def _public_ids_for_reference(value: str, outputs: list[object]) -> set[str]:
-    matches: set[str] = set()
-
-    def walk(node: object) -> None:
-        if isinstance(node, list):
-            for item in node:
-                walk(item)
-        elif isinstance(node, dict):
-            identity = node.get("id")
-            if isinstance(identity, str):
-                try:
-                    canonical = str(UUID(identity))
-                except ValueError:
-                    canonical = None
-                if canonical is not None and (
-                    value.casefold()
-                    in {
-                        str(node.get(key, "")).casefold()
-                        for key in ("id", "name", "title", "slug", "label")
-                    }
-                    or value.casefold() == canonical.casefold()
-                ):
-                    matches.add(canonical)
-            for child in node.values():
-                walk(child)
-
-    for output in outputs:
-        walk(output)
-    return matches
+    return "\n".join(texts).casefold()
 
 
 def ground_reference(value: object, requests: list[dict[str, object]]) -> dict[str, object]:
-    visible_text, outputs = _external_visible(requests)
+    visible_text = _delivered_context(requests)
     if not isinstance(value, str) or not value:
         return {
             "identifier_observed": False,
             "entity_name_observed": False,
-            "publicly_resolvable": False,
-            "uniquely_resolvable": False,
-            "supported_by_context": False,
-            "public_candidate_count": 0,
-            "public_candidate_ids": [],
+            "context_observed": False,
+            "public_source_grounded": None,
+            "object_resolved": None,
         }
     try:
         uuid = str(UUID(value))
@@ -146,17 +108,15 @@ def ground_reference(value: object, requests: list[dict[str, object]]) -> dict[s
         uuid = str(UUID(embedded[0])) if len(embedded) == 1 else None
     observed_uuid = bool(uuid and uuid.casefold() in visible_text)
     observed_name = bool(uuid is None and value.casefold() in visible_text)
-    candidates = _public_ids_for_reference(value, outputs)
-    if uuid and observed_uuid:
-        candidates.add(uuid)
     return {
         "identifier_observed": observed_uuid,
         "entity_name_observed": observed_name,
-        "publicly_resolvable": bool(candidates),
-        "uniquely_resolvable": len(candidates) == 1,
-        "supported_by_context": observed_uuid or observed_name,
-        "public_candidate_count": len(candidates),
-        "public_candidate_ids": sorted(candidates),
+        "context_observed": observed_uuid or observed_name,
+        # Delivered instructions and function outputs may echo model-authored data.
+        # Proven public origin and object/type resolution require a separate,
+        # event-linked gateway provenance audit; neither is inferred here.
+        "public_source_grounded": None,
+        "object_resolved": None,
     }
 
 
@@ -241,8 +201,7 @@ def analyze_interface(snapshot: AuditSnapshot) -> tuple[dict[str, object], list[
                             if isinstance(entry, str) and re.match(r"^[A-Za-z_]+:", entry)
                             else "other_wrapper"
                         ] += 1
-                    grounding["supported_entries"] += bool(ground["supported_by_context"])
-                    grounding["unique_entries"] += bool(ground["uniquely_resolvable"])
+                    grounding["context_entries"] += bool(ground["context_observed"])
                     grounding["total_entries"] += 1
                 parse = {
                     "strict_uuid": parses(StartExperimentArgs, args),
@@ -334,9 +293,7 @@ def analyze_interface(snapshot: AuditSnapshot) -> tuple[dict[str, object], list[
                         "feedback_visible_next_request": visible_feedback,
                         "later_retry": retry is not None,
                         "retry_changed_target_objects": retry_changed,
-                        "would_resolve_to_real_entity": all(r["publicly_resolvable"] for r in refs)
-                        if refs
-                        else False,
+                        "would_resolve_to_real_entity": None,
                         "would_support_correct_experiment": None,
                     }
                 )
@@ -361,11 +318,11 @@ def analyze_interface(snapshot: AuditSnapshot) -> tuple[dict[str, object], list[
                 ).items()
             )
         ),
-        "grounded_reference_entries": grounding["supported_entries"],
-        "uniquely_resolvable_reference_entries": grounding["unique_entries"],
-        "all_references_grounded_proposals": sum(
-            bool(row["references"])
-            and all(ref["supported_by_context"] for ref in row["references"])
+        "context_observed_reference_entries": grounding["context_entries"],
+        "public_source_grounded_reference_entries": None,
+        "object_resolved_reference_entries": None,
+        "all_references_context_observed_proposals": sum(
+            bool(row["references"]) and all(ref["context_observed"] for ref in row["references"])
             for row in private_rows
         ),
         "correct_experiment_identity_established": None,
