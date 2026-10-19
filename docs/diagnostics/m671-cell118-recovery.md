@@ -12,6 +12,8 @@ The new one-pass collector selects only frozen cells 119–128, in pair order 60
 
 The prior cell 116 approval is consumed. This collector remains closed until a distinct mode-0600, create-once `cell118-paid-approval.json` is bound to the new exact scope and its SHA-256 is pinned in reviewed code. The receipt's `approved_cell_ids` lists the frozen manifest for compatibility with the unchanged protocol guard; `paid_cell_ids` and the operational range restrict actual paid work to 119–128. The collector checks both on every cell. It also requires the reviewed operational merge commit as an ancestor, the fixed source/protocol/manifest, a fresh public endpoint preflight, the pinned Docker `default` context, authoritative run inventory, and the original cumulative cap before each new cell.
 
+The distinct approval receipt for cells 119–128 was created once at mode 0600 with SHA-256 `b3d198e9177e6896e6b05fdd8e2391a324d9f460d37829c97e8ed7c0d871a287`. The operational recovery merge is `229fa8b5054afe54675d5868642f3eac5d302d13`. Both values are pinned in this separate approval change. The private receipt contents are not committed.
+
 An isolated synthetic range with seed 900001 started healthy and was destroyed with zero provider calls. Its separate qualification receipt SHA-256 is `8d086e9bdbd3a7e66c7c15e4e19efa1d36b51ee44ac435ef5f86bb974ec1e131`. This qualifies the current Docker path; it does not establish the historical cause of cell 118's failure or guarantee future range starts.
 
 The collector stops on any unexpected terminal status or integrity drift and writes only sanitized failure evidence. No additional paid launch or started-cell retry is implied by this recovery.

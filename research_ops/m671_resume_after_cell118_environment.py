@@ -88,8 +88,8 @@ from offsecgym.storage.tables import model_reservations, run_usage
 CONTINUATION_SCOPE = "m671_feasibility_cells_119_through_128_once_after_cell118_environment_failure"
 FIRST_PAID_ORDER = 119
 LAST_PAID_ORDER = 128
-NEW_APPROVAL_SHA256 = "0" * 64  # Filled only after a distinct create-once approval.
-OPERATIONAL_MERGE_COMMIT = "0" * 40  # Filled only after exact-head review and merge.
+NEW_APPROVAL_SHA256 = "b3d198e9177e6896e6b05fdd8e2391a324d9f460d37829c97e8ed7c0d871a287"
+OPERATIONAL_MERGE_COMMIT = "229fa8b5054afe54675d5868642f3eac5d302d13"
 PREVIOUS_PIN_MERGE_COMMIT = "609d33ae85c29ed1b342832bf5619885ea4f6c8a"
 QUALIFICATION_SHA256 = "8d086e9bdbd3a7e66c7c15e4e19efa1d36b51ee44ac435ef5f86bb974ec1e131"
 STOPPED_AT = datetime.fromisoformat("2026-10-18T04:59:21+00:00")
