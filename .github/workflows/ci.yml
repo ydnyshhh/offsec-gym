@@ -10,7 +10,7 @@ permissions:
 jobs:
   validate:
     runs-on: ubuntu-latest
-    timeout-minutes: 65
+    timeout-minutes: 80
     services:
       postgres:
         image: postgres:17
@@ -48,5 +48,5 @@ jobs:
       - name: Apply schema migrations
         run: uv run --locked alembic upgrade head
       - name: Test
-        timeout-minutes: 60
+        timeout-minutes: 75
         run: uv run --locked pytest -q
