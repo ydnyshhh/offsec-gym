@@ -54,4 +54,6 @@ M6.8.5 should use detached synthetic requests to specify one context factor per 
 
 ## Remaining gates
 
+The [M6.8.1 readiness review and prospective protocol draft](m681-readiness-protocol-draft.md) records the missing runtime and no-model evidence and a proposed all-assigned evaluation. Its current live-collection decision is no-go.
+
 Before any M6.8 live study: review and merge the relevant source independently; pin exact execution-critical hashes; review a separate prospective protocol; complete no-model qualification; verify model and provider metadata, budgets, and stopped-evidence integrity; then obtain a distinct exact-scope private approval. No M6.7.1 approval or planning cost ceiling authorizes M6.8 execution. This note supplies none of those gates and makes no claim that M6.8.1 is ready for a paid protocol.
