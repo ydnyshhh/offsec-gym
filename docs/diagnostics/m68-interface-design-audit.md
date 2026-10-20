@@ -1,6 +1,6 @@
 # M6.8 interface study: source audit and prospective design
 
-**Status:** offline syntax qualification only. The detached helper `m681_reference_syntax.py` parses prespecified public reference syntax in memory; it is not connected to the agent/controller runtime. This work does not implement a live treatment, qualify a range, freeze a manifest, approve spending, or run a model. The frozen M6.7 and M6.7.1 artifacts remain untouched.
+**Status:** offline syntax qualification and historical replay only. The detached helper `m681_reference_syntax.py` parses prespecified public reference syntax in memory; it is not connected to the agent/controller runtime. This work does not implement a live treatment, qualify a range, freeze a manifest, approve spending, or run a model. The frozen M6.7 and M6.7.1 artifacts remain untouched.
 
 ## Repository basis
 
@@ -38,7 +38,7 @@ The focused synthetic tests assert strict control acceptance, typed-reference id
 
 **Separate stages:** reference proposed; assigned syntax accepted; state persisted; independently public-source grounded; declared public object type resolved; state retrieved or updated later; planned action attempted; relevant gateway action completed; required observation and transition verified. Keep unknown values `null`. A model-visible echo does not prove public provenance. An experiment marked completed by the model does not imply verified task success. Report token, call, and HTTP overhead separately.
 
-**Historical qualification still needed:** Reprocess the 18 original proposals offline under the original schema and the exact prospective grammar, retaining private per-call rows outside public artifacts. Publish only aggregate eligibility and acceptance counts with unresolved provenance clearly marked. Historical replay is not a treatment-effect estimate. The helper supports in-memory replay; no private historical proposals were read or replayed for this PR.
+**Historical qualification completed offline:** The pinned, private M6.7.3 audit detail file (SHA-256 `34bc9b4a9348fcf3a324ea7265a6e8d53d076e5d8e96778354bee1b008093647`) was replayed against the original Pydantic schema, the prespecified grammar, and Pydantic validation after normalization. The checksum-guarded replay code is `research_ops/m681_replay.py`. It stores 18 per-call rows in a new mode-0700 private directory with a mode-0600 file; [the public aggregate](m681-historical-replay.json) contains no proposal IDs or UUIDs. Strict validation accepted 0/18 proposals. The grammar accepted 27/43 individual references, but only 4/18 complete proposals had every target eligible. All four passed Pydantic validation after lossless normalization. This is syntax qualification only; independent public-source provenance, object resolution, and correct-target correspondence remain unknown. Historical replay is not a treatment-effect estimate.
 
 **No-model qualification still needed:** A later source PR should demonstrate strict control compatibility, one unambiguous treatment acceptance, malformed-reference rejection, persistence and later retrieval, exact UUID preservation, and identical provider-facing schemas in the actual controller. The focused tests here cover only detached syntax; they do not claim controller or Compose qualification.
 
