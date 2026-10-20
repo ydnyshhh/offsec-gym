@@ -1,6 +1,6 @@
 # M6.8 interface study: source audit and prospective design
 
-**Status:** documentation only. This note does not implement a treatment, qualify a range, freeze a manifest, approve spending, or run a model. It is a review aid for a future M6.8.1 source change. The frozen M6.7 and M6.7.1 artifacts remain untouched.
+**Status:** offline syntax qualification only. The detached helper `m681_reference_syntax.py` parses prespecified public reference syntax in memory; it is not connected to the agent/controller runtime. This work does not implement a live treatment, qualify a range, freeze a manifest, approve spending, or run a model. The frozen M6.7 and M6.7.1 artifacts remain untouched.
 
 ## Repository basis
 
@@ -18,7 +18,13 @@ The M6.7.3 report records 18 model-authored `start_experiment` proposals in 12 c
 6. The controller serializes the returned view as `function_call_output`; it is carried into the next model request. Later state retrieval or updates require separate model-authored calls and events. Stored model-marked progress is not a verified gateway action or security transition.
 7. The rejection path records `ModelToolRejected` with a bounded reason code and returns `invalid_tool_call` feedback. The loop can stop after three invalid calls. The M6.7.3 audit observed this path; it did not observe a successful historical activation.
 
-The prospective representation comparison therefore belongs at the controller's pre-validation boundary if a later reviewed source change proceeds. Changing `StartExperimentArgs`, the provider-facing schema, the tool description, or an HTTP tool would introduce additional interventions. An implementation review must verify schema identity between arms from serialized provider requests, not only from class names.
+The prospective representation comparison therefore belongs at the controller's pre-validation boundary if a later reviewed source change proceeds. This PR does not wire the detached parser into that boundary. Changing `StartExperimentArgs`, the provider-facing schema, the tool description, or an HTTP tool would introduce additional interventions. An implementation review must verify schema identity between arms from serialized provider requests, not only from class names.
+
+## Detached syntax qualification supplied here
+
+`src/offsecgym/research/m681_reference_syntax.py` defines a pure anchored parser and an in-memory `StartExperimentArgs` replay. Its allowlist is pinned to the enterprise public entity types exposed by `range_surface`; the shorter `change` alias is deliberately unsupported. It accepts canonical bare UUIDs and `kind:canonical_uuid` strings for those public kinds. Extra text, multiple identifiers in one reference, unknown kinds, uppercase/noncanonical identifiers, descriptions, and encoded wrappers fail. It does not query a range, infer an object, create state, or modify model-facing tools. Acceptance remains an offline schema observation.
+
+The focused synthetic tests assert strict control acceptance, typed-reference identity preservation, rejection of ambiguous syntax, failure on unrelated schema errors, and allowlist agreement with the audited public surface. They do not establish any treatment effect or persistence in a real range.
 
 ## Proposed E1 identification plan
 
@@ -32,9 +38,9 @@ The prospective representation comparison therefore belongs at the controller's 
 
 **Separate stages:** reference proposed; assigned syntax accepted; state persisted; independently public-source grounded; declared public object type resolved; state retrieved or updated later; planned action attempted; relevant gateway action completed; required observation and transition verified. Keep unknown values `null`. A model-visible echo does not prove public provenance. An experiment marked completed by the model does not imply verified task success. Report token, call, and HTTP overhead separately.
 
-**Historical qualification still needed:** Reprocess the 18 original proposals offline under the original schema and the exact prospective grammar, retaining private per-call rows outside public artifacts. Publish only aggregate eligibility and acceptance counts with unresolved provenance clearly marked. Historical replay is not a treatment-effect estimate. No such replay was performed for this note.
+**Historical qualification still needed:** Reprocess the 18 original proposals offline under the original schema and the exact prospective grammar, retaining private per-call rows outside public artifacts. Publish only aggregate eligibility and acceptance counts with unresolved provenance clearly marked. Historical replay is not a treatment-effect estimate. The helper supports in-memory replay; no private historical proposals were read or replayed for this PR.
 
-**No-model qualification still needed:** A later source PR should demonstrate strict control compatibility, one unambiguous treatment acceptance, malformed-reference rejection, persistence and later retrieval, exact UUID preservation, and identical provider-facing schemas. This note does not claim those tests passed.
+**No-model qualification still needed:** A later source PR should demonstrate strict control compatibility, one unambiguous treatment acceptance, malformed-reference rejection, persistence and later retrieval, exact UUID preservation, and identical provider-facing schemas in the actual controller. The focused tests here cover only detached syntax; they do not claim controller or Compose qualification.
 
 ## Independent follow-up studies
 
