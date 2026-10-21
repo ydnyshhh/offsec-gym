@@ -1,7 +1,7 @@
 """Replay retained M6.7.3 proposals against detached M6.8.1 syntax rules.
 
 This command reads a pinned private audit file and writes a private row table plus
-public aggregate. It never imports the agent, gateway, provider, or database.
+public aggregate. It makes no provider call or database connection.
 """
 
 from __future__ import annotations
@@ -15,7 +15,11 @@ import stat
 from collections import Counter
 from pathlib import Path
 
+import pydantic
+
 from offsecgym.research import m681_reference_syntax as syntax
+from offsecgym.schemas import common as schema_common
+from offsecgym.solver import experiment_state as schema_source
 
 _UUID_FRAGMENT = re.compile(
     r"[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-"
@@ -25,6 +29,29 @@ _UUID_FRAGMENT = re.compile(
 
 def _canonical(value: object) -> bytes:
     return (json.dumps(value, sort_keys=True, separators=(",", ":")) + "\n").encode()
+
+
+def source_pins() -> dict[str, str]:
+    """Identify all local code and validation dependencies of the replay."""
+    return {
+        "parser_source_sha256": hashlib.sha256(Path(syntax.__file__).read_bytes()).hexdigest(),
+        "schema_source_sha256": hashlib.sha256(
+            Path(schema_source.__file__).read_bytes()
+        ).hexdigest(),
+        "schema_common_source_sha256": hashlib.sha256(
+            Path(schema_common.__file__).read_bytes()
+        ).hexdigest(),
+        "replay_source_sha256": hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
+        "pydantic_version": pydantic.__version__,
+    }
+
+
+def verify_source_pins(expected: dict[str, str]) -> None:
+    """Reject a replay when its declared code or validator differs."""
+    actual = source_pins()
+    for name, value in actual.items():
+        if expected.get(name) != value:
+            raise ValueError(f"source pin mismatch: {name}")
 
 
 def replay(rows: object, input_sha256: str) -> tuple[dict[str, object], list[dict[str, object]]]:
@@ -101,7 +128,7 @@ def replay(rows: object, input_sha256: str) -> tuple[dict[str, object], list[dic
         "milestone": "M6.8.1",
         "scope": "offline_historical_syntax_replay",
         "retained_private_input_sha256": input_sha256,
-        "parser_source_sha256": hashlib.sha256(Path(syntax.__file__).read_bytes()).hexdigest(),
+        **source_pins(),
         "proposals": {"total": len(rows), **dict(sorted(proposal_counts.items()))},
         "references": {
             **dict(sorted(reference_counts.items())),
@@ -134,9 +161,23 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--private-input", type=Path, required=True)
     parser.add_argument("--expected-sha256", required=True)
+    parser.add_argument("--expected-parser-sha256", required=True)
+    parser.add_argument("--expected-schema-sha256", required=True)
+    parser.add_argument("--expected-schema-common-sha256", required=True)
+    parser.add_argument("--expected-replay-sha256", required=True)
+    parser.add_argument("--expected-pydantic-version", required=True)
     parser.add_argument("--private-output", type=Path, required=True)
     parser.add_argument("--public-output", type=Path, required=True)
     args = parser.parse_args()
+    verify_source_pins(
+        {
+            "parser_source_sha256": args.expected_parser_sha256,
+            "schema_source_sha256": args.expected_schema_sha256,
+            "schema_common_source_sha256": args.expected_schema_common_sha256,
+            "replay_source_sha256": args.expected_replay_sha256,
+            "pydantic_version": args.expected_pydantic_version,
+        }
+    )
     if stat.S_IMODE(args.private_input.stat().st_mode) != 0o600:
         raise ValueError("private input must be mode 0600")
     raw = args.private_input.read_bytes()

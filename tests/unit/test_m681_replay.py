@@ -8,9 +8,10 @@ from pathlib import Path
 
 import pytest
 
-replay = runpy.run_path(str(Path(__file__).resolve().parents[2] / "research_ops/m681_replay.py"))[
-    "replay"
-]
+_module = runpy.run_path(str(Path(__file__).resolve().parents[2] / "research_ops/m681_replay.py"))
+replay = _module["replay"]
+source_pins = _module["source_pins"]
+verify_source_pins = _module["verify_source_pins"]
 
 UUID_TEXT = "123e4567-e89b-12d3-a456-426614174000"
 
@@ -63,3 +64,12 @@ def test_replay_rejects_incomplete_or_duplicate_private_inventory() -> None:
         replay([_row(0, UUID_TEXT)], "input-sha")
     with pytest.raises(ValueError, match="identity"):
         replay([_row(0, UUID_TEXT) for _ in range(18)], "input-sha")
+
+
+def test_replay_rejects_source_pin_drift() -> None:
+    expected = source_pins()
+    verify_source_pins(expected)
+    assert "schema_common_source_sha256" in expected
+    expected["schema_source_sha256"] = "0" * 64
+    with pytest.raises(ValueError, match="schema_source_sha256"):
+        verify_source_pins(expected)

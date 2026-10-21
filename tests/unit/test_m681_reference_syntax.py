@@ -101,3 +101,11 @@ def test_non_object_arguments_remain_invalid() -> None:
     assert not result.strict_schema_accepted
     assert not result.normalization_eligible
     assert not result.post_normalization_schema_accepted
+
+
+def test_empty_targets_do_not_count_as_normalization_eligible() -> None:
+    arguments = _arguments(UUID_TEXT)
+    arguments["target_objects"] = []
+    result = replay_start_arguments(arguments)
+    assert not result.normalization_eligible
+    assert result.normalized_uuids is None

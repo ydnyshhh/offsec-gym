@@ -89,7 +89,7 @@ def replay_start_arguments(arguments: object) -> OfflineReplay:
     if not isinstance(arguments, dict):
         return OfflineReplay(strict, False, strict, None, None)
     targets = arguments.get("target_objects")
-    if not isinstance(targets, list):
+    if not isinstance(targets, list) or not targets:
         return OfflineReplay(strict, False, strict, None, None)
     try:
         parsed = tuple(parse_reference(value) for value in targets)
