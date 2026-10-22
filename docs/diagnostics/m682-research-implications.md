@@ -1,0 +1,11 @@
+# M6.8.2 implications for prospective E1
+
+The historical record supports studying the reference-language contract as one distinct mechanism: 12 of 16 parser-rejected references were independently public-grounded, and 13 of 16 resolved to a unique public entity. Ten unsupported `change:` references resolved to public change-request records with a matching semantic kind; nine of those were delivered before the proposal. These results do not show that the currently proposed lossless normalizer would accept the `change:` alias, improve experiment activation, or change any finding outcome.
+
+Object grounding needs its own measurement. Five of 27 syntax-accepted references lacked established prior public grounding. Eight references overall were not established as visible before proposal. A ninth reference occurred in general context and in a verified setup-run response, but delivery from that setup source could not be proved. A future experiment should keep source availability, delivery, typed resolution, and target selection as separate endpoints.
+
+Composition is also visible as a distinct failure mode. Thirteen proposals mixed accepted and rejected entries; eight of those had all references publicly grounded, yet the complete argument array still failed the frozen grammar. A prospective protocol would need to prespecify whole-array eligibility and retain every target in the denominator.
+
+The public record does not mechanically identify whether any of the 18 free-text hypotheses was tested by its selected objects. Ten proposals contained public foreign-key links among proposed objects, but this is not a validated hypothesis-to-object mapping. A future study could collect a structured hypothesis predicate and an independently reviewable public relationship witness before testing whether an intervention changes behavior.
+
+The current evidence favors a small, separately reviewed qualification of representation and grounding instrumentation before a paid model study. E1 should not be enlarged or run from this audit alone. Any prospective model experiment needs its own frozen protocol, no-model qualification, and exact authorization; M6.8.2 made no model calls and created no approval.
