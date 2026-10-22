@@ -10,7 +10,8 @@
 | Detached grammar | Implemented offline | `m681_reference_syntax.py` SHA-256 `f9b81420771e6e8802682aa5dd6383165847f705295f3a15883fc2dae23951d5`; it is not invoked by the controller. |
 | Historical replay | Complete offline | [`m681-historical-replay.json`](m681-historical-replay.json) SHA-256 `4a984f71e9a224d3cbac4b3cd6e760a2777308053828894a771816093e34d07a`. It records exact parser, experiment schema, shared schema rules, replay-source, and validator-version pins. Four of 18 complete historical proposals passed the fixed syntax and subsequent schema. This is not a treatment effect. |
 | Runtime control/treatment comparison | Missing | No opt-in treatment is connected to the controller. The provider-facing schema has not been compared across runtime arms. |
-| No-model persistence qualification | Missing | Offline parser tests do not establish an authoritative state event or later retrieval through the controller. |
+| Detached no-model persistence qualification | Complete for scripted synthetic input | [`m681-detached-persistence-qualification.md`](m681-detached-persistence-qualification.md) records PostgreSQL state events, fresh-connection retrieval, lifecycle, and isolation. It does not exercise the controller. |
+| Live controller no-model qualification | Missing | The parser is not connected to the controller; no exact runtime treatment diff or controller-side qualification exists. |
 | Prospective protocol and approval | Draft only | No fresh assignments, execution source pin, spending cap, or M6.8.1 approval is frozen. |
 
 ## Runtime change requiring separate review
@@ -19,9 +20,9 @@ The proposed contrast changes only whether a prespecified, lossless public refer
 
 The reviewer should inspect the complete source diff and test evidence before a merge. The review must establish that the change cannot alter non-experiment tools, ordinary HTTP behavior, model-call reservation accounting, state transaction semantics, invalid-call limits, or frozen historical artifacts. Syntax acceptance alone is never evidence of public provenance, object resolution, or correct-target selection.
 
-## No-model qualification evidence required
+## No-model qualification evidence required for a future runtime change
 
-These are acceptance criteria for a separately reviewed implementation. The present draft supplies no passing runtime result.
+These are acceptance criteria for a separately reviewed runtime implementation. The detached M6.8.1.1 result covers scripted state persistence only and supplies no passing controller-side result.
 
 | Case | Required observation |
 | --- | --- |
