@@ -1,0 +1,9 @@
+# Future multi-model calibration protocol — draft only
+
+No model call, cost approval, live manifest, or leaderboard is part of T0. The first future gate is compatibility: pin model and provider identity, tool-schema support, multi-turn behavior, token accounting, output caps, provider failures, and upstream attribution. A fixed harness and task envelope are required; any necessary compatibility adaptation must be logged and reviewed as a possible confound.
+
+An excluded calibration cohort would freeze model set, task definitions, semantic-template groups, seeds, vulnerable/patched siblings, budgets, repetitions, cost ceilings, and stop rules before outcomes. Development data may debug generators; calibration data estimates difficulty; held-out data tests generalization. Seed secrecy alone does not prevent contamination from public task mechanisms.
+
+Report per-task validated success, score-valid denominator, unknown outcomes, patched false-finding behavior, stage completion, token/action use, latency, and run-to-run variation. Do not count a patched no-finding run as vulnerability discovery. Compare models on the same task definitions, and estimate uncertainty before assigning empirical bands. Provisional descriptive bands are easy 75–95%, medium 35–75%, hard 5–35%, and stretch 0–5% validated success; these are not T0 ratings. Zero success can mean a floor effect, unreachable task, bad observability, or incompatibility and requires a qualification audit.
+
+A later study may estimate model discrimination or multidimensional difficulty only when sample size and task diversity support it. The eight existing archetypes are too few to justify a psychometric fit now. All prospective inference, paid execution, and benchmark freeze require their own reviewed protocol and authorization.
