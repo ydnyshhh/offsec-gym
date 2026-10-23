@@ -15,6 +15,9 @@ from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import create_async_engine
 
 from offsecgym import __version__
+from offsecgym.benchmark.manifests import make_unguided_manifest
+from offsecgym.benchmark.qualification import default_registry_manifests
+from offsecgym.benchmark.tasks import TaskManifest
 from offsecgym.config import Settings
 from offsecgym.experiment import (
     BootstrappedMonolithicExperimentRunner,
@@ -45,9 +48,51 @@ app = typer.Typer(help="Synthetic-range research platform")
 range_app = typer.Typer(help="Build and manage isolated synthetic ranges")
 spec_app = typer.Typer(help="Versioned input specifications")
 experiment_app = typer.Typer(help="Run deterministic synthetic-range experiments")
+benchmark_app = typer.Typer(help="Inspect detached benchmark task metadata")
+benchmark_tasks_app = typer.Typer(help="List and validate public-safe task definitions")
 app.add_typer(range_app, name="range")
 app.add_typer(spec_app, name="spec")
 app.add_typer(experiment_app, name="experiment")
+app.add_typer(benchmark_app, name="benchmark")
+benchmark_app.add_typer(benchmark_tasks_app, name="tasks")
+
+
+def _default_benchmark_manifests() -> tuple[TaskManifest, ...]:
+    return default_registry_manifests() + tuple(
+        make_unguided_manifest(family, variant="vulnerable", seed=42)
+        for family in ("saas", "enterprise_change_control_v1")
+    )
+
+
+@benchmark_tasks_app.command("list")
+def benchmark_tasks_list() -> None:
+    """List task identities and public modes without private bindings."""
+    for manifest in _default_benchmark_manifests():
+        typer.echo(
+            f"{manifest.task.archetype_id}\t{manifest.task.task_id}\t{manifest.public.task_mode}"
+        )
+
+
+@benchmark_tasks_app.command("inspect")
+def benchmark_tasks_inspect(task_id: str) -> None:
+    """Print only the public envelope for a registered development task."""
+    for manifest in _default_benchmark_manifests():
+        if manifest.task.task_id == task_id:
+            typer.echo(json.dumps(manifest.public.model_dump(mode="json"), sort_keys=True))
+            return
+    typer.echo("unknown task ID", err=True)
+    raise typer.Exit(2)
+
+
+@benchmark_tasks_app.command("validate")
+def benchmark_tasks_validate(path: Path) -> None:
+    """Validate a controller-side manifest without printing private content."""
+    try:
+        TaskManifest.model_validate_json(path.read_bytes())
+    except (OSError, ValidationError, ValueError) as exc:
+        typer.echo(f"invalid task manifest: {type(exc).__name__}", err=True)
+        raise typer.Exit(2) from exc
+    typer.echo("valid benchmark task manifest")
 
 
 @app.command()
