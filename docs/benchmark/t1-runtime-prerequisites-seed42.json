@@ -1,0 +1,213 @@
+{
+  "evidence_type": "benign_runtime_prerequisites",
+  "fully_qualified": 0,
+  "prerequisites_passed": 8,
+  "q2_passed": 0,
+  "records": [
+    {
+      "archetype_id": "A1",
+      "checks": {
+        "instance_identity_isolation": true,
+        "internal_network_and_no_published_ports": true,
+        "reset_generation_and_sibling_isolation": true,
+        "source_and_build_integrity": true,
+        "teardown": true,
+        "two_healthy_instances": true
+      },
+      "failure_class": null,
+      "provider_calls": 0,
+      "q2_gate": "not_evaluated",
+      "q2_missing": [
+        "task-specific gateway route-policy proof",
+        "active external-egress verification"
+      ],
+      "real_docker_started": true,
+      "schema_version": "1",
+      "seed": 42,
+      "status": "pass",
+      "task_id": "t0-b7fcb7e41fb0e050d9b0320300d83a54fde639b1ae64f3f6af5f73eede16e936",
+      "variant": "vulnerable"
+    },
+    {
+      "archetype_id": "A2",
+      "checks": {
+        "instance_identity_isolation": true,
+        "internal_network_and_no_published_ports": true,
+        "reset_generation_and_sibling_isolation": true,
+        "source_and_build_integrity": true,
+        "teardown": true,
+        "two_healthy_instances": true
+      },
+      "failure_class": null,
+      "provider_calls": 0,
+      "q2_gate": "not_evaluated",
+      "q2_missing": [
+        "task-specific gateway route-policy proof",
+        "active external-egress verification"
+      ],
+      "real_docker_started": true,
+      "schema_version": "1",
+      "seed": 42,
+      "status": "pass",
+      "task_id": "t0-a96a113cf47585d44404bf9710931aeb3c415390cb25860e85257551850dc962",
+      "variant": "vulnerable"
+    },
+    {
+      "archetype_id": "A3",
+      "checks": {
+        "instance_identity_isolation": true,
+        "internal_network_and_no_published_ports": true,
+        "reset_generation_and_sibling_isolation": true,
+        "source_and_build_integrity": true,
+        "teardown": true,
+        "two_healthy_instances": true
+      },
+      "failure_class": null,
+      "provider_calls": 0,
+      "q2_gate": "not_evaluated",
+      "q2_missing": [
+        "task-specific gateway route-policy proof",
+        "active external-egress verification"
+      ],
+      "real_docker_started": true,
+      "schema_version": "1",
+      "seed": 42,
+      "status": "pass",
+      "task_id": "t0-85fb377c6bf4e97072cae3a8cda778c0d16476be2fc95c0a03f130436fb80146",
+      "variant": "vulnerable"
+    },
+    {
+      "archetype_id": "A4",
+      "checks": {
+        "instance_identity_isolation": true,
+        "internal_network_and_no_published_ports": true,
+        "reset_generation_and_sibling_isolation": true,
+        "source_and_build_integrity": true,
+        "teardown": true,
+        "two_healthy_instances": true
+      },
+      "failure_class": null,
+      "provider_calls": 0,
+      "q2_gate": "not_evaluated",
+      "q2_missing": [
+        "task-specific gateway route-policy proof",
+        "active external-egress verification"
+      ],
+      "real_docker_started": true,
+      "schema_version": "1",
+      "seed": 42,
+      "status": "pass",
+      "task_id": "t0-905d591811d2023fa7a6c129c7f4e54882c99929add3a95675ac6f161ffbcfd4",
+      "variant": "vulnerable"
+    },
+    {
+      "archetype_id": "A5",
+      "checks": {
+        "instance_identity_isolation": true,
+        "internal_network_and_no_published_ports": true,
+        "reset_generation_and_sibling_isolation": true,
+        "source_and_build_integrity": true,
+        "teardown": true,
+        "two_healthy_instances": true
+      },
+      "failure_class": null,
+      "provider_calls": 0,
+      "q2_gate": "not_evaluated",
+      "q2_missing": [
+        "task-specific gateway route-policy proof",
+        "active external-egress verification"
+      ],
+      "real_docker_started": true,
+      "schema_version": "1",
+      "seed": 42,
+      "status": "pass",
+      "task_id": "t0-07715c76dc322d34a7f5c639da6cbcac13d7fca8fd8668d29eee1ada722f3f2b",
+      "variant": "vulnerable"
+    },
+    {
+      "archetype_id": "B1",
+      "checks": {
+        "instance_identity_isolation": true,
+        "internal_network_and_no_published_ports": true,
+        "reset_generation_and_sibling_isolation": true,
+        "source_and_build_integrity": true,
+        "teardown": true,
+        "two_healthy_instances": true
+      },
+      "failure_class": null,
+      "provider_calls": 0,
+      "q2_gate": "not_evaluated",
+      "q2_missing": [
+        "task-specific gateway route-policy proof",
+        "active external-egress verification"
+      ],
+      "real_docker_started": true,
+      "schema_version": "1",
+      "seed": 42,
+      "status": "pass",
+      "task_id": "t0-0d1de52f48785888e50f0449acffc0c3270bdce4d2436907a27e54c115f4e3bd",
+      "variant": "vulnerable"
+    },
+    {
+      "archetype_id": "B2",
+      "checks": {
+        "instance_identity_isolation": true,
+        "internal_network_and_no_published_ports": true,
+        "reset_generation_and_sibling_isolation": true,
+        "source_and_build_integrity": true,
+        "teardown": true,
+        "two_healthy_instances": true
+      },
+      "failure_class": null,
+      "provider_calls": 0,
+      "q2_gate": "not_evaluated",
+      "q2_missing": [
+        "task-specific gateway route-policy proof",
+        "active external-egress verification"
+      ],
+      "real_docker_started": true,
+      "schema_version": "1",
+      "seed": 42,
+      "status": "pass",
+      "task_id": "t0-a96825a2822e96c515469fb2efd9735c530a08d11f5fbac502710a53266bb2ba",
+      "variant": "vulnerable"
+    },
+    {
+      "archetype_id": "B3",
+      "checks": {
+        "instance_identity_isolation": true,
+        "internal_network_and_no_published_ports": true,
+        "reset_generation_and_sibling_isolation": true,
+        "source_and_build_integrity": true,
+        "teardown": true,
+        "two_healthy_instances": true
+      },
+      "failure_class": null,
+      "provider_calls": 0,
+      "q2_gate": "not_evaluated",
+      "q2_missing": [
+        "task-specific gateway route-policy proof",
+        "active external-egress verification"
+      ],
+      "real_docker_started": true,
+      "schema_version": "1",
+      "seed": 42,
+      "status": "pass",
+      "task_id": "t0-e716c3be904a5945602b264b9e5ff45f61270b4b1fe7181ee447e5d69a3c154b",
+      "variant": "vulnerable"
+    }
+  ],
+  "schema_version": "1",
+  "scoped_archetypes": [
+    "A1",
+    "A2",
+    "A3",
+    "A4",
+    "A5",
+    "B1",
+    "B2",
+    "B3"
+  ],
+  "seed": 42,
+  "variant": "vulnerable"
+}
