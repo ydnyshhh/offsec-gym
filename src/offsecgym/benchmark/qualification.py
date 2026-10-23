@@ -42,7 +42,7 @@ class QualificationRecord(StrictModel):
     archetype_id: str
     range_family: str
     scenario: str
-    root_slug: str
+    root_slug: str | None
     task_mode: str
     variant: str
     qualification_type: Literal["static_no_model"] = "static_no_model"
@@ -153,9 +153,10 @@ def qualify_static(manifest: TaskManifest, state_root: Path) -> QualificationRec
         "reference_policy",
         "oracle",
     }
-    if not (
-        forbidden & set(public_payload)
-    ) and manifest.private.expected_root_slug not in json.dumps(public_payload):
+    if not (forbidden & set(public_payload)) and (
+        manifest.private.expected_root_slug is None
+        or manifest.private.expected_root_slug not in json.dumps(public_payload)
+    ):
         gates["Q8"] = _gate(
             "pass", "public_schema_excludes_private_fields", "public_envelope_schema_v1"
         )

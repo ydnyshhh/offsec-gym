@@ -9,7 +9,7 @@ from pydantic import ValidationError
 from typer.testing import CliRunner
 
 from offsecgym.benchmark.difficulty import FACTOR_NAMES, DifficultyFactor, DifficultyFactors
-from offsecgym.benchmark.manifests import make_task_manifest
+from offsecgym.benchmark.manifests import make_task_manifest, make_unguided_manifest
 from offsecgym.benchmark.qualification import qualify_static
 from offsecgym.benchmark.registry import ARCHETYPES
 from offsecgym.benchmark.stages import StageResult, unqualified_stage_vector
@@ -27,6 +27,33 @@ from offsecgym.runtime.saas import PROPERTY_SLUGS as A_ROOTS
 def test_registry_matches_compilers() -> None:
     assert len(ARCHETYPES) == 8
     assert {row.root_slug for row in ARCHETYPES.values()} == A_ROOTS | B_ROOTS
+
+
+@pytest.mark.parametrize("family", ("saas", "enterprise_change_control_v1"))
+def test_unguided_identity_is_range_wide_not_duplicated_by_root(family: str) -> None:
+    root_ids = [row.archetype_id for row in ARCHETYPES.values() if row.range_family == family]
+    manifests = [
+        make_task_manifest(root_id, task_mode="unguided_audit", variant="vulnerable", seed=42)
+        for root_id in root_ids
+    ]
+    canonical = make_unguided_manifest(family, variant="vulnerable", seed=42)
+    assert all(canonical_bytes(manifest) == canonical_bytes(canonical) for manifest in manifests)
+    assert canonical.task.archetype_id == "range-wide-audit"
+    assert canonical.private.expected_root_slug is None
+    assert set(canonical.task.active_property_slugs) == (A_ROOTS if family == "saas" else B_ROOTS)
+    assert canonical.public.public_objective == manifests[0].public.public_objective
+    assert (
+        make_unguided_manifest(family, variant="patched", seed=42).task.task_id
+        != canonical.task.task_id
+    )
+
+
+def test_cli_lists_one_unguided_task_per_range() -> None:
+    result = CliRunner().invoke(app, ["benchmark", "tasks", "list"])
+    assert result.exit_code == 0
+    lines = result.stdout.splitlines()
+    assert len(lines) == 10
+    assert sum(line.startswith("range-wide-audit\t") for line in lines) == 2
 
 
 @pytest.mark.parametrize("archetype_id", sorted(ARCHETYPES))
@@ -89,6 +116,11 @@ def test_schema_rejects_unknowns_collisions_and_private_public_fields() -> None:
     whole["private"] = private
     with pytest.raises(ValidationError):
         TaskManifest.model_validate(whole)
+    whole = manifest.model_dump(mode="json")
+    other = make_task_manifest("A2", task_mode="scoped_audit", variant="vulnerable", seed=3)
+    whole["public"]["public_objective"] = other.public.public_objective
+    with pytest.raises(ValidationError, match="objective does not match"):
+        TaskManifest.model_validate(whole)
 
 
 def test_difficulty_is_seven_axis_uncalibrated_and_unknown_is_honest() -> None:
@@ -129,6 +161,15 @@ def test_static_qualification_checks_compiler_but_does_not_claim_public_path(tmp
     assert record.public_only_solvability == "unknown"
     assert record.positive_control_status == "not_evaluated"
     assert not record.real_docker_used and not record.gateway_used
+
+
+def test_canonical_unguided_static_check_keeps_public_path_unknown(tmp_path) -> None:
+    manifest = make_unguided_manifest("saas", variant="vulnerable", seed=42)
+    record = qualify_static(manifest, tmp_path)
+    assert record.root_slug is None
+    assert record.gates["Q1"].status == "pass"
+    assert record.gates["Q8"].status == "pass"
+    assert record.public_only_solvability == "unknown"
 
 
 def test_source_pin_drift_blocks_admission(tmp_path) -> None:

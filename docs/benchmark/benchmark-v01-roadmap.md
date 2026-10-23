@@ -1,6 +1,6 @@
 # Benchmark roadmap after T0
 
-**T0:** Detached versioned task contracts, eight-root registry, public/private separation, candidate difficulty schema, stage vocabulary, deterministic manifest generation, and static compiler qualification. Current readiness is partial for all eight roots; no model results or calibrated difficulty claims exist.
+**T0:** Detached versioned task contracts, eight-root registry, two canonical range-wide unguided definitions, public/private separation, candidate difficulty schema, stage vocabulary, deterministic manifest generation, and static compiler qualification. Current readiness is partial for the eight scoped roots; unguided definitions have no per-mode qualification record. No model results or calibrated difficulty claims exist.
 
 **T1:** Independently qualify runtime integrity, negative controls, public discovery, and same-run verifier-accepted outcomes for each existing task and both task modes. Retain explicit blockers where no public-only path is shown, especially for B2/B3.
 

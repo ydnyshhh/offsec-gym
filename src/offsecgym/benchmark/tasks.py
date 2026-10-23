@@ -21,6 +21,7 @@ from offsecgym.schemas.common import StrictModel
 from offsecgym.schemas.specs import RangeSpec
 
 BENCHMARK_VERSION = "0.1.0-draft"
+UNGUIDED_ARCHETYPE_ID = "range-wide-audit"
 TaskMode = Literal["scoped_audit", "unguided_audit"]
 TaskVariant = Literal["vulnerable", "patched"]
 BenchmarkSplit = Literal["development", "calibration", "held_out"]
@@ -59,12 +60,19 @@ class BenchmarkTaskSpec(StrictModel):
 
     @model_validator(mode="after")
     def validate_definition(self) -> BenchmarkTaskSpec:
-        archetype = get_archetype(self.archetype_id)
-        if (self.range_family, self.scenario) != (
-            archetype.range_family,
-            archetype.scenario,
-        ):
-            raise ValueError("archetype and range/scenario disagree")
+        if self.task_mode == "scoped_audit":
+            archetype = get_archetype(self.archetype_id)
+            if (self.range_family, self.scenario) != (
+                archetype.range_family,
+                archetype.scenario,
+            ):
+                raise ValueError("archetype and range/scenario disagree")
+        else:
+            if self.archetype_id != UNGUIDED_ARCHETYPE_ID or not any(
+                (row.range_family, row.scenario) == (self.range_family, self.scenario)
+                for row in ARCHETYPES.values()
+            ):
+                raise ValueError("unguided audit requires a registered range and scenario")
         expected_compiler = (
             saas.SAAS_V2_COMPILER_VERSION
             if self.range_family == "saas"
@@ -90,9 +98,8 @@ class BenchmarkTaskSpec(StrictModel):
             "saas-public-v1" if self.range_family == "saas" else "enterprise-public-v1"
         ):
             raise ValueError("surface ID disagrees with range")
-        if (
-            self.semantic_template_group
-            != f"{self.range_family}:{self.scenario}:{self.archetype_id}"
+        if self.semantic_template_group != (
+            f"{self.range_family}:{self.scenario}:{self.archetype_id}"
         ):
             raise ValueError("semantic template group disagrees with archetype")
         if self.difficulty_factors.design_level != self.difficulty_config_id:
@@ -136,7 +143,7 @@ class ControllerPrivateTaskBinding(StrictModel):
 
     schema_version: Literal["1"] = "1"
     task_id: str
-    expected_root_slug: str
+    expected_root_slug: str | None
     range_spec: RangeSpec
     source_sha256: dict[str, str]
     verifier_contract_id: Literal["canonical-v1"] = "canonical-v1"
@@ -165,9 +172,13 @@ class TaskManifest(StrictModel):
             raise ValueError("public mode does not match private task")
         if self.private.range_spec.seed != self.task.seed:
             raise ValueError("range seed does not match task")
-        archetype = get_archetype(self.task.archetype_id)
-        if self.private.expected_root_slug != archetype.root_slug:
-            raise ValueError("private root does not match archetype")
+        expected_root = (
+            get_archetype(self.task.archetype_id).root_slug
+            if self.task.task_mode == "scoped_audit"
+            else None
+        )
+        if self.private.expected_root_slug != expected_root:
+            raise ValueError("private root does not match task scope")
         if (self.private.range_spec.family, self.private.range_spec.scenario) != (
             self.task.range_family,
             self.task.scenario,
@@ -177,7 +188,7 @@ class TaskManifest(StrictModel):
         expected_patches = (
             ()
             if self.task.variant == "patched" or self.task.task_mode == "unguided_audit"
-            else tuple(sorted(roots - {archetype.root_slug}))
+            else tuple(sorted(roots - {expected_root}))
         )
         if (
             self.private.range_spec.patched != (self.task.variant == "patched")
@@ -189,4 +200,11 @@ class TaskManifest(StrictModel):
             or self.public.public_surface_id != self.task.public_surface_id
         ):
             raise ValueError("public range or surface does not match task")
+        expected_objective = (
+            get_archetype(self.task.archetype_id).scoped_objective
+            if self.task.task_mode == "scoped_audit"
+            else UNGUIDED_OBJECTIVES[self.task.range_family]
+        )
+        if self.public.public_objective != expected_objective:
+            raise ValueError("public objective does not match task scope")
         return self

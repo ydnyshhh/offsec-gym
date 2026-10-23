@@ -15,6 +15,7 @@ from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import create_async_engine
 
 from offsecgym import __version__
+from offsecgym.benchmark.manifests import make_unguided_manifest
 from offsecgym.benchmark.qualification import default_registry_manifests
 from offsecgym.benchmark.tasks import TaskManifest
 from offsecgym.config import Settings
@@ -56,10 +57,17 @@ app.add_typer(benchmark_app, name="benchmark")
 benchmark_app.add_typer(benchmark_tasks_app, name="tasks")
 
 
+def _default_benchmark_manifests() -> tuple[TaskManifest, ...]:
+    return default_registry_manifests() + tuple(
+        make_unguided_manifest(family, variant="vulnerable", seed=42)
+        for family in ("saas", "enterprise_change_control_v1")
+    )
+
+
 @benchmark_tasks_app.command("list")
 def benchmark_tasks_list() -> None:
     """List task identities and public modes without private bindings."""
-    for manifest in default_registry_manifests():
+    for manifest in _default_benchmark_manifests():
         typer.echo(
             f"{manifest.task.archetype_id}\t{manifest.task.task_id}\t{manifest.public.task_mode}"
         )
@@ -68,7 +76,7 @@ def benchmark_tasks_list() -> None:
 @benchmark_tasks_app.command("inspect")
 def benchmark_tasks_inspect(task_id: str) -> None:
     """Print only the public envelope for a registered development task."""
-    for manifest in default_registry_manifests():
+    for manifest in _default_benchmark_manifests():
         if manifest.task.task_id == task_id:
             typer.echo(json.dumps(manifest.public.model_dump(mode="json"), sort_keys=True))
             return

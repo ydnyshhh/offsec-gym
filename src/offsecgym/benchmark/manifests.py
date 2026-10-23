@@ -7,12 +7,14 @@ from pathlib import Path
 
 from offsecgym.benchmark.difficulty import existing_factors
 from offsecgym.benchmark.registry import (
+    ARCHETYPES,
     ENTERPRISE_ROOTS,
     SAAS_ROOTS,
     UNGUIDED_OBJECTIVES,
     get_archetype,
 )
 from offsecgym.benchmark.tasks import (
+    UNGUIDED_ARCHETYPE_ID,
     BenchmarkSplit,
     BenchmarkTaskSpec,
     ControllerPrivateTaskBinding,
@@ -121,8 +123,9 @@ def make_task_manifest(
         else ((archetype.root_slug,) if task_mode == "scoped_audit" else tuple(sorted(roots)))
     )
     entities, identities, services = _fixture_counts(archetype.range_family, seed)
+    task_archetype_id = archetype_id if task_mode == "scoped_audit" else UNGUIDED_ARCHETYPE_ID
     fields = dict(
-        archetype_id=archetype_id,
+        archetype_id=task_archetype_id,
         range_family=archetype.range_family,
         scenario=archetype.scenario,
         range_compiler_version=(
@@ -141,7 +144,9 @@ def make_task_manifest(
         ),
         difficulty_factors=existing_factors(entities, identities, services),
         benchmark_split=benchmark_split,
-        semantic_template_group=(f"{archetype.range_family}:{archetype.scenario}:{archetype_id}"),
+        semantic_template_group=(
+            f"{archetype.range_family}:{archetype.scenario}:{task_archetype_id}"
+        ),
     )
     provisional = BenchmarkTaskSpec.model_construct(task_id="", **fields)
     task = BenchmarkTaskSpec(task_id=provisional.derived_task_id(), **fields)
@@ -159,8 +164,30 @@ def make_task_manifest(
     )
     private = ControllerPrivateTaskBinding(
         task_id=task.task_id,
-        expected_root_slug=archetype.root_slug,
+        expected_root_slug=(archetype.root_slug if task_mode == "scoped_audit" else None),
         range_spec=range_spec,
         source_sha256=source_pins(),
     )
     return TaskManifest(task=task, public=public, private=private)
+
+
+def make_unguided_manifest(
+    range_family: str,
+    *,
+    variant: TaskVariant,
+    seed: int,
+    benchmark_split: BenchmarkSplit = "development",
+) -> TaskManifest:
+    """Create one range-wide audit; roots are scoring dimensions, not duplicate tasks."""
+    representative = next(
+        (row for row in ARCHETYPES.values() if row.range_family == range_family), None
+    )
+    if representative is None:
+        raise ValueError(f"unknown benchmark range family: {range_family}")
+    return make_task_manifest(
+        representative.archetype_id,
+        task_mode="unguided_audit",
+        variant=variant,
+        seed=seed,
+        benchmark_split=benchmark_split,
+    )
