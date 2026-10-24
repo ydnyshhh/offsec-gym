@@ -96,7 +96,6 @@ def execute(private_root: Path) -> dict[str, object]:
         "checks": checks,
         "status": "pass" if all(checks.values()) else "fail",
         "admission_digest": digest,
-        "private_json_file_count": len(private_files),
         "postcheck_source_sha256": hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
         "provider_calls": 0,
     }

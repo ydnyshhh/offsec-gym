@@ -29,9 +29,8 @@
     "source_pins": true
   },
   "milestone": "T1.1c-f",
-  "postcheck_source_sha256": "b27afce9c0a2bb03d60f9119abbfca917c9dc6ee0ae0ba6972ce2dab4dc9b536",
+  "postcheck_source_sha256": "f3c20e0d8c37667085bb753d8ba19ee13ee68e129d667df247ec1e28beef25c5",
   "postcheck_version": "t11-postcheck-v1",
-  "private_json_file_count": 27,
   "provider_calls": 0,
   "status": "pass"
 }
