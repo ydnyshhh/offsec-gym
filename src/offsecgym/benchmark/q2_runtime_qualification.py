@@ -54,16 +54,16 @@ class Q2CheckResult(StrictModel):
 
 class Q2QualificationRecord(StrictModel):
     schema_version: Literal["1"] = "1"
-    milestone: Literal["T1.1b"] = "T1.1b"
+    milestone: Literal["T1.1b", "T1.1f"] = "T1.1b"
     task_id: str
     archetype_id: Literal["A1"] = "A1"
     range_family: Literal["saas"] = "saas"
     scenario: Literal["tenant_boundary_v2"] = "tenant_boundary_v2"
-    seed: Literal[42] = 42
-    variant: Literal["vulnerable"] = "vulnerable"
+    seed: int = Field(default=42, ge=0)
+    variant: Literal["vulnerable", "patched"] = "vulnerable"
     source_commit: str
     source_sha256: dict[str, str]
-    qualification_policy_version: Literal["t11b-a1-q2-v1"] = Q2_POLICY_VERSION
+    qualification_policy_version: Literal["t11b-a1-q2-v1", "t11f-a1-q2-v1"] = Q2_POLICY_VERSION
     checks: dict[str, Q2CheckResult]
     real_docker_used: bool
     real_gateway_used: bool
@@ -80,6 +80,11 @@ class Q2QualificationRecord(StrictModel):
 
     @model_validator(mode="after")
     def valid_projection(self) -> Q2QualificationRecord:
+        if (self.milestone, self.qualification_policy_version) not in {
+            ("T1.1b", "t11b-a1-q2-v1"),
+            ("T1.1f", "t11f-a1-q2-v1"),
+        }:
+            raise ValueError("Q2 milestone and policy version disagree")
         if set(self.checks) != set(MANDATORY_CHECKS):
             raise ValueError("complete mandatory Q2 inventory is required")
         if not self.source_commit or not self.source_sha256:
@@ -115,6 +120,9 @@ def aggregate_q2(
     real_docker_used: bool,
     real_gateway_used: bool,
     local_canary_used: bool,
+    seed: int = 42,
+    variant: Literal["vulnerable", "patched"] = "vulnerable",
+    cohort: bool = False,
 ) -> Q2QualificationRecord:
     complete = {
         name: checks.get(
@@ -134,7 +142,11 @@ def aggregate_q2(
         else "not_evaluated"
     )
     return Q2QualificationRecord(
+        milestone="T1.1f" if cohort else "T1.1b",
         task_id=task_id,
+        seed=seed,
+        variant=variant,
+        qualification_policy_version="t11f-a1-q2-v1" if cohort else Q2_POLICY_VERSION,
         source_commit=source_commit,
         source_sha256=source_sha256,
         checks=complete,

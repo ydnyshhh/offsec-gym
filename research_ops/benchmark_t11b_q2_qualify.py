@@ -34,7 +34,6 @@ from offsecgym.runtime.compose import ComposeRangeRuntime, run_command
 
 ROOT = Path(__file__).resolve().parents[1]
 GATEWAY_TEST = ROOT / "tests/ranges/test_benchmark_t11_gateway_integrity.py"
-PUBLIC_REPORT = ROOT / "docs/benchmark/t11b-q2-runtime-qualification.json"
 
 
 def _check(payload: object, *, passed: bool, reason: str) -> Q2CheckResult:
@@ -105,7 +104,12 @@ def _gateway_test() -> dict[str, object]:
 
 
 async def _run(
-    private_root: Path, task_id: str, source_commit: str, source_hashes: dict[str, str]
+    private_root: Path,
+    task_id: str,
+    source_commit: str,
+    source_hashes: dict[str, str],
+    seed: int,
+    variant: str,
 ) -> dict[str, object]:
     checks: dict[str, Q2CheckResult] = {}
     evidence: dict[str, object] = {
@@ -114,7 +118,7 @@ async def _run(
         "source_sha256": source_hashes,
         "gateway_test_sha256": hashlib.sha256(GATEWAY_TEST.read_bytes()).hexdigest(),
     }
-    manifest = make_task_manifest("A1", task_mode="scoped_audit", variant="vulnerable", seed=42)
+    manifest = make_task_manifest("A1", task_mode="scoped_audit", variant=variant, seed=seed)
     if manifest.task.task_id != task_id or manifest.private.source_sha256 != source_hashes:
         raise ValueError("source_pin_mismatch")
     try:
@@ -126,7 +130,7 @@ async def _run(
         checks["healthy_runtime"] = Q2CheckResult(
             status="unknown", reason_code="docker_unavailable"
         )
-        return _finalize(task_id, source_commit, source_hashes, checks, evidence)
+        return _finalize(task_id, source_commit, source_hashes, checks, evidence, seed, variant)
     evidence["docker_available"] = True
     evidence["docker_server_version"] = docker_version.strip()
 
@@ -150,7 +154,7 @@ async def _run(
         checks["teardown_integrity"] = _check(
             evidence["prerequisites"], passed=prereq.checks["teardown"], reason="cleanup_failure"
         )
-        return _finalize(task_id, source_commit, source_hashes, checks, evidence)
+        return _finalize(task_id, source_commit, source_hashes, checks, evidence, seed, variant)
 
     runtime = ComposeRangeRuntime(private_root / "isolation")
     created: list[UUID] = []
@@ -298,7 +302,7 @@ async def _run(
             passed=gateway["passed"] is True,
             reason="gateway_policy_failure",
         )
-    return _finalize(task_id, source_commit, source_hashes, checks, evidence)
+    return _finalize(task_id, source_commit, source_hashes, checks, evidence, seed, variant)
 
 
 def _finalize(
@@ -307,6 +311,8 @@ def _finalize(
     source_hashes: dict[str, str],
     checks: dict[str, Q2CheckResult],
     evidence: dict[str, object],
+    seed: int,
+    variant: str,
 ) -> dict[str, object]:
     record = aggregate_q2(
         task_id=task_id,
@@ -316,6 +322,9 @@ def _finalize(
         real_docker_used=evidence.get("docker_available") is True,
         real_gateway_used=evidence.get("gateway", {}).get("passed") is True,
         local_canary_used=evidence.get("canary", {}).get("control_connected") is True,
+        seed=seed,
+        variant=variant,
+        cohort=True,
     )
     return {"record": record.model_dump(mode="json"), "evidence": evidence}
 
@@ -323,13 +332,16 @@ def _finalize(
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--archetype", choices=("A1",), required=True)
-    parser.add_argument("--seed", type=int, choices=(42,), required=True)
+    parser.add_argument("--seed", type=int, choices=(42, 43, 44), required=True)
+    parser.add_argument("--variant", choices=("vulnerable", "patched"), default="vulnerable")
     mode = parser.add_mutually_exclusive_group(required=True)
     mode.add_argument("--dry-run", action="store_true")
     mode.add_argument("--execute", action="store_true")
     parser.add_argument("--output-private", type=Path)
     args = parser.parse_args()
-    manifest = make_task_manifest("A1", task_mode="scoped_audit", variant="vulnerable", seed=42)
+    manifest = make_task_manifest(
+        "A1", task_mode="scoped_audit", variant=args.variant, seed=args.seed
+    )
     pins = source_pins()
     if pins != manifest.private.source_sha256:
         raise SystemExit("source_pin_mismatch")
@@ -362,14 +374,17 @@ def main() -> None:
     base.mkdir(mode=0o700, parents=True, exist_ok=True)
     run_root = base / uuid4().hex
     run_root.mkdir(mode=0o700)
-    result = asyncio.run(_run(run_root, manifest.task.task_id, commit, pins))
+    result = asyncio.run(
+        _run(run_root, manifest.task.task_id, commit, pins, args.seed, args.variant)
+    )
     _private_write(run_root / "evidence.json", result["evidence"])
     _private_write(run_root / "record.json", result["record"])
     report = result["record"]
     canonical = (json.dumps(report, sort_keys=True, indent=2) + "\n").encode()
     if canonical != (json.dumps(json.loads(canonical), sort_keys=True, indent=2) + "\n").encode():
         raise ValueError("public report reconstruction mismatch")
-    PUBLIC_REPORT.write_bytes(canonical)
+    cohort_report = ROOT / f"docs/benchmark/t11f-a1-q2-{args.seed}-{args.variant}.json"
+    cohort_report.write_bytes(canonical)
     print(
         json.dumps(
             {
