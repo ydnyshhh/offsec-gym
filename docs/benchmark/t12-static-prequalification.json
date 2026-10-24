@@ -1,0 +1,724 @@
+{
+  "archetype_status": {
+    "A2": "static_pass_runtime_unqualified",
+    "A3": "static_pass_runtime_unqualified",
+    "A4": "static_pass_runtime_unqualified"
+  },
+  "cells": [
+    {
+      "archetype_id": "A2",
+      "blockers": [
+        "Q2",
+        "Q3",
+        "Q4",
+        "Q5",
+        "Q6"
+      ],
+      "gates": {
+        "Q1": "pass",
+        "Q2": "not_evaluated",
+        "Q3": "not_evaluated",
+        "Q4": "not_evaluated",
+        "Q5": "not_evaluated",
+        "Q6": "not_evaluated",
+        "Q7": "pass",
+        "Q8": "pass"
+      },
+      "gateway_used": false,
+      "patched_control_status": "not_applicable",
+      "q4_positive_reference_status": "not_evaluated",
+      "q9_readiness": "partially_qualified",
+      "real_docker_used": false,
+      "seed": 42,
+      "stage_statuses": {
+        "S0": "unknown",
+        "S1": "unknown",
+        "S2": "unknown",
+        "S3": "unknown",
+        "S4": "unknown",
+        "S5": "unknown",
+        "S6": "unknown"
+      },
+      "task_id": "t0-a96a113cf47585d44404bf9710931aeb3c415390cb25860e85257551850dc962",
+      "variant": "vulnerable"
+    },
+    {
+      "archetype_id": "A2",
+      "blockers": [
+        "Q2",
+        "Q3",
+        "Q5",
+        "Q6",
+        "patched_control"
+      ],
+      "gates": {
+        "Q1": "pass",
+        "Q2": "not_evaluated",
+        "Q3": "not_evaluated",
+        "Q4": "not_applicable",
+        "Q5": "not_evaluated",
+        "Q6": "not_evaluated",
+        "Q7": "pass",
+        "Q8": "pass"
+      },
+      "gateway_used": false,
+      "patched_control_status": "not_evaluated",
+      "q4_positive_reference_status": "not_applicable",
+      "q9_readiness": "partially_qualified",
+      "real_docker_used": false,
+      "seed": 42,
+      "stage_statuses": {
+        "S0": "unknown",
+        "S1": "unknown",
+        "S2": "unknown",
+        "S3": "unknown",
+        "S4": "unknown",
+        "S5": "unknown",
+        "S6": "unknown"
+      },
+      "task_id": "t0-0102d0cfd39837aa126ac5977cc5e69ff4b5cd2b379d2c976f51375b34b0d5cd",
+      "variant": "patched"
+    },
+    {
+      "archetype_id": "A2",
+      "blockers": [
+        "Q2",
+        "Q3",
+        "Q4",
+        "Q5",
+        "Q6"
+      ],
+      "gates": {
+        "Q1": "pass",
+        "Q2": "not_evaluated",
+        "Q3": "not_evaluated",
+        "Q4": "not_evaluated",
+        "Q5": "not_evaluated",
+        "Q6": "not_evaluated",
+        "Q7": "pass",
+        "Q8": "pass"
+      },
+      "gateway_used": false,
+      "patched_control_status": "not_applicable",
+      "q4_positive_reference_status": "not_evaluated",
+      "q9_readiness": "partially_qualified",
+      "real_docker_used": false,
+      "seed": 43,
+      "stage_statuses": {
+        "S0": "unknown",
+        "S1": "unknown",
+        "S2": "unknown",
+        "S3": "unknown",
+        "S4": "unknown",
+        "S5": "unknown",
+        "S6": "unknown"
+      },
+      "task_id": "t0-c343fc2a292681ce4d157e975ceb9d54db8b1b3f751af93f63e7972c1340ae7b",
+      "variant": "vulnerable"
+    },
+    {
+      "archetype_id": "A2",
+      "blockers": [
+        "Q2",
+        "Q3",
+        "Q5",
+        "Q6",
+        "patched_control"
+      ],
+      "gates": {
+        "Q1": "pass",
+        "Q2": "not_evaluated",
+        "Q3": "not_evaluated",
+        "Q4": "not_applicable",
+        "Q5": "not_evaluated",
+        "Q6": "not_evaluated",
+        "Q7": "pass",
+        "Q8": "pass"
+      },
+      "gateway_used": false,
+      "patched_control_status": "not_evaluated",
+      "q4_positive_reference_status": "not_applicable",
+      "q9_readiness": "partially_qualified",
+      "real_docker_used": false,
+      "seed": 43,
+      "stage_statuses": {
+        "S0": "unknown",
+        "S1": "unknown",
+        "S2": "unknown",
+        "S3": "unknown",
+        "S4": "unknown",
+        "S5": "unknown",
+        "S6": "unknown"
+      },
+      "task_id": "t0-7a7eb0b32e97194dd29af34356582a427d3c00b3ac7147774439f841d57ea1f2",
+      "variant": "patched"
+    },
+    {
+      "archetype_id": "A2",
+      "blockers": [
+        "Q2",
+        "Q3",
+        "Q4",
+        "Q5",
+        "Q6"
+      ],
+      "gates": {
+        "Q1": "pass",
+        "Q2": "not_evaluated",
+        "Q3": "not_evaluated",
+        "Q4": "not_evaluated",
+        "Q5": "not_evaluated",
+        "Q6": "not_evaluated",
+        "Q7": "pass",
+        "Q8": "pass"
+      },
+      "gateway_used": false,
+      "patched_control_status": "not_applicable",
+      "q4_positive_reference_status": "not_evaluated",
+      "q9_readiness": "partially_qualified",
+      "real_docker_used": false,
+      "seed": 44,
+      "stage_statuses": {
+        "S0": "unknown",
+        "S1": "unknown",
+        "S2": "unknown",
+        "S3": "unknown",
+        "S4": "unknown",
+        "S5": "unknown",
+        "S6": "unknown"
+      },
+      "task_id": "t0-d089e1a14c1bd526dbd94c3ba570d61a12633cd04f61a44d301e681b5edb163c",
+      "variant": "vulnerable"
+    },
+    {
+      "archetype_id": "A2",
+      "blockers": [
+        "Q2",
+        "Q3",
+        "Q5",
+        "Q6",
+        "patched_control"
+      ],
+      "gates": {
+        "Q1": "pass",
+        "Q2": "not_evaluated",
+        "Q3": "not_evaluated",
+        "Q4": "not_applicable",
+        "Q5": "not_evaluated",
+        "Q6": "not_evaluated",
+        "Q7": "pass",
+        "Q8": "pass"
+      },
+      "gateway_used": false,
+      "patched_control_status": "not_evaluated",
+      "q4_positive_reference_status": "not_applicable",
+      "q9_readiness": "partially_qualified",
+      "real_docker_used": false,
+      "seed": 44,
+      "stage_statuses": {
+        "S0": "unknown",
+        "S1": "unknown",
+        "S2": "unknown",
+        "S3": "unknown",
+        "S4": "unknown",
+        "S5": "unknown",
+        "S6": "unknown"
+      },
+      "task_id": "t0-6fec5b83a45cc1c02ea0cdd679b5d4c3f6deba5d767266fdcd526437179886ce",
+      "variant": "patched"
+    },
+    {
+      "archetype_id": "A3",
+      "blockers": [
+        "Q2",
+        "Q3",
+        "Q4",
+        "Q5",
+        "Q6"
+      ],
+      "gates": {
+        "Q1": "pass",
+        "Q2": "not_evaluated",
+        "Q3": "not_evaluated",
+        "Q4": "not_evaluated",
+        "Q5": "not_evaluated",
+        "Q6": "not_evaluated",
+        "Q7": "pass",
+        "Q8": "pass"
+      },
+      "gateway_used": false,
+      "patched_control_status": "not_applicable",
+      "q4_positive_reference_status": "not_evaluated",
+      "q9_readiness": "partially_qualified",
+      "real_docker_used": false,
+      "seed": 42,
+      "stage_statuses": {
+        "S0": "unknown",
+        "S1": "unknown",
+        "S2": "unknown",
+        "S3": "unknown",
+        "S4": "unknown",
+        "S5": "unknown",
+        "S6": "unknown"
+      },
+      "task_id": "t0-85fb377c6bf4e97072cae3a8cda778c0d16476be2fc95c0a03f130436fb80146",
+      "variant": "vulnerable"
+    },
+    {
+      "archetype_id": "A3",
+      "blockers": [
+        "Q2",
+        "Q3",
+        "Q5",
+        "Q6",
+        "patched_control"
+      ],
+      "gates": {
+        "Q1": "pass",
+        "Q2": "not_evaluated",
+        "Q3": "not_evaluated",
+        "Q4": "not_applicable",
+        "Q5": "not_evaluated",
+        "Q6": "not_evaluated",
+        "Q7": "pass",
+        "Q8": "pass"
+      },
+      "gateway_used": false,
+      "patched_control_status": "not_evaluated",
+      "q4_positive_reference_status": "not_applicable",
+      "q9_readiness": "partially_qualified",
+      "real_docker_used": false,
+      "seed": 42,
+      "stage_statuses": {
+        "S0": "unknown",
+        "S1": "unknown",
+        "S2": "unknown",
+        "S3": "unknown",
+        "S4": "unknown",
+        "S5": "unknown",
+        "S6": "unknown"
+      },
+      "task_id": "t0-cfc95c3e33277f48ae9901c680078545ea5f27afdc6c304eee5796c548e0db94",
+      "variant": "patched"
+    },
+    {
+      "archetype_id": "A3",
+      "blockers": [
+        "Q2",
+        "Q3",
+        "Q4",
+        "Q5",
+        "Q6"
+      ],
+      "gates": {
+        "Q1": "pass",
+        "Q2": "not_evaluated",
+        "Q3": "not_evaluated",
+        "Q4": "not_evaluated",
+        "Q5": "not_evaluated",
+        "Q6": "not_evaluated",
+        "Q7": "pass",
+        "Q8": "pass"
+      },
+      "gateway_used": false,
+      "patched_control_status": "not_applicable",
+      "q4_positive_reference_status": "not_evaluated",
+      "q9_readiness": "partially_qualified",
+      "real_docker_used": false,
+      "seed": 43,
+      "stage_statuses": {
+        "S0": "unknown",
+        "S1": "unknown",
+        "S2": "unknown",
+        "S3": "unknown",
+        "S4": "unknown",
+        "S5": "unknown",
+        "S6": "unknown"
+      },
+      "task_id": "t0-12d3654c5acdd1d6b280770757adfddfba797726b77d41c4e576255a41c99600",
+      "variant": "vulnerable"
+    },
+    {
+      "archetype_id": "A3",
+      "blockers": [
+        "Q2",
+        "Q3",
+        "Q5",
+        "Q6",
+        "patched_control"
+      ],
+      "gates": {
+        "Q1": "pass",
+        "Q2": "not_evaluated",
+        "Q3": "not_evaluated",
+        "Q4": "not_applicable",
+        "Q5": "not_evaluated",
+        "Q6": "not_evaluated",
+        "Q7": "pass",
+        "Q8": "pass"
+      },
+      "gateway_used": false,
+      "patched_control_status": "not_evaluated",
+      "q4_positive_reference_status": "not_applicable",
+      "q9_readiness": "partially_qualified",
+      "real_docker_used": false,
+      "seed": 43,
+      "stage_statuses": {
+        "S0": "unknown",
+        "S1": "unknown",
+        "S2": "unknown",
+        "S3": "unknown",
+        "S4": "unknown",
+        "S5": "unknown",
+        "S6": "unknown"
+      },
+      "task_id": "t0-9a7e72574075c0495f792e99de14fb68d3dbd9ba188ae560e14cffe09f9be482",
+      "variant": "patched"
+    },
+    {
+      "archetype_id": "A3",
+      "blockers": [
+        "Q2",
+        "Q3",
+        "Q4",
+        "Q5",
+        "Q6"
+      ],
+      "gates": {
+        "Q1": "pass",
+        "Q2": "not_evaluated",
+        "Q3": "not_evaluated",
+        "Q4": "not_evaluated",
+        "Q5": "not_evaluated",
+        "Q6": "not_evaluated",
+        "Q7": "pass",
+        "Q8": "pass"
+      },
+      "gateway_used": false,
+      "patched_control_status": "not_applicable",
+      "q4_positive_reference_status": "not_evaluated",
+      "q9_readiness": "partially_qualified",
+      "real_docker_used": false,
+      "seed": 44,
+      "stage_statuses": {
+        "S0": "unknown",
+        "S1": "unknown",
+        "S2": "unknown",
+        "S3": "unknown",
+        "S4": "unknown",
+        "S5": "unknown",
+        "S6": "unknown"
+      },
+      "task_id": "t0-3b873fafa2352930f8fc8bda0ca71ccd867ffdd97334fdfd8ced983a2e2eef8b",
+      "variant": "vulnerable"
+    },
+    {
+      "archetype_id": "A3",
+      "blockers": [
+        "Q2",
+        "Q3",
+        "Q5",
+        "Q6",
+        "patched_control"
+      ],
+      "gates": {
+        "Q1": "pass",
+        "Q2": "not_evaluated",
+        "Q3": "not_evaluated",
+        "Q4": "not_applicable",
+        "Q5": "not_evaluated",
+        "Q6": "not_evaluated",
+        "Q7": "pass",
+        "Q8": "pass"
+      },
+      "gateway_used": false,
+      "patched_control_status": "not_evaluated",
+      "q4_positive_reference_status": "not_applicable",
+      "q9_readiness": "partially_qualified",
+      "real_docker_used": false,
+      "seed": 44,
+      "stage_statuses": {
+        "S0": "unknown",
+        "S1": "unknown",
+        "S2": "unknown",
+        "S3": "unknown",
+        "S4": "unknown",
+        "S5": "unknown",
+        "S6": "unknown"
+      },
+      "task_id": "t0-2c135d18844ec1247881319ea58f246c34a82d16b21a48389ea08ab15613a59d",
+      "variant": "patched"
+    },
+    {
+      "archetype_id": "A4",
+      "blockers": [
+        "Q2",
+        "Q3",
+        "Q4",
+        "Q5",
+        "Q6"
+      ],
+      "gates": {
+        "Q1": "pass",
+        "Q2": "not_evaluated",
+        "Q3": "not_evaluated",
+        "Q4": "not_evaluated",
+        "Q5": "not_evaluated",
+        "Q6": "not_evaluated",
+        "Q7": "pass",
+        "Q8": "pass"
+      },
+      "gateway_used": false,
+      "patched_control_status": "not_applicable",
+      "q4_positive_reference_status": "not_evaluated",
+      "q9_readiness": "partially_qualified",
+      "real_docker_used": false,
+      "seed": 42,
+      "stage_statuses": {
+        "S0": "unknown",
+        "S1": "unknown",
+        "S2": "unknown",
+        "S3": "unknown",
+        "S4": "unknown",
+        "S5": "unknown",
+        "S6": "unknown"
+      },
+      "task_id": "t0-905d591811d2023fa7a6c129c7f4e54882c99929add3a95675ac6f161ffbcfd4",
+      "variant": "vulnerable"
+    },
+    {
+      "archetype_id": "A4",
+      "blockers": [
+        "Q2",
+        "Q3",
+        "Q5",
+        "Q6",
+        "patched_control"
+      ],
+      "gates": {
+        "Q1": "pass",
+        "Q2": "not_evaluated",
+        "Q3": "not_evaluated",
+        "Q4": "not_applicable",
+        "Q5": "not_evaluated",
+        "Q6": "not_evaluated",
+        "Q7": "pass",
+        "Q8": "pass"
+      },
+      "gateway_used": false,
+      "patched_control_status": "not_evaluated",
+      "q4_positive_reference_status": "not_applicable",
+      "q9_readiness": "partially_qualified",
+      "real_docker_used": false,
+      "seed": 42,
+      "stage_statuses": {
+        "S0": "unknown",
+        "S1": "unknown",
+        "S2": "unknown",
+        "S3": "unknown",
+        "S4": "unknown",
+        "S5": "unknown",
+        "S6": "unknown"
+      },
+      "task_id": "t0-4693279fa0a074331766cc35a4b087e216431c82b3adb0df01521776d852c394",
+      "variant": "patched"
+    },
+    {
+      "archetype_id": "A4",
+      "blockers": [
+        "Q2",
+        "Q3",
+        "Q4",
+        "Q5",
+        "Q6"
+      ],
+      "gates": {
+        "Q1": "pass",
+        "Q2": "not_evaluated",
+        "Q3": "not_evaluated",
+        "Q4": "not_evaluated",
+        "Q5": "not_evaluated",
+        "Q6": "not_evaluated",
+        "Q7": "pass",
+        "Q8": "pass"
+      },
+      "gateway_used": false,
+      "patched_control_status": "not_applicable",
+      "q4_positive_reference_status": "not_evaluated",
+      "q9_readiness": "partially_qualified",
+      "real_docker_used": false,
+      "seed": 43,
+      "stage_statuses": {
+        "S0": "unknown",
+        "S1": "unknown",
+        "S2": "unknown",
+        "S3": "unknown",
+        "S4": "unknown",
+        "S5": "unknown",
+        "S6": "unknown"
+      },
+      "task_id": "t0-01db5ced2f71f60a55792f679125ba24c78d89a8038807a519abb19f1a9a176b",
+      "variant": "vulnerable"
+    },
+    {
+      "archetype_id": "A4",
+      "blockers": [
+        "Q2",
+        "Q3",
+        "Q5",
+        "Q6",
+        "patched_control"
+      ],
+      "gates": {
+        "Q1": "pass",
+        "Q2": "not_evaluated",
+        "Q3": "not_evaluated",
+        "Q4": "not_applicable",
+        "Q5": "not_evaluated",
+        "Q6": "not_evaluated",
+        "Q7": "pass",
+        "Q8": "pass"
+      },
+      "gateway_used": false,
+      "patched_control_status": "not_evaluated",
+      "q4_positive_reference_status": "not_applicable",
+      "q9_readiness": "partially_qualified",
+      "real_docker_used": false,
+      "seed": 43,
+      "stage_statuses": {
+        "S0": "unknown",
+        "S1": "unknown",
+        "S2": "unknown",
+        "S3": "unknown",
+        "S4": "unknown",
+        "S5": "unknown",
+        "S6": "unknown"
+      },
+      "task_id": "t0-164e2d1525ae376fee796ca3bde8d2b30d31ddad14c8e9d2d781dbe99eb9ae51",
+      "variant": "patched"
+    },
+    {
+      "archetype_id": "A4",
+      "blockers": [
+        "Q2",
+        "Q3",
+        "Q4",
+        "Q5",
+        "Q6"
+      ],
+      "gates": {
+        "Q1": "pass",
+        "Q2": "not_evaluated",
+        "Q3": "not_evaluated",
+        "Q4": "not_evaluated",
+        "Q5": "not_evaluated",
+        "Q6": "not_evaluated",
+        "Q7": "pass",
+        "Q8": "pass"
+      },
+      "gateway_used": false,
+      "patched_control_status": "not_applicable",
+      "q4_positive_reference_status": "not_evaluated",
+      "q9_readiness": "partially_qualified",
+      "real_docker_used": false,
+      "seed": 44,
+      "stage_statuses": {
+        "S0": "unknown",
+        "S1": "unknown",
+        "S2": "unknown",
+        "S3": "unknown",
+        "S4": "unknown",
+        "S5": "unknown",
+        "S6": "unknown"
+      },
+      "task_id": "t0-2da996350050df09b9775e42fff32be5a69ff3d4865de2b7bc7f9a623a60179c",
+      "variant": "vulnerable"
+    },
+    {
+      "archetype_id": "A4",
+      "blockers": [
+        "Q2",
+        "Q3",
+        "Q5",
+        "Q6",
+        "patched_control"
+      ],
+      "gates": {
+        "Q1": "pass",
+        "Q2": "not_evaluated",
+        "Q3": "not_evaluated",
+        "Q4": "not_applicable",
+        "Q5": "not_evaluated",
+        "Q6": "not_evaluated",
+        "Q7": "pass",
+        "Q8": "pass"
+      },
+      "gateway_used": false,
+      "patched_control_status": "not_evaluated",
+      "q4_positive_reference_status": "not_applicable",
+      "q9_readiness": "partially_qualified",
+      "real_docker_used": false,
+      "seed": 44,
+      "stage_statuses": {
+        "S0": "unknown",
+        "S1": "unknown",
+        "S2": "unknown",
+        "S3": "unknown",
+        "S4": "unknown",
+        "S5": "unknown",
+        "S6": "unknown"
+      },
+      "task_id": "t0-c8ef296d1e22a6f7f3e823d25748dd25f31fca96aa7325f9426945a9fe8916da",
+      "variant": "patched"
+    }
+  ],
+  "full_t12_qualification_executed": false,
+  "historical_results_modified": false,
+  "milestone": "T1.2 static prequalification",
+  "newly_qualified_archetypes": 0,
+  "normalized_sha256": "1313f03b67d428199412775ae602dfb24345ab6efc97344ed464873422a3a05c",
+  "parent_a1_baseline": {
+    "admission_sha256": "7076ad6f80c48fbb7c66b0ac2b2d7846884dee1f0e12ae70db80e13bb0584c16",
+    "cell_count": 6,
+    "normalized_sha256": "e89da2462c48fbefa5c81ddfed3be208fcad45059fb44327d12d1deb34903284",
+    "q9_readiness_as_reported": "qualified"
+  },
+  "provider_calls": 0,
+  "qualification_policy": "t12-static-prequalification-v1",
+  "qualification_source_sha256": {
+    "research_ops/benchmark_t12_static_audit.py": "537e7674839584cb48d68e7f77f6accd69937375e54feb53f336f698d4c822f8",
+    "src/offsecgym/benchmark/a1_admission.py": "d31136b8a2af8e5e930cd6a601518928c08790ca1ee1e48f00a494b79131b67e",
+    "src/offsecgym/benchmark/manifests.py": "3f744307ff4d5af5464e97c35620be0737d827bafa79afa42ea3013535d60f3a",
+    "src/offsecgym/benchmark/qualification.py": "166ed3be4bf22d81d64f73f1e76df710215272a0531607528083df76694c67d1",
+    "src/offsecgym/benchmark/t12_static_audit.py": "15de80c60920e2e2d2ccc582aaafe3ccf0b7356f46c0a6466725a240fec8e41c"
+  },
+  "qualified_scoped_archetypes_from_parent_report": 1,
+  "scope": "detached_compiler_and_admission_matrix_only",
+  "source_sha256": {
+    "deterministic_validator": "1479e0f4c79605df189cc64581c912d031ca1388034d82619522b9efa55130ad",
+    "difficulty_schema": "a70c198437209629967a70a32794e712912820dd77ff2e95482efa6223eb7412",
+    "enterprise_compiler": "f67367c754950926b4f4b0bbc3db10e2e3d2badb446dd43069150acce2429ba0",
+    "enterprise_template_Dockerfile": "5f074c546281f99839445ef8c9efdadab30a81b12b8cdc170cf49b2c54e63ebd",
+    "enterprise_template_cache_client.py": "bb0c76a5e0cb6445990083ce5f683b62d025872b288572e2d451b6d967c7558d",
+    "enterprise_template_cache_service.py": "bcf5c6d8a3829f35029431196708db3e55bb2f45f8b61630695e5926f5afb95e",
+    "enterprise_template_change_service.py": "1327d04fb40aa8c64895896e621f6ad16ae38181a573aa537424025cb26e8c50",
+    "enterprise_template_gateway_idle.py": "6692f6a56d6a34a9e0819100169b6ff40d171a80dfc34c33246b0fca9f8d1d33",
+    "enterprise_template_http_worker.py": "0fc0196d2e97ef022c30cbd9db575ef8b592cd7a6f2e7cfa15edcab89a019f17",
+    "enterprise_template_identity_service.py": "d401444251444cfa656531f1aeb51f75de4706452d8709957177b9cf7f7d36a8",
+    "enterprise_template_init_db.py": "54019e19152ff9ab26e463a3dbd8da97ec975c3aee00532e3ef3077b00a8f43b",
+    "enterprise_template_pg_client.py": "878318743771a983399e3407f51413da4a03a1ba6d9216507f0bea000c67d0bb",
+    "enterprise_template_schema.sql": "cbe9d0690731d1f26e359450ecbef9bc21146c19a766572de423dca81b90d90e",
+    "enterprise_template_service_common.py": "f1e2d143cb0c2cf4ab63218a2cba25d2575f32647eaf4c75dc349b216b7d5ce2",
+    "enterprise_template_worker_service.py": "7bac4d790a0fb9c71357172afd0b314c4c6e8fa08bb5caf9e58fb553bfe7d048",
+    "ground_truth_schema": "22530318d7462463fb253e66b63f98e73af3c12df3fffbc915d671f7c788503a",
+    "range_schema": "018454dc8eeaba0bcfea9d532e876b8632bf38d1fba21c55cec0542e15cf88e3",
+    "registry": "0a0a300ceb52a869141035d136ccc1de76ee9eaca8cb98f82647ab35aeab9102",
+    "saas_compiler": "04898eb01598ca815c5430d1e2a36712efb4118f78c00abe0b185312e1600f91",
+    "saas_template_Dockerfile": "33980d9b89e197ee0c1f239a09317213de0d857a52fea9f815ff658dbd1db0b3",
+    "saas_template_gateway_idle.py": "8e6bddbd7b3728f2ebdfd9109a0a180cb521a561ee42f6df085d69b94206957f",
+    "saas_template_http_worker.py": "f28a3e8ee7cb0d1f64c2442b0f92c4a39a7eadc5ca7371d184a6d29a76893e35",
+    "saas_template_saas_service.py": "c4d38edb997aba30c88892b742f4273b14eb3dcd03ade52b16c9224c61dfa80e",
+    "stage_schema": "29bc8896e431fd019f537cfbc0168199fac0aa9fc84a729e4faf700e855225cf",
+    "task_schema": "983fe1ed80e2062c23d6c14cf11a12d8905c4a215c46bad609f8f4acc3788c34"
+  }
+}

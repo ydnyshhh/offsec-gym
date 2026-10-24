@@ -1,0 +1,9 @@
+# T1.2 static prequalification
+
+This is a detached, compiler-only audit of the frozen scoped A2, A3, and A4 development matrix. It is **not** the requested full T1.2 qualification. The parent A1 admission report remains byte-for-byte unchanged and is referenced by its digest.
+
+The 18 assigned A2–A4 task cells cover seeds 42–44 and both variants. Each cell passed the existing static Q1, Q7, and Q8 checks. No cell has Q2–Q6 runtime or reference evidence, so all three new archetypes remain unqualified. The report records vulnerable Q4 as `not_evaluated`, patched Q4 as `not_applicable`, and patched protection as a separate `patched_control_status=not_evaluated`. S0–S6 remain unknown. It grants no new benchmark admission; the parent A1 report still records one qualified archetype under its own policy.
+
+Run `research_ops/benchmark_t12_static_audit.py --dry-run` to inspect the exact task matrix and source pins without writing or starting services. `--execute-static --output-private .offsecgym/benchmark/t12-static-prequalification-v1` regenerates only disposable compiler artifacts and the sanitized [static report](t12-static-prequalification.json). The [postcheck](t12-static-postcheck.json) verifies report integrity, 18 unique task identities, gate semantics, source pins, and the unchanged A1 baseline. Neither command starts Docker containers, uses the gateway, submits findings, or calls a model/provider.
+
+The missing evidence is explicit: per-cell Q2 runtime integrity; Q3 public reachability with independently audited exposure and observation provenance; vulnerable Q4 accepted reference findings; patched protection controls; property-specific Q5 validator controls; and Q6 score agreement. This report does not infer that A2 or A4 is unreachable, or that any A2–A4 task is solvable. It preserves their frozen task definitions and leaves those questions open for separate review.
