@@ -3,19 +3,44 @@
 from __future__ import annotations
 
 import json
+import os
+import subprocess
+import sys
 from pathlib import Path
 
 import pytest
 
 from offsecgym.benchmark.manifests import make_task_manifest
-from offsecgym.benchmark.t12_static_audit import audit_static_cells, execution_matrix
+from offsecgym.benchmark.t12_static_audit import (
+    audit_static_cells,
+    dry_run,
+    execution_matrix,
+    qualification_source_pins,
+)
+from offsecgym.benchmark.t12_static_postcheck import verify
 from offsecgym.benchmark.tasks import canonical_sha256
-from research_ops.benchmark_t12_static_audit import A1_BASELINE, dry_run, qualification_source_pins
-from research_ops.benchmark_t12_static_postcheck import PUBLIC, verify
+
+ROOT = Path(__file__).resolve().parents[2]
+A1_BASELINE = ROOT / "docs/benchmark/t11f-a1-admission.json"
+PUBLIC = ROOT / "docs/benchmark/t12-static-prequalification.json"
+
+
+def test_dry_run_cli_is_independent_of_repository_import_path(tmp_path: Path) -> None:
+    env = os.environ.copy()
+    env["PYTHONPATH"] = str(ROOT / "src")
+    completed = subprocess.run(
+        [sys.executable, str(ROOT / "research_ops/benchmark_t12_static_audit.py"), "--dry-run"],
+        cwd=tmp_path,
+        env=env,
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    assert json.loads(completed.stdout) == json.loads(json.dumps(dry_run(ROOT)))
 
 
 def test_dry_run_freezes_18_existing_task_ids_without_runtime() -> None:
-    plan = dry_run()
+    plan = dry_run(ROOT)
     matrix = execution_matrix()
     assert len(matrix) == 18
     assert len({task_id for _, _, _, task_id in matrix}) == 18
@@ -34,12 +59,12 @@ def test_static_matrix_retains_every_cell_and_separates_controls(tmp_path: Path)
     report = audit_static_cells(
         tmp_path / "first",
         a1_admission_path=A1_BASELINE,
-        qualification_source_sha256=qualification_source_pins(),
+        qualification_source_sha256=qualification_source_pins(ROOT),
     )
     again = audit_static_cells(
         tmp_path / "second",
         a1_admission_path=A1_BASELINE,
-        qualification_source_sha256=qualification_source_pins(),
+        qualification_source_sha256=qualification_source_pins(ROOT),
     )
     assert A1_BASELINE.read_bytes() == before
     assert report == again
@@ -70,7 +95,7 @@ def test_changed_a1_baseline_is_rejected(tmp_path: Path) -> None:
         audit_static_cells(
             tmp_path / "state",
             a1_admission_path=path,
-            qualification_source_sha256=qualification_source_pins(),
+            qualification_source_sha256=qualification_source_pins(ROOT),
         )
 
 
@@ -83,7 +108,7 @@ def test_postcheck_rejects_patched_q4_success_even_with_rebuilt_digest(tmp_path:
     report["normalized_sha256"] = canonical_sha256(report)
     path = tmp_path / "tampered.json"
     path.write_text(json.dumps(report))
-    result = verify(path)
+    result = verify(path, checkout=ROOT, a1_baseline=A1_BASELINE)
     assert result["checks"]["normalized_digest"]
     assert not result["checks"]["variant_semantics"]
     assert result["status"] == "fail"

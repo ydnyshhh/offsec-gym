@@ -11,7 +11,7 @@
     "variant_semantics": true
   },
   "milestone": "T1.2 static prequalification",
-  "postcheck_source_sha256": "b1311a1a96951439f57fcfc9483b1b51e5d566a7c474cf68050bcea8b91a0df1",
-  "report_sha256": "1227ff90b01a4da2f115feb7705d3d73232fcb099ce545b580e7fa13e5a03403",
+  "postcheck_source_sha256": "4cec025087648040b5a85f580d0d4ba705d234ca6a3668dff12bcf2459214a23",
+  "report_sha256": "8f15519a960ef08e008652bedb11d5f8ebeab8ac6b564861cd4bebef73d6da59",
   "status": "pass"
 }

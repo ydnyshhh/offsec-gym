@@ -14,6 +14,42 @@ POLICY_VERSION = "t12-static-prequalification-v1"
 ARCHETYPES = ("A2", "A3", "A4")
 SEEDS = (42, 43, 44)
 VARIANTS = ("vulnerable", "patched")
+BOUND_FILES = (
+    "src/offsecgym/benchmark/t12_static_audit.py",
+    "research_ops/benchmark_t12_static_audit.py",
+    "src/offsecgym/benchmark/qualification.py",
+    "src/offsecgym/benchmark/manifests.py",
+    "src/offsecgym/benchmark/a1_admission.py",
+)
+
+
+def qualification_source_pins(checkout: Path) -> dict[str, str]:
+    """Bind the qualifier to files in an explicit checkout."""
+    pins = {}
+    for name in BOUND_FILES:
+        pins[name] = hashlib.sha256((checkout / name).read_bytes()).hexdigest()
+    return pins
+
+
+def dry_run(checkout: Path) -> dict[str, object]:
+    """Describe the static matrix without creating a runtime instance."""
+    return {
+        "qualification_policy": POLICY_VERSION,
+        "archetypes": ARCHETYPES,
+        "seeds": SEEDS,
+        "variants": VARIANTS,
+        "cells": [
+            {"archetype_id": archetype, "seed": seed, "variant": variant, "task_id": task_id}
+            for archetype, seed, variant, task_id in execution_matrix()
+        ],
+        "required_for_full_qualification": ("Q2", "Q3", "Q4", "Q5", "Q6"),
+        "source_sha256": source_pins(),
+        "qualification_source_sha256": qualification_source_pins(checkout),
+        "report_destination": "docs/benchmark/t12-static-prequalification.json",
+        "docker_starts": 0,
+        "gateway_actions": 0,
+        "provider_calls": 0,
+    }
 
 
 def execution_matrix() -> tuple[tuple[str, int, str, str], ...]:

@@ -676,7 +676,7 @@
   "historical_results_modified": false,
   "milestone": "T1.2 static prequalification",
   "newly_qualified_archetypes": 0,
-  "normalized_sha256": "1313f03b67d428199412775ae602dfb24345ab6efc97344ed464873422a3a05c",
+  "normalized_sha256": "8171f5e7ae1307ede72161891f5c9c3b18f23180610eba044550496c04edabd2",
   "parent_a1_baseline": {
     "admission_sha256": "7076ad6f80c48fbb7c66b0ac2b2d7846884dee1f0e12ae70db80e13bb0584c16",
     "cell_count": 6,
@@ -686,11 +686,11 @@
   "provider_calls": 0,
   "qualification_policy": "t12-static-prequalification-v1",
   "qualification_source_sha256": {
-    "research_ops/benchmark_t12_static_audit.py": "537e7674839584cb48d68e7f77f6accd69937375e54feb53f336f698d4c822f8",
+    "research_ops/benchmark_t12_static_audit.py": "7d545537aa207936b945ef1a119ec44c68e8d0aba0387933547bea96b842ec68",
     "src/offsecgym/benchmark/a1_admission.py": "d31136b8a2af8e5e930cd6a601518928c08790ca1ee1e48f00a494b79131b67e",
     "src/offsecgym/benchmark/manifests.py": "3f744307ff4d5af5464e97c35620be0737d827bafa79afa42ea3013535d60f3a",
     "src/offsecgym/benchmark/qualification.py": "166ed3be4bf22d81d64f73f1e76df710215272a0531607528083df76694c67d1",
-    "src/offsecgym/benchmark/t12_static_audit.py": "15de80c60920e2e2d2ccc582aaafe3ccf0b7356f46c0a6466725a240fec8e41c"
+    "src/offsecgym/benchmark/t12_static_audit.py": "30a1c4ca7c11e868110df7f258a4a83dc682fc645ef1b94b3b0afb0cccc68cb7"
   },
   "qualified_scoped_archetypes_from_parent_report": 1,
   "scope": "detached_compiler_and_admission_matrix_only",
