@@ -93,12 +93,16 @@ def freeze_visibility(
     if public.public_objective != task.goal:
         raise ValueError("T0 public objective differs from model task goal")
     identity_ids = context.range.identity_ids
-    if any(str(item) not in items[0]["content"] for item in identity_ids):
-        raise ValueError("allowed identities missing from model prompt")
+    roster = ", ".join(str(item) for item in identity_ids)
+    if f"Allowed identity IDs: {roster}. " not in items[0]["content"]:
+        raise ValueError("model prompt identity roster drift")
     if "Discover roles through /api/me" not in items[0]["content"]:
         raise ValueError("role discovery instruction drift")
-    if not all(route in instructions for route in surface.routes):
+    if f"API routes: {'; '.join(surface.routes)}. " not in instructions:
         raise ValueError("model-facing route inventory drift")
+    tool_names = {tool["name"] for tool in tools}
+    if not {"http_request", "submit_authorization_finding"} <= tool_names:
+        raise ValueError("model-facing tool permissions drift")
     model_public = PublicInputs(public.public_objective, identity_ids, surface.routes)
     reference_public = PublicInputs(public.public_objective, identity_ids, surface.routes)
     model_projection = model_public.projection()
@@ -183,6 +187,13 @@ class PublicObservationGraph(StrictModel):
 
     @model_validator(mode="after")
     def candidate_is_observed(self) -> PublicObservationGraph:
+        if any(
+            item.run_id != self.run_id
+            or item.instance_id != self.instance_id
+            or item.generation != self.generation
+            for item in self.observations
+        ):
+            raise ValueError("observation has a different run or instance generation")
         identifiers = {node.node_id for node in self.nodes}
         if len(identifiers) != len(self.nodes) or any(
             edge.source_node not in identifiers or edge.target_node not in identifiers
@@ -359,7 +370,17 @@ async def audit_public_observations(
             or request.action_id != action.action_id
             or evidence.action_id != action.action_id
             or evidence.request_artifact_id != request.request_artifact_id
+            or requested.run_id != experiment.run_id
+            or requested.range_instance_id != experiment.range_instance_id
+            or requested.range_generation != experiment.range_generation
+            or requested.request_artifact_id != request.request_artifact_id
+            or requested.identity_id != request.identity_id
+            or requested.method != "GET"
+            or requested.path_sha256 != hashlib.sha256(action.path.encode()).hexdigest()
             or completed.evidence_id != evidence.evidence_id
+            or completed.run_id != experiment.run_id
+            or completed.response_sha256 != evidence.response_sha256
+            or completed.http_status != evidence.http_status
             or completed.causation_id != requested.event_id
             or requested.sequence_number >= completed.sequence_number
             or request.path != action.path
@@ -521,7 +542,9 @@ def public_reachability(
         "observation_precedes_target_use": graph.candidate is None
         or graph.candidate.source_sequence_number > 0,
         "correct_run_and_generation": all(
-            item.run_id == graph.run_id and item.generation == graph.generation
+            item.run_id == graph.run_id
+            and item.instance_id == graph.instance_id
+            and item.generation == graph.generation
             for item in graph.observations
         ),
         "no_oracle_target_injection": graph.candidate is None

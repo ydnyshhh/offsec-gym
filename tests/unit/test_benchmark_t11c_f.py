@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 from uuid import uuid4
 
 import pytest
@@ -99,6 +100,15 @@ def test_public_candidate_requires_exact_response_field_and_sequence() -> None:
         PublicObservationGraph(
             **{**base, "candidate": candidate.model_copy(update={"source_sequence_number": 3})}
         )
+    for mismatch in (
+        {"run_id": uuid4()},
+        {"instance_id": uuid4()},
+        {"generation": 1},
+    ):
+        with pytest.raises(ValidationError):
+            PublicObservationGraph(
+                **{**base, "observations": (observation.model_copy(update=mismatch),)}
+            )
 
 
 def test_s6_needs_matching_canonical_verdict_in_same_run() -> None:
@@ -137,3 +147,17 @@ def test_admission_cannot_pass_with_missing_six_cell_evidence() -> None:
     assert not result["admitted"]
     assert len(result["cells"]) == len(SEEDS) * len(VARIANTS)
     assert all(cell["gates"]["Q4"] == "not_evaluated" for cell in result["cells"])
+
+
+def test_offline_canonical_validator_controls_and_score_replay(tmp_path) -> None:
+    from research_ops.benchmark_t11d_conformance import execute
+
+    result = asyncio.run(execute(tmp_path))
+    assert result["positive_control_pass"] is True
+    assert set(result["negative_controls"]) == {
+        "positive",
+        *(f"NC{number}" for number in range(1, 16)),
+    }
+    assert all(control["pass"] for control in result["negative_controls"].values())
+    assert result["q5_status"] == "pass"
+    assert result["q6_status"] == "pass"

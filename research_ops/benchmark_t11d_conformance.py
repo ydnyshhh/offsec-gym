@@ -34,6 +34,7 @@ from offsecgym.validation import DeterministicValidator
 
 ROOT = Path(__file__).resolve().parents[1]
 PUBLIC = ROOT / "docs/benchmark/t11d-validator-conformance.json"
+SCORE_PUBLIC = ROOT / "docs/benchmark/t11d-score-replay.json"
 CONTROL_IDS = tuple(f"NC{number}" for number in range(1, 16))
 
 
@@ -316,6 +317,23 @@ def main() -> None:
     private_root = require_private_root(args.output_private, ROOT)
     result = asyncio.run(execute(private_root))
     PUBLIC.write_text(json.dumps(result, sort_keys=True, indent=2) + "\n")
+    SCORE_PUBLIC.write_text(
+        json.dumps(
+            {
+                "milestone": "T1.1d",
+                "policy_version": "t11d-a1-score-replay-v1",
+                "task_id": result["task_id"],
+                "score_checks": result["score_checks"],
+                "q6_status": result["q6_status"],
+                "source_sha256": result["source_sha256"],
+                "qualification_source_sha256": result["qualification_source_sha256"],
+                "provider_calls": 0,
+            },
+            sort_keys=True,
+            indent=2,
+        )
+        + "\n"
+    )
     print(
         json.dumps(
             {key: result[key] for key in ("positive_control_pass", "q5_status", "q6_status")},

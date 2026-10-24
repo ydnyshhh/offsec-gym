@@ -35,6 +35,7 @@ from offsecgym.schemas.specs import Budget
 
 ROOT = Path(__file__).resolve().parents[1]
 PUBLIC = ROOT / "docs/benchmark/t11c-a1-public-reachability.json"
+VISIBILITY_REPORT = ROOT / "docs/benchmark/t11c-a1-visibility-contract.json"
 
 
 async def execute(seed: int, variant: str, private_root: Path) -> dict[str, object]:
@@ -48,6 +49,7 @@ async def execute(seed: int, variant: str, private_root: Path) -> dict[str, obje
     cleanup = False
     private: dict[str, object] = {}
     result: dict[str, object] = {}
+    public_contract: dict[str, object] = {}
     try:
         status = await runtime.start_instance(instance_id)
         if status.state != "healthy":
@@ -64,6 +66,7 @@ async def execute(seed: int, variant: str, private_root: Path) -> dict[str, obje
         contract, public, rendered = freeze_visibility(
             manifest.public, task, context, manifest.private.source_sha256
         )
+        public_contract = contract.model_dump(mode="json")
         events = MemoryEvents()
         gateway = ComposeActionGateway(runtime, events, min_interval_seconds=0)
         experiment = ExperimentContext(
@@ -121,6 +124,7 @@ async def execute(seed: int, variant: str, private_root: Path) -> dict[str, obje
         result["q3"]["status"] = "unknown"
         result["q3"]["reachability"] = "unknown"
     private_write(private_root / "q3-private.json", private)
+    result["visibility_contract"] = public_contract
     return result
 
 
@@ -155,6 +159,9 @@ def main() -> None:
     private_root = require_private_root(args.output_private, ROOT)
     report = asyncio.run(execute(args.seed, args.variant, private_root))
     if args.seed == 42 and args.variant == "vulnerable":
+        VISIBILITY_REPORT.write_text(
+            json.dumps(report["visibility_contract"], sort_keys=True, indent=2) + "\n"
+        )
         PUBLIC.write_text(json.dumps(report, sort_keys=True, indent=2) + "\n")
     print(
         json.dumps(
