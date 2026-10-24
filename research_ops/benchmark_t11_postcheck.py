@@ -69,6 +69,21 @@ def execute(private_root: Path) -> dict[str, object]:
                     else reference.patched_control_status == "pass"
                 )
             )
+            admitted_cell = next(
+                (
+                    cell
+                    for cell in admission["cells"]
+                    if cell["seed"] == seed and cell["variant"] == variant
+                ),
+                None,
+            )
+            expected_q4 = "pass" if variant == "vulnerable" else "not_applicable"
+            expected_control = "not_applicable" if variant == "vulnerable" else "pass"
+            checks[f"{suffix}_admission_semantics"] = bool(
+                admitted_cell
+                and admitted_cell["gates"]["Q4"] == expected_q4
+                and admitted_cell["patched_control_status"] == expected_control
+            )
             cleanup &= (
                 q2.checks["teardown_integrity"].status == "pass"
                 and reference.docker_cleanup_verified

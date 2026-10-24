@@ -26,8 +26,8 @@
     "research_ops/benchmark_t11d_conformance.py": "8c68e3a3b7ee4dc0de11210d5680a7ea41d8ce6889dec8441c24006de5ed4cd5",
     "research_ops/benchmark_t11e_reference.py": "6053a4de339459c6cbed13ce599610fa0eaeb2223b724fdcb55eac76056a650f",
     "research_ops/benchmark_t11f_admission.py": "9c0c1570cbc75e1b50b9d6d78324429718d902514a9b9928c1756e0cceb26f93",
-    "src/offsecgym/benchmark/a1_admission.py": "7d4fba3760b81f494abd568b08d561fce07bdf11633c718621c92474f0afee0b",
-    "src/offsecgym/benchmark/a1_public.py": "20cf8d73b9fd42026ca0497ea300183e95366eb2072b1a1d953dbdd1322f2ef1",
+    "src/offsecgym/benchmark/a1_admission.py": "d31136b8a2af8e5e930cd6a601518928c08790ca1ee1e48f00a494b79131b67e",
+    "src/offsecgym/benchmark/a1_public.py": "9c08cd44092e9e0ce242e998ff345fac711b3ec2b8784cdbfeef42417c446d53",
     "src/offsecgym/benchmark/a1_reference_record.py": "efcb7cc1446a0b2f9c3721cf065c6948716605c1632870e32efd4fb79cf9177e",
     "src/offsecgym/benchmark/a1_runtime.py": "945f8fa9a49aeaa69a0a296f06f4de32262f72e9fb8c3b36c960e3401c9c617b",
     "src/offsecgym/benchmark/a1_scoring.py": "b4617474aa9c044319e1f38d06249b6351f36e31e9543654cdf95ba791c6a024",
@@ -65,7 +65,7 @@
   },
   "stage_results": [
     {
-      "evidence_reference": "5330c5a8dc8e15c4980b0fa952f3e48419380cf4b004c3d1510a16b929ffcc0f",
+      "evidence_reference": "7d89d5d7dd3dc6608f43ac8e52e401407c9c0593179352141c00a2cb1e0b5a5c",
       "evidence_source": "range_instance_event",
       "reason_code": "verified",
       "rule_version": "t0-stage-v1",
@@ -73,7 +73,7 @@
       "status": "true"
     },
     {
-      "evidence_reference": "a4c7fa2c01b4e9007dcd9b0da600320288bc25ee0eab1e08348b119c5e4230b6",
+      "evidence_reference": "a338188b6634829d0f5320c098ee35765c50c8f3a4780d19c58976cd4f8e54a9",
       "evidence_source": "verified_public_response",
       "reason_code": "verified",
       "rule_version": "t0-stage-v1",
@@ -89,7 +89,7 @@
       "status": "true"
     },
     {
-      "evidence_reference": "1804bd493886c4014b522790d3efaf4193ebcbd96c707b78a55753c1d32fcaa2",
+      "evidence_reference": "493ce120859b1291498c1ff3b811db41c939fd906a3eb36e3140251b70840c92",
       "evidence_source": "verified_gateway_event",
       "reason_code": "verified",
       "rule_version": "t0-stage-v1",
@@ -105,7 +105,7 @@
       "status": "true"
     },
     {
-      "evidence_reference": "c58bec9d409f6c148d20062e84c5118d25bcb9c335dae25b13e34fede1de9813",
+      "evidence_reference": "1daf72eff54533fa374880547b1201abc6ca5814955d6bc8079bc8c019b00962",
       "evidence_source": "canonical_validator",
       "reason_code": "verified",
       "rule_version": "t0-stage-v1",
@@ -113,7 +113,7 @@
       "status": "true"
     },
     {
-      "evidence_reference": "0ab82bb865c2741edcbf3da5cd610942b1cc2849b07a0476df23039646a885a2",
+      "evidence_reference": "472787f9545fabdac3040449dfd3f76423b05002c9aaa50ae4aceb8509745b96",
       "evidence_source": "canonical_validator",
       "reason_code": "verified",
       "rule_version": "t0-stage-v1",

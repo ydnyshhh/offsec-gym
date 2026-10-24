@@ -2,7 +2,7 @@
   "candidate_count": 1,
   "docker_cleanup_verified": true,
   "milestone": "T1.1c",
-  "observation_graph_sha256": "811653135b297b9314eeb691eeac972dc13daf931e73a670e1aa2d2cbb3a8eb9",
+  "observation_graph_sha256": "007a4b0340d20cf3082d5cc42fb90d277fbc722f06941d95c26d421bd39bb55a",
   "policy_version": "t11c-a1-public-discovery-v1",
   "provider_calls": 0,
   "public_graph_edge_count": 19,
@@ -34,8 +34,8 @@
     "research_ops/benchmark_t11d_conformance.py": "8c68e3a3b7ee4dc0de11210d5680a7ea41d8ce6889dec8441c24006de5ed4cd5",
     "research_ops/benchmark_t11e_reference.py": "6053a4de339459c6cbed13ce599610fa0eaeb2223b724fdcb55eac76056a650f",
     "research_ops/benchmark_t11f_admission.py": "9c0c1570cbc75e1b50b9d6d78324429718d902514a9b9928c1756e0cceb26f93",
-    "src/offsecgym/benchmark/a1_admission.py": "7d4fba3760b81f494abd568b08d561fce07bdf11633c718621c92474f0afee0b",
-    "src/offsecgym/benchmark/a1_public.py": "20cf8d73b9fd42026ca0497ea300183e95366eb2072b1a1d953dbdd1322f2ef1",
+    "src/offsecgym/benchmark/a1_admission.py": "d31136b8a2af8e5e930cd6a601518928c08790ca1ee1e48f00a494b79131b67e",
+    "src/offsecgym/benchmark/a1_public.py": "9c08cd44092e9e0ce242e998ff345fac711b3ec2b8784cdbfeef42417c446d53",
     "src/offsecgym/benchmark/a1_reference_record.py": "efcb7cc1446a0b2f9c3721cf065c6948716605c1632870e32efd4fb79cf9177e",
     "src/offsecgym/benchmark/a1_runtime.py": "945f8fa9a49aeaa69a0a296f06f4de32262f72e9fb8c3b36c960e3401c9c617b",
     "src/offsecgym/benchmark/a1_scoring.py": "b4617474aa9c044319e1f38d06249b6351f36e31e9543654cdf95ba791c6a024",
@@ -114,9 +114,9 @@
     "surface_visibility_policy": "known_routes",
     "task_id": "t0-b7fcb7e41fb0e050d9b0320300d83a54fde639b1ae64f3f6af5f73eede16e936",
     "tool_schema_sha256": "787720cdf90be7099558da30d4f08cd33edac5e22fa4b7745a876645980238b5",
-    "version": "t11c-a1-public-visibility-v1",
+    "version": "t11c-a1-public-visibility-v2",
     "visibility_parity": true
   },
-  "visibility_contract_id": "t11c-a1-public-visibility-v1",
+  "visibility_contract_id": "t11c-a1-public-visibility-v2",
   "visibility_parity": true
 }

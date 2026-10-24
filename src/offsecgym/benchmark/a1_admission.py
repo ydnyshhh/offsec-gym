@@ -13,10 +13,11 @@ from offsecgym.benchmark.manifests import make_task_manifest, source_pins
 from offsecgym.benchmark.q2_runtime_qualification import Q2QualificationRecord
 from offsecgym.schemas.common import StrictModel
 
-ADMISSION_VERSION = "t11f-a1-admission-v1"
+ADMISSION_VERSION = "t11f-a1-admission-v2"
 SEEDS = (42, 43, 44)
 VARIANTS = ("vulnerable", "patched")
-GateStatus = Literal["pass", "fail", "unknown", "not_evaluated"]
+GateStatus = Literal["pass", "fail", "unknown", "not_evaluated", "not_applicable"]
+PatchedControlStatus = Literal["pass", "fail", "unknown", "not_evaluated", "not_applicable"]
 
 
 class CohortCell(StrictModel):
@@ -24,6 +25,7 @@ class CohortCell(StrictModel):
     variant: Literal["vulnerable", "patched"]
     task_id: str
     gates: dict[str, GateStatus]
+    patched_control_status: PatchedControlStatus
     stage_statuses: dict[str, str]
     blockers: tuple[str, ...]
 
@@ -33,6 +35,10 @@ class CohortCell(StrictModel):
             raise ValueError("Q1-Q8 are required for each cell")
         if set(self.stage_statuses) != {f"S{index}" for index in range(7)}:
             raise ValueError("S0-S6 are required for each cell")
+        if self.variant == "vulnerable" and self.patched_control_status != "not_applicable":
+            raise ValueError("vulnerable cells cannot carry a patched control result")
+        if self.variant == "patched" and self.gates["Q4"] != "not_applicable":
+            raise ValueError("patched vulnerability success is not applicable")
         return self
 
 
@@ -120,13 +126,21 @@ def admit_a1(
                 q2_status = Q2QualificationRecord.model_validate(q2_row).q2_status
             if not _load_report(ref, manifest, "reference", implementation_pins):
                 q3_status: GateStatus = "not_evaluated"
-                q4_status: GateStatus = "not_evaluated"
+                q4_status: GateStatus = (
+                    "not_evaluated" if variant == "vulnerable" else "not_applicable"
+                )
+                patched_control: PatchedControlStatus = (
+                    "not_applicable" if variant == "vulnerable" else "not_evaluated"
+                )
                 stages = {}
             else:
                 qualified_reference = A1ReferenceRecord.model_validate(ref)
                 q3_status = qualified_reference.q3_status
                 q4_status = (
-                    qualified_reference.q4_status
+                    qualified_reference.q4_status if variant == "vulnerable" else "not_applicable"
+                )
+                patched_control = (
+                    "not_applicable"
                     if variant == "vulnerable"
                     else qualified_reference.patched_control_status
                 )
@@ -135,7 +149,10 @@ def admit_a1(
                     or not qualified_reference.docker_cleanup_verified
                 ):
                     q3_status = "unknown"
-                    q4_status = "unknown"
+                    if variant == "vulnerable":
+                        q4_status = "unknown"
+                    else:
+                        patched_control = "unknown"
                 stages = {
                     row["stage_id"]: row["status"]
                     for row in ref.get("stage_results", [])
@@ -151,13 +168,18 @@ def admit_a1(
                 "Q7": q7,
                 "Q8": q8 if q3_status == "pass" else "unknown",
             }
-            blockers = tuple(gate for gate, gate_status in gates.items() if gate_status != "pass")
+            blockers = tuple(
+                gate
+                for gate, gate_status in gates.items()
+                if gate_status != "pass" and not (variant == "patched" and gate == "Q4")
+            ) + (("patched_control",) if variant == "patched" and patched_control != "pass" else ())
             cells.append(
                 CohortCell(
                     seed=seed,
                     variant=variant,
                     task_id=manifest.task.task_id,
                     gates=gates,
+                    patched_control_status=patched_control,
                     stage_statuses={
                         f"S{index}": stages.get(f"S{index}", "unknown") for index in range(7)
                     },
@@ -165,7 +187,9 @@ def admit_a1(
                 )
             )
     all_pass = all(not cell.blockers for cell in cells)
-    any_fail = any("fail" in cell.gates.values() for cell in cells)
+    any_fail = any(
+        "fail" in cell.gates.values() or cell.patched_control_status == "fail" for cell in cells
+    )
     readiness = (
         "qualified"
         if all_pass

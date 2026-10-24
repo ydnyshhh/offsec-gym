@@ -3,17 +3,20 @@
 from __future__ import annotations
 
 import asyncio
+from copy import deepcopy
 from uuid import uuid4
 
 import pytest
 from pydantic import ValidationError
 
+from offsecgym.benchmark import a1_public
 from offsecgym.benchmark.a1_admission import SEEDS, VARIANTS, admit_a1
 from offsecgym.benchmark.a1_public import (
     PublicCandidate,
     PublicObservation,
     PublicObservationGraph,
     freeze_visibility,
+    rendered_model_projection,
 )
 from offsecgym.benchmark.a1_stages import extract_a1_stages
 from offsecgym.benchmark.manifests import make_task_manifest
@@ -55,6 +58,57 @@ def test_real_model_renderer_and_reference_share_effective_public_projection() -
     assert "Discover roles through /api/me" in rendered["items"][0]["content"]
     assert "member" not in rendered["items"][0]["content"]
     assert public.identity_ids and public.routes
+    assert rendered_model_projection(rendered) == public.projection()
+
+
+def test_reference_visibility_rejects_differential_exposure() -> None:
+    _, public, rendered = _visibility()
+    model_projection = rendered_model_projection(rendered)
+    assert model_projection != {
+        **public.projection(),
+        "identity_ids": (*public.projection()["identity_ids"], str(uuid4())),
+    }
+    assert model_projection != {
+        **public.projection(),
+        "routes": (*public.routes, "GET /private-only"),
+    }
+    hidden_roster = deepcopy(rendered)
+    hidden_roster["items"][0]["content"] = hidden_roster["items"][0]["content"].replace(
+        str(public.identity_ids[0]), str(uuid4())
+    )
+    assert rendered_model_projection(hidden_roster) != public.projection()
+    hidden_route = deepcopy(rendered)
+    hidden_route["instructions"] = hidden_route["instructions"].replace(
+        public.routes[0], "GET /different-route"
+    )
+    assert rendered_model_projection(hidden_route) != public.projection()
+    with_bootstrap = deepcopy(rendered)
+    with_bootstrap["items"][0]["content"] += " The controller already checked public facts."
+    assert rendered_model_projection(with_bootstrap) != public.projection()
+    with_memory = deepcopy(rendered)
+    with_memory["instructions"] += " Your memory is a structured worldview."
+    assert rendered_model_projection(with_memory) != public.projection()
+    missing_role_rule = deepcopy(rendered)
+    missing_role_rule["items"][0]["content"] = missing_role_rule["items"][0]["content"].replace(
+        "Discover roles through /api/me. ", ""
+    )
+    with pytest.raises(ValueError, match="role discovery"):
+        rendered_model_projection(missing_role_rule)
+
+
+def test_freeze_visibility_blocks_reference_policy_on_harness_drift(monkeypatch) -> None:
+    original = a1_public.build_context
+
+    def changed_context(task, context):
+        instructions, items = original(task, context)
+        items[0]["content"] = items[0]["content"].replace(
+            str(context.range.identity_ids[0]), str(uuid4())
+        )
+        return instructions, items
+
+    monkeypatch.setattr(a1_public, "build_context", changed_context)
+    with pytest.raises(ValueError, match="effective model exposure"):
+        _visibility()
 
 
 def test_public_candidate_requires_exact_response_field_and_sequence() -> None:
@@ -146,7 +200,16 @@ def test_admission_cannot_pass_with_missing_six_cell_evidence() -> None:
     assert result["q9_readiness"] == "not_evaluated"
     assert not result["admitted"]
     assert len(result["cells"]) == len(SEEDS) * len(VARIANTS)
-    assert all(cell["gates"]["Q4"] == "not_evaluated" for cell in result["cells"])
+    assert all(
+        cell["gates"]["Q4"]
+        == ("not_evaluated" if cell["variant"] == "vulnerable" else "not_applicable")
+        for cell in result["cells"]
+    )
+    assert all(
+        cell["patched_control_status"]
+        == ("not_applicable" if cell["variant"] == "vulnerable" else "not_evaluated")
+        for cell in result["cells"]
+    )
 
 
 def test_offline_canonical_validator_controls_and_score_replay(tmp_path) -> None:

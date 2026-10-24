@@ -22,7 +22,7 @@ from offsecgym.schemas.evidence import Evidence, RequestArtifact
 from offsecgym.solver.monolithic import build_context, model_tools
 from offsecgym.solver.range_surface import range_surface
 
-VISIBILITY_VERSION = "t11c-a1-public-visibility-v1"
+VISIBILITY_VERSION = "t11c-a1-public-visibility-v2"
 DISCOVERY_VERSION = "t11c-a1-public-discovery-v1"
 
 
@@ -78,6 +78,56 @@ class PublicInputs:
         }
 
 
+def rendered_model_projection(rendered: dict[str, object]) -> dict[str, object]:
+    """Recover public inputs from the effective model context, failing closed on drift."""
+    instructions = rendered.get("instructions")
+    items = rendered.get("items")
+    tools = rendered.get("tools")
+    if (
+        not isinstance(instructions, str)
+        or not isinstance(items, list)
+        or len(items) != 1
+        or not isinstance(items[0], dict)
+        or items[0].get("role") != "user"
+        or not isinstance(items[0].get("content"), str)
+        or not isinstance(tools, list)
+    ):
+        raise ValueError("unsupported model context shape")
+    prompt = items[0]["content"]
+    if (
+        prompt.count("Goal: ") != 1
+        or prompt.count(". Allowed identity IDs: ") != 1
+        or prompt.count(". Action budget: ") != 1
+        or instructions.count("API routes: ") != 1
+        or instructions.count(". A null identity_id") != 1
+    ):
+        raise ValueError("model context public fields are ambiguous")
+    objective = prompt.split("Goal: ", 1)[1].split(". Allowed identity IDs: ", 1)[0]
+    roster = prompt.split(". Allowed identity IDs: ", 1)[1].split(". Action budget: ", 1)[0]
+    route_text = instructions.split("API routes: ", 1)[1].split(". A null identity_id", 1)[0]
+    if not objective or not roster or not route_text:
+        raise ValueError("model context public fields are empty")
+    try:
+        identity_ids = tuple(str(UUID(value)) for value in roster.split(", "))
+    except ValueError as exc:
+        raise ValueError("model context identity roster is invalid") from exc
+    routes = tuple(route_text.split("; "))
+    if "Discover roles through /api/me. " not in prompt:
+        raise ValueError("model context role discovery policy drift")
+    tool_names = {tool.get("name") for tool in tools if isinstance(tool, dict)}
+    if not {"http_request", "submit_authorization_finding"} <= tool_names:
+        raise ValueError("model context tool permissions drift")
+    return {
+        "objective": objective,
+        "identity_ids": identity_ids,
+        "routes": routes,
+        "bootstrap": ("present" if "controller already checked" in prompt else "none"),
+        "structured_memory": (
+            "on" if "Your memory is a structured worldview" in instructions else "off"
+        ),
+    }
+
+
 def freeze_visibility(
     public: PublicTaskEnvelope,
     task: AgentTask,
@@ -90,23 +140,13 @@ def freeze_visibility(
     instructions, items = build_context(task, context)
     tools = model_tools(family="saas", structured=False)
     surface = range_surface("saas")
-    if public.public_objective != task.goal:
-        raise ValueError("T0 public objective differs from model task goal")
     identity_ids = context.range.identity_ids
-    roster = ", ".join(str(item) for item in identity_ids)
-    if f"Allowed identity IDs: {roster}. " not in items[0]["content"]:
-        raise ValueError("model prompt identity roster drift")
-    if "Discover roles through /api/me" not in items[0]["content"]:
-        raise ValueError("role discovery instruction drift")
-    if f"API routes: {'; '.join(surface.routes)}. " not in instructions:
-        raise ValueError("model-facing route inventory drift")
-    tool_names = {tool["name"] for tool in tools}
-    if not {"http_request", "submit_authorization_finding"} <= tool_names:
-        raise ValueError("model-facing tool permissions drift")
-    model_public = PublicInputs(public.public_objective, identity_ids, surface.routes)
+    rendered = {"instructions": instructions, "items": items, "tools": tools}
+    model_projection = rendered_model_projection(rendered)
     reference_public = PublicInputs(public.public_objective, identity_ids, surface.routes)
-    model_projection = model_public.projection()
     reference_projection = reference_public.projection()
+    if model_projection != reference_projection:
+        raise ValueError("reference policy exceeds or differs from effective model exposure")
     contract = BenchmarkVisibilityContract(
         task_id=public.task_id,
         account_context_policy=context.range.visibility_policy,
@@ -118,7 +158,7 @@ def freeze_visibility(
         objective_sha256=digest(public.public_objective),
         instruction_sha256=digest(instructions),
         prompt_template_sha256=digest(items),
-        route_inventory_sha256=digest(surface.routes),
+        route_inventory_sha256=digest(model_projection["routes"]),
         tool_schema_sha256=digest(tools),
         model_projection_sha256=digest(model_projection),
         reference_projection_sha256=digest(reference_projection),
@@ -128,7 +168,7 @@ def freeze_visibility(
     return (
         contract,
         reference_public,
-        {"instructions": instructions, "items": items, "tools": tools},
+        rendered,
     )
 
 
