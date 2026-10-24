@@ -4,5 +4,7 @@
 - Active network evidence is a positive local control plus a negative probe from the target namespace; it does not enumerate all destinations.
 - State independence uses a trusted test-only SQLite marker. No vulnerable business route or target record is changed.
 - Gateway evidence comes from a fresh execution of PR #76's harmless `/api/me` and denied-request test, with the test-file digest and source commit recorded privately.
+- The 15 passing Q2 checks are required contract checks, not 15 independent experiments. Several gateway checks share one source-bound test execution and its underlying assertions.
 - The public report omits random container IDs, instance secrets, raw artifacts, and unrelated Docker resources. Private evidence is in `.offsecgym/benchmark/t11b`.
+- Independent reconstruction of the recorded evidence digests requires the retained private evidence. Public hashes alone do not reproduce the observations.
 - Q3–Q6 remain `not_evaluated`. Q2 alone never makes A1 benchmark ready.
