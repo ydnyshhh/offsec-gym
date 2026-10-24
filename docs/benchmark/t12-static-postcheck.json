@@ -1,0 +1,17 @@
+{
+  "checks": {
+    "a1_baseline_unchanged": true,
+    "full_18_cell_matrix": true,
+    "no_new_admission": true,
+    "no_provider_or_historical_change": true,
+    "normalized_digest": true,
+    "runtime_gates_unearned": true,
+    "source_pins": true,
+    "static_gates": true,
+    "variant_semantics": true
+  },
+  "milestone": "T1.2 static prequalification",
+  "postcheck_source_sha256": "4cec025087648040b5a85f580d0d4ba705d234ca6a3668dff12bcf2459214a23",
+  "report_sha256": "8f15519a960ef08e008652bedb11d5f8ebeab8ac6b564861cd4bebef73d6da59",
+  "status": "pass"
+}
