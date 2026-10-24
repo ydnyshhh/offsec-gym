@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 from copy import deepcopy
+from dataclasses import replace
 from uuid import uuid4
 
 import pytest
@@ -107,6 +108,18 @@ def test_freeze_visibility_blocks_reference_policy_on_harness_drift(monkeypatch)
         return instructions, items
 
     monkeypatch.setattr(a1_public, "build_context", changed_context)
+    with pytest.raises(ValueError, match="effective model exposure"):
+        _visibility()
+
+
+def test_freeze_visibility_blocks_reference_only_route(monkeypatch) -> None:
+    original = a1_public.range_surface
+
+    def expanded_reference_surface(family):
+        surface = original(family)
+        return replace(surface, routes=(*surface.routes, "GET /reference-only"))
+
+    monkeypatch.setattr(a1_public, "range_surface", expanded_reference_surface)
     with pytest.raises(ValueError, match="effective model exposure"):
         _visibility()
 
