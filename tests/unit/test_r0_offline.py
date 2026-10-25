@@ -12,6 +12,7 @@ from uuid import uuid4
 
 import pytest
 
+from offsecgym.benchmark.manifests import make_task_manifest
 from offsecgym.benchmark.passive_evidence_audit import (
     CandidateReference,
     RetainedPublicObservation,
@@ -20,6 +21,7 @@ from offsecgym.benchmark.passive_evidence_audit import (
 from offsecgym.benchmark.task_diversity_audit import diversity_audit
 from offsecgym.research.pilot.offline import analyze_run, empty_report
 from offsecgym.research.pilot.protocol import dry_run, load_protocol
+from offsecgym.research.pilot.reporting import RetainedRunMetadata, paired_report, read_retained_run
 from offsecgym.schemas.events import (
     ActionCompleted,
     ActionRequested,
@@ -166,6 +168,16 @@ def test_protocol_is_frozen_and_execution_is_blocked():
         type(protocol).model_validate({**protocol.model_dump(), "source_pin_sha256": "0" * 64})
 
 
+def test_protocol_visibility_pins_are_strict():
+    protocol = load_protocol(Path("configs/research/r0-a1-pilot.yaml"))
+    for field, message in (
+        ("route_inventory_sha256", "route inventory"),
+        ("tool_schema_sha256", "tool schema"),
+    ):
+        with pytest.raises(ValueError, match=message):
+            type(protocol).model_validate({**protocol.model_dump(), field: "0" * 64})
+
+
 def test_cli_model_execution_fails_closed():
     result = subprocess.run(
         [
@@ -241,3 +253,63 @@ def test_static_diversity_never_qualifies_new_archetypes():
     assert len(report["tasks"]) == 4
     assert report["new_archetypes_qualified"] == 0
     assert {row["public_reachability"] for row in report["tasks"][1:]} == {"not_evaluated"}
+
+
+def test_paired_summary_rejects_budget_drift():
+    record, _ = _retained()
+    run = record.request.run_id
+    analyzed = analyze_run(
+        (
+            RunStarted(run_id=run, actor="controller", sequence_number=1, experiment_hash="x"),
+            RunCompleted(
+                run_id=run, actor="controller", sequence_number=2, status="provider_failed"
+            ),
+        )
+    )
+    task_id = make_task_manifest(
+        "A1", task_mode="scoped_audit", seed=42, variant="vulnerable"
+    ).task.task_id
+    common = dict(
+        task_id=task_id,
+        seed=42,
+        variant="vulnerable",
+        provider="mock",
+        source_commit="1" * 40,
+        visibility_contract_hash="2" * 64,
+        tool_schema_hash="3" * 64,
+        evaluation_version="canonical-v1",
+    )
+    first = RetainedRunMetadata(**common, model_id="a", budget_hash="4" * 64)
+    second = RetainedRunMetadata(**common, model_id="b", budget_hash="5" * 64)
+    with pytest.raises(ValueError, match="shared budget"):
+        paired_report(((first, analyzed), (second, analyzed)))
+
+
+def test_reference_trace_cannot_be_imported_as_model_run(tmp_path: Path):
+    prefix = tmp_path / "reference"
+    run = uuid4()
+    task_id = make_task_manifest(
+        "A1", task_mode="scoped_audit", seed=42, variant="vulnerable"
+    ).task.task_id
+    metadata = RetainedRunMetadata(
+        task_id=task_id,
+        seed=42,
+        variant="vulnerable",
+        provider="mock",
+        model_id="model-a",
+        source_commit="1" * 40,
+        visibility_contract_hash="2" * 64,
+        tool_schema_hash="3" * 64,
+        budget_hash="4" * 64,
+        evaluation_version="canonical-v1",
+    )
+    prefix.with_suffix(".metadata.json").write_text(metadata.model_dump_json())
+    events = (
+        RunStarted(run_id=run, actor="controller", sequence_number=1, experiment_hash="x"),
+        RunCompleted(run_id=run, actor="controller", sequence_number=2, status="provider_failed"),
+    )
+    prefix.with_suffix(".events.jsonl").write_text(
+        "\n".join(row.model_dump_json() for row in events) + "\n"
+    )
+    with pytest.raises(ValueError, match="no model calls"):
+        read_retained_run(prefix)
