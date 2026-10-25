@@ -1,0 +1,39 @@
+{
+  "a1_admission_sha256": "7076ad6f80c48fbb7c66b0ac2b2d7846884dee1f0e12ae70db80e13bb0584c16",
+  "actual_model_runs": 0,
+  "budget": {
+    "max_actions": 20,
+    "max_concurrency": null,
+    "max_cost_usd": 2.0,
+    "max_http_requests": 20,
+    "max_model_calls": 8,
+    "max_output_tokens_per_call": 2048,
+    "max_total_tokens": 24000,
+    "max_wall_seconds": 900,
+    "max_workers": null
+  },
+  "configured_model_count": 0,
+  "development_seeds": [
+    42,
+    43,
+    44
+  ],
+  "live_execution_blocker": "generic_controller_objective",
+  "live_model_execution_ready": false,
+  "milestone": "R0",
+  "model_performance_claims": false,
+  "new_archetypes_qualified": 0,
+  "offline_analysis_ready": true,
+  "passive_provenance_ready": true,
+  "protocol_ready_for_offline_review": true,
+  "protocol_sha256": "cb564ff7071a45682392366461372ad5f2aaf54f41160a6d59df341bc778d9be",
+  "protocol_version": "r0-a1-model-pilot-v1",
+  "provider_calls": 0,
+  "scoped_task_parity": false,
+  "t12_static_report_sha256": "8f15519a960ef08e008652bedb11d5f8ebeab8ac6b564861cd4bebef73d6da59",
+  "task_diversity_audit_ready": true,
+  "variants": [
+    "vulnerable",
+    "patched"
+  ]
+}

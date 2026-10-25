@@ -1,0 +1,10 @@
+{
+  "actual_model_runs": 0,
+  "analysis_version": "r0-offline-analysis-v1",
+  "development_pilot": true,
+  "held_out_evaluation": false,
+  "model_performance_claims": false,
+  "models": [],
+  "paired_comparisons": [],
+  "status": "not_executed"
+}
