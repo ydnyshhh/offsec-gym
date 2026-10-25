@@ -1,6 +1,6 @@
 # R0 A1 development pilot protocol
 
-`r0-a1-model-pilot-v1` freezes A1, SaaS `tenant_boundary_v2`, scoped audits, seeds 42–44, vulnerable/patched variants, one repetition, `white_box_accounts`, `known_routes`, monolithic orchestration, no structured memory, deterministic validation, and the existing model tool schema. The [configuration](../../configs/research/r0-a1-pilot.yaml) contains seven common budget ceilings. Model identities are deliberately empty; no provider credentials or prices are committed.
+`r0-a1-model-pilot-v1` freezes A1, SaaS `tenant_boundary_v2`, scoped audits, seeds 42–44, vulnerable/patched variants, one repetition, `white_box_accounts`, `known_routes`, monolithic orchestration, no structured memory, deterministic validation, and exact route/tool schema digests. The [configuration](../../configs/research/r0-a1-pilot.yaml) contains seven common budget ceilings. Model identities are deliberately empty; no provider credentials or prices are committed.
 
 The protocol checks the A1 admission digest, all six task IDs, and source pins. The proposed `ExperimentSpec` matrix is validated without constructing a runtime. A dry run is available with `research_ops/benchmark_r0_a1_pilot.py --protocol configs/research/r0-a1-pilot.yaml --dry-run`. It makes zero provider calls and starts zero containers.
 

@@ -9,11 +9,14 @@ from typing import Literal
 
 from pydantic import Field, model_validator
 
+from offsecgym.benchmark.a1_public import digest
 from offsecgym.benchmark.manifests import make_task_manifest, source_pins
 from offsecgym.benchmark.registry import get_archetype
 from offsecgym.benchmark.tasks import canonical_sha256
 from offsecgym.schemas.common import StrictModel
 from offsecgym.schemas.specs import Budget, ExperimentSpec, ModelSpec
+from offsecgym.solver.monolithic import model_tools
+from offsecgym.solver.range_surface import range_surface
 
 PROTOCOL_VERSION = "r0-a1-model-pilot-v1"
 SEEDS = (42, 43, 44)
@@ -38,6 +41,9 @@ class PilotProtocol(StrictModel):
     public_objective: str = Field(min_length=1)
     account_visibility: Literal["white_box_accounts"] = "white_box_accounts"
     surface_visibility: Literal["known_routes"] = "known_routes"
+    visibility_contract_id: Literal["t11c-a1-public-visibility-v2"] = "t11c-a1-public-visibility-v2"
+    route_inventory_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    tool_schema_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
     orchestrator: Literal["monolithic"] = "monolithic"
     memory: Literal["none"] = "none"
     validation: Literal["deterministic"] = "deterministic"
@@ -56,6 +62,10 @@ class PilotProtocol(StrictModel):
             raise ValueError("all seven pilot budget ceilings must be set")
         if self.source_pin_sha256 != canonical_sha256(source_pins()):
             raise ValueError("pilot source pins differ from this checkout")
+        if self.route_inventory_sha256 != digest(range_surface("saas").routes):
+            raise ValueError("pilot route inventory differs from frozen visibility")
+        if self.tool_schema_sha256 != digest(model_tools(family="saas", structured=False)):
+            raise ValueError("pilot tool schema differs from frozen visibility")
         identities = [(model.provider, model.name, model.reasoning) for model in self.models]
         if len(set(identities)) != len(identities):
             raise ValueError("duplicate model configuration")
@@ -141,6 +151,9 @@ def dry_run(protocol: PilotProtocol, admission_path: Path) -> dict[str, object]:
             for row in protocol.models
         ],
         "budget": protocol.budget.model_dump(mode="json"),
+        "route_inventory_sha256": protocol.route_inventory_sha256,
+        "tool_schema_sha256": protocol.tool_schema_sha256,
+        "visibility_contract_id": protocol.visibility_contract_id,
         "scoped_task_parity": False,
         "execution_status": "blocked_generic_controller_objective",
         "provider_calls": 0,

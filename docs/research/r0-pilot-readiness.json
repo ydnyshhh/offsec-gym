@@ -26,7 +26,7 @@
   "offline_analysis_ready": true,
   "passive_provenance_ready": true,
   "protocol_ready_for_offline_review": true,
-  "protocol_sha256": "cb564ff7071a45682392366461372ad5f2aaf54f41160a6d59df341bc778d9be",
+  "protocol_sha256": "cb2ea06e9c7ea12ad4327f0d8812aaacd256822509b6f9e924a197d76298176a",
   "protocol_version": "r0-a1-model-pilot-v1",
   "provider_calls": 0,
   "scoped_task_parity": false,
