@@ -228,6 +228,7 @@ def test_trace_metrics_remain_descriptive_and_unscored():
     assert result.model_calls == 0
     assert result.input_tokens is None or result.input_tokens == 0
     assert result.score_valid is None
+    assert result.root_success is None
     assert result.stages["S0"] == "true"
     assert result.stages["S1"] == "unknown"
     assert empty_report()["actual_model_runs"] == 0

@@ -51,6 +51,7 @@ class OfflineRunRecord(StrictModel):
     run_status: str
     score_valid: bool | None
     score_replay_agrees: bool | None
+    root_success: bool | None
     actions: int
     http_requests: int
     model_calls: int
@@ -232,6 +233,13 @@ def analyze_run(
         run_status=endings[0].status,
         score_valid=evaluation.score_valid if evaluation else None,
         score_replay_agrees=replay_agrees,
+        root_success=(
+            expected_root_cause_id in evaluation.matched_root_cause_ids
+            if expected_root_cause_id is not None
+            and evaluation is not None
+            and evaluation.score_valid
+            else None
+        ),
         actions=len(requested),
         http_requests=sum(row.action_type == "http_request" for row in requested),
         model_calls=len(calls_started),

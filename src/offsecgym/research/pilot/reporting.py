@@ -67,7 +67,17 @@ def read_retained_run(prefix: Path) -> tuple[RetainedRunMetadata, OfflineRunReco
         if oracle_path.exists()
         else None
     )
-    record = analyze_run(events, evaluation=evaluation, oracle=oracle)
+    expected_root = None
+    if oracle is not None:
+        active_roots = {row.root_cause_id for row in oracle.properties if row.active}
+        if metadata.variant == "vulnerable" and len(active_roots) != 1:
+            raise ValueError("vulnerable A1 oracle must contain exactly one active root")
+        if metadata.variant == "patched" and active_roots:
+            raise ValueError("patched A1 oracle must contain no active roots")
+        expected_root = next(iter(active_roots), None)
+    record = analyze_run(
+        events, evaluation=evaluation, oracle=oracle, expected_root_cause_id=expected_root
+    )
     if record.integrity_issues:
         raise ValueError("retained trace has event integrity issues")
     return metadata, record
@@ -105,6 +115,21 @@ def paired_report(
                 "model_id": model_id,
                 "run_count": len(entries),
                 "score_valid_runs": sum(record.score_valid is True for _, record in entries),
+                "vulnerable_root_successes": sum(
+                    record.root_success is True
+                    for meta, record in entries
+                    if meta.variant == "vulnerable"
+                ),
+                "vulnerable_scored_runs": sum(
+                    record.root_success is not None
+                    for meta, record in entries
+                    if meta.variant == "vulnerable"
+                ),
+                "patched_rejected_submissions": sum(
+                    record.rejected_findings
+                    for meta, record in entries
+                    if meta.variant == "patched"
+                ),
                 "run_status_counts": dict(
                     sorted(Counter(record.run_status for _, record in entries).items())
                 ),
@@ -116,6 +141,7 @@ def paired_report(
                         "variant": meta.variant,
                         "run_status": record.run_status,
                         "score_valid": record.score_valid,
+                        "root_success": record.root_success,
                         "actions": record.actions,
                         "validated_findings": record.validated_findings,
                         "rejected_findings": record.rejected_findings,
@@ -204,6 +230,9 @@ def write_offline_reports(
                 "model_id",
                 "run_count",
                 "score_valid_runs",
+                "vulnerable_root_successes",
+                "vulnerable_scored_runs",
+                "patched_rejected_submissions",
                 "mean_actions",
                 "median_actions",
             ),
