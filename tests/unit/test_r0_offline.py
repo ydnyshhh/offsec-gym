@@ -163,6 +163,12 @@ def test_protocol_is_frozen_and_execution_is_blocked():
     assert len(plan["cells"]) == 6
     assert plan["model_count"] == 0
     assert plan["scoped_task_parity"] is False
+    assert plan["controller_memory_supported"] is False
+    assert plan["rendered_model_context_parity"] == "not_evaluated"
+    assert plan["execution_blockers"] == [
+        "generic_controller_objective",
+        "unsupported_monolithic_memory_none",
+    ]
     assert plan["provider_calls"] == 0
     with pytest.raises(ValueError, match="source pins"):
         type(protocol).model_validate({**protocol.model_dump(), "source_pin_sha256": "0" * 64})

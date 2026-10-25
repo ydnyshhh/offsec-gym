@@ -155,6 +155,12 @@ def dry_run(protocol: PilotProtocol, admission_path: Path) -> dict[str, object]:
         "tool_schema_sha256": protocol.tool_schema_sha256,
         "visibility_contract_id": protocol.visibility_contract_id,
         "scoped_task_parity": False,
+        "controller_memory_supported": False,
+        "rendered_model_context_parity": "not_evaluated",
+        "execution_blockers": [
+            "generic_controller_objective",
+            "unsupported_monolithic_memory_none",
+        ],
         "execution_status": "blocked_generic_controller_objective",
         "provider_calls": 0,
     }
