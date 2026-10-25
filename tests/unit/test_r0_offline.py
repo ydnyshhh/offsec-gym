@@ -19,6 +19,7 @@ from offsecgym.benchmark.passive_evidence_audit import (
     audit_retained_observation,
 )
 from offsecgym.benchmark.task_diversity_audit import diversity_audit
+from offsecgym.experiment.monolithic import MonolithicExperimentRunner
 from offsecgym.research.pilot.offline import analyze_run, empty_report
 from offsecgym.research.pilot.protocol import dry_run, load_protocol
 from offsecgym.research.pilot.reporting import RetainedRunMetadata, paired_report, read_retained_run
@@ -30,6 +31,7 @@ from offsecgym.schemas.events import (
     RunStarted,
 )
 from offsecgym.schemas.evidence import Evidence, RequestArtifact
+from offsecgym.schemas.specs import ModelSpec
 
 
 def _retained():
@@ -170,8 +172,50 @@ def test_protocol_is_frozen_and_execution_is_blocked():
         "unsupported_monolithic_memory_none",
     ]
     assert plan["provider_calls"] == 0
+    assert plan["detached_rendered_context_audit"]["public_projection_parity"] is True
+    assert plan["detached_rendered_context_audit"]["scoped_system_context_parity"] is False
+    mock_spec = protocol.model_copy(
+        update={
+            "models": (
+                ModelSpec(
+                    provider="mock",
+                    name="offline-eligibility",
+                    input_usd_per_million_tokens=1,
+                    output_usd_per_million_tokens=1,
+                ),
+            )
+        }
+    ).experiment_specs()[0]
+    assert not MonolithicExperimentRunner._supported(None, mock_spec)
     with pytest.raises(ValueError, match="source pins"):
         type(protocol).model_validate({**protocol.model_dump(), "source_pin_sha256": "0" * 64})
+
+
+def test_versioned_transcript_protocol_keeps_live_execution_blocked():
+    protocol = load_protocol(Path("configs/research/r0-a1-pilot-v2.yaml"))
+    plan = dry_run(protocol, Path("docs/benchmark/t11f-a1-admission.json"))
+    assert protocol.version == "r0-a1-model-pilot-v2"
+    assert protocol.memory == "transcript"
+    assert plan["controller_memory_supported"] is True
+    assert plan["execution_blockers"] == ["generic_controller_objective"]
+    assert plan["rendered_model_context_parity"] == "not_evaluated"
+    assert plan["detached_rendered_context_audit"]["scoped_system_context_parity"] is False
+    assert plan["model_count"] == plan["provider_calls"] == 0
+    mock_spec = protocol.model_copy(
+        update={
+            "models": (
+                ModelSpec(
+                    provider="mock",
+                    name="offline-eligibility",
+                    input_usd_per_million_tokens=1,
+                    output_usd_per_million_tokens=1,
+                ),
+            )
+        }
+    ).experiment_specs()[0]
+    assert MonolithicExperimentRunner._supported(None, mock_spec)
+    with pytest.raises(ValueError, match="frozen protocol version"):
+        type(protocol).model_validate({**protocol.model_dump(), "memory": "none"})
 
 
 def test_protocol_visibility_pins_are_strict():
@@ -184,13 +228,14 @@ def test_protocol_visibility_pins_are_strict():
             type(protocol).model_validate({**protocol.model_dump(), field: "0" * 64})
 
 
-def test_cli_model_execution_fails_closed():
+@pytest.mark.parametrize("protocol_name", ["r0-a1-pilot.yaml", "r0-a1-pilot-v2.yaml"])
+def test_cli_model_execution_fails_closed(protocol_name: str):
     result = subprocess.run(
         [
             sys.executable,
             "research_ops/benchmark_r0_a1_pilot.py",
             "--protocol",
-            "configs/research/r0-a1-pilot.yaml",
+            f"configs/research/{protocol_name}",
             "--execute-models",
         ],
         capture_output=True,

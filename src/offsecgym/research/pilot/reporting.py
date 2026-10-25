@@ -22,7 +22,9 @@ from offsecgym.schemas.ground_truth import GroundTruthManifest
 
 class RetainedRunMetadata(StrictModel):
     provenance: Literal["model_run"] = "model_run"
-    protocol_version: Literal["r0-a1-model-pilot-v1"] = "r0-a1-model-pilot-v1"
+    protocol_version: Literal["r0-a1-model-pilot-v1", "r0-a1-model-pilot-v2"] = (
+        "r0-a1-model-pilot-v1"
+    )
     task_id: str = Field(pattern=r"^t0-[0-9a-f]{64}$")
     seed: Literal[42, 43, 44]
     variant: Literal["vulnerable", "patched"]
