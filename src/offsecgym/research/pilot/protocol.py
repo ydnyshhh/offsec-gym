@@ -6,14 +6,16 @@ import hashlib
 import json
 from pathlib import Path
 from typing import Literal
+from uuid import UUID
 
 from pydantic import Field, model_validator
 
-from offsecgym.benchmark.a1_public import digest
+from offsecgym.benchmark.a1_public import digest, freeze_visibility
 from offsecgym.benchmark.manifests import make_task_manifest, source_pins
 from offsecgym.benchmark.registry import get_archetype
 from offsecgym.benchmark.tasks import canonical_sha256
 from offsecgym.schemas.common import StrictModel
+from offsecgym.schemas.domain import AgentContext, AgentTask, AgentVisibleRangeContext
 from offsecgym.schemas.specs import Budget, ExperimentSpec, ModelSpec
 from offsecgym.solver.monolithic import model_tools
 from offsecgym.solver.range_surface import range_surface
@@ -33,7 +35,7 @@ REQUIRED_LIMITS = (
 
 
 class PilotProtocol(StrictModel):
-    version: Literal["r0-a1-model-pilot-v1"] = PROTOCOL_VERSION
+    version: Literal["r0-a1-model-pilot-v1", "r0-a1-model-pilot-v2"] = PROTOCOL_VERSION
     archetype_id: Literal["A1"] = "A1"
     scenario: Literal["tenant_boundary_v2"] = "tenant_boundary_v2"
     seeds: tuple[int, int, int] = SEEDS
@@ -45,7 +47,7 @@ class PilotProtocol(StrictModel):
     route_inventory_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
     tool_schema_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
     orchestrator: Literal["monolithic"] = "monolithic"
-    memory: Literal["none"] = "none"
+    memory: Literal["none", "transcript"] = "none"
     validation: Literal["deterministic"] = "deterministic"
     repetitions: Literal[1] = 1
     budget: Budget
@@ -54,6 +56,9 @@ class PilotProtocol(StrictModel):
 
     @model_validator(mode="after")
     def frozen_contract(self) -> PilotProtocol:
+        expected_memory = "none" if self.version == PROTOCOL_VERSION else "transcript"
+        if self.memory != expected_memory:
+            raise ValueError("pilot memory differs from its frozen protocol version")
         if self.seeds != SEEDS or self.variants != VARIANTS:
             raise ValueError("R0 development cells must be exactly seeds 42–44 by both variants")
         if self.public_objective != get_archetype("A1").scoped_objective:
@@ -124,6 +129,37 @@ def admission_baseline(path: Path) -> dict[str, object]:
     return {"sha256": hashlib.sha256(raw).hexdigest(), "cells": len(observed)}
 
 
+def detached_context_audit(protocol: PilotProtocol) -> dict[str, object]:
+    """Inspect one synthetic prompt shape without a runtime, gateway, or provider."""
+    manifest = make_task_manifest("A1", task_mode="scoped_audit", seed=42, variant="vulnerable")
+    task = AgentTask(task_id=UUID(int=1), goal=protocol.public_objective, budget=protocol.budget)
+    context = AgentContext(
+        run_id=UUID(int=2),
+        objective=task.goal,
+        range=AgentVisibleRangeContext(
+            range_instance_id=UUID(int=3),
+            family="saas",
+            visibility_policy=protocol.account_visibility,
+            identity_ids=(UUID(int=4),),
+            known_roles=(),
+        ),
+    )
+    contract, _, rendered = freeze_visibility(
+        manifest.public, task, context, manifest.private.source_sha256
+    )
+    instructions = rendered["instructions"]
+    if not isinstance(instructions, str):
+        raise ValueError("rendered instructions are not text")
+    generic_scope_present = range_surface("saas").objective in instructions
+    return {
+        "scope": "synthetic_context_only",
+        "public_projection_parity": contract.visibility_parity,
+        "system_scope_contains_generic_objective": generic_scope_present,
+        "scoped_system_context_parity": False if generic_scope_present else "not_evaluated",
+        "instruction_sha256": contract.instruction_sha256,
+    }
+
+
 def dry_run(protocol: PilotProtocol, admission_path: Path) -> dict[str, object]:
     baseline = admission_baseline(admission_path)
     cells = [
@@ -139,6 +175,11 @@ def dry_run(protocol: PilotProtocol, admission_path: Path) -> dict[str, object]:
     ]
     # The existing controller supplies a generic range-wide goal. Offline planning
     # must not claim that it ran the scoped objective.
+    memory_supported = protocol.memory == "transcript"
+    context_audit = detached_context_audit(protocol)
+    blockers = ["generic_controller_objective"]
+    if not memory_supported:
+        blockers.append("unsupported_monolithic_memory_none")
     return {
         "protocol_version": protocol.version,
         "protocol_sha256": canonical_sha256(protocol),
@@ -155,12 +196,10 @@ def dry_run(protocol: PilotProtocol, admission_path: Path) -> dict[str, object]:
         "tool_schema_sha256": protocol.tool_schema_sha256,
         "visibility_contract_id": protocol.visibility_contract_id,
         "scoped_task_parity": False,
-        "controller_memory_supported": False,
+        "controller_memory_supported": memory_supported,
         "rendered_model_context_parity": "not_evaluated",
-        "execution_blockers": [
-            "generic_controller_objective",
-            "unsupported_monolithic_memory_none",
-        ],
+        "detached_rendered_context_audit": context_audit,
+        "execution_blockers": blockers,
         "execution_status": "blocked_generic_controller_objective",
         "provider_calls": 0,
     }
