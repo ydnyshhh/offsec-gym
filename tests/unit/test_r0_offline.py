@@ -321,6 +321,7 @@ def test_paired_summary_rejects_budget_drift():
         "A1", task_mode="scoped_audit", seed=42, variant="vulnerable"
     ).task.task_id
     common = dict(
+        protocol_version="r0-a1-model-pilot-v1",
         task_id=task_id,
         seed=42,
         variant="vulnerable",
@@ -343,6 +344,7 @@ def test_reference_trace_cannot_be_imported_as_model_run(tmp_path: Path):
         "A1", task_mode="scoped_audit", seed=42, variant="vulnerable"
     ).task.task_id
     metadata = RetainedRunMetadata(
+        protocol_version="r0-a1-model-pilot-v1",
         task_id=task_id,
         seed=42,
         variant="vulnerable",
@@ -353,6 +355,16 @@ def test_reference_trace_cannot_be_imported_as_model_run(tmp_path: Path):
         tool_schema_hash="3" * 64,
         budget_hash="4" * 64,
         evaluation_version="canonical-v1",
+    )
+    without_version = metadata.model_dump()
+    without_version.pop("protocol_version")
+    with pytest.raises(ValueError, match="protocol_version"):
+        RetainedRunMetadata.model_validate(without_version)
+    assert (
+        RetainedRunMetadata.model_validate(
+            {**without_version, "protocol_version": "r0-a1-model-pilot-v2"}
+        ).protocol_version
+        == "r0-a1-model-pilot-v2"
     )
     prefix.with_suffix(".metadata.json").write_text(metadata.model_dump_json())
     events = (
