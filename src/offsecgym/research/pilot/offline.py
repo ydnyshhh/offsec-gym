@@ -13,6 +13,7 @@ from pydantic import Field
 
 from offsecgym.benchmark.a1_scoring import reconstruct_score, score_agrees
 from offsecgym.evaluation import RunEvaluation
+from offsecgym.research.pilot.provenance import ProvenanceAudit
 from offsecgym.schemas.common import StrictModel
 from offsecgym.schemas.events import (
     ActionCompleted,
@@ -79,6 +80,7 @@ class OfflineRunRecord(StrictModel):
     stages: dict[str, Literal["true", "unknown"]]
     integrity_issues: tuple[str, ...]
     trace_sha256: str
+    provenance_audit: ProvenanceAudit | None = None
 
 
 def normalize_events(events: tuple[TraceEvent, ...]) -> tuple[NormalizedTraceStep, ...]:
