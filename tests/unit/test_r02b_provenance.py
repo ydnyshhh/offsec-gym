@@ -96,17 +96,23 @@ def _events(payload: dict[str, object], *, legacy: bool = False):
     )
 
 
-def _write_request(prefix: Path, payload: dict[str, object]) -> None:
+def _write_request(
+    prefix: Path,
+    payload: dict[str, object],
+    *,
+    call_id: UUID = CALL,
+    artifact_id: UUID = ARTIFACT,
+) -> None:
     directory = prefix.with_suffix(".requests")
-    directory.mkdir()
+    directory.mkdir(exist_ok=True)
     record = {
-        "artifact_id": str(ARTIFACT),
+        "artifact_id": str(artifact_id),
         "run_id": str(RUN),
-        "call_id": str(CALL),
+        "call_id": str(call_id),
         "kind": "request",
         "payload": payload,
     }
-    (directory / f"{CALL}.json").write_text(json.dumps(record))
+    (directory / f"{call_id}.json").write_text(json.dumps(record))
 
 
 def _write_binding(prefix: Path, *, runtime_task_id: UUID = TASK) -> str:
@@ -123,6 +129,7 @@ def _write_binding(prefix: Path, *, runtime_task_id: UUID = TASK) -> str:
 
 def _audit(prefix: Path, metadata: RetainedRunMetadata, events, pin: str | None = None):
     return audit_retained_provenance(
+        protocol_version=metadata.protocol_version,
         benchmark_task_id=metadata.task_id,
         seed=metadata.seed,
         variant=metadata.variant,
@@ -161,6 +168,7 @@ def test_verified_internal_links_do_not_infer_task_binding(tmp_path: Path):
     _write_binding(prefix)
     unpinned = _audit(prefix, _metadata(), events)
     assert unpinned.benchmark_manifest_consistency == "verified"
+    assert unpinned.protocol_event_schema_consistency == "verified"
     assert unpinned.model_call_run_linkage == "verified"
     assert unpinned.request_artifact_integrity == "verified"
     assert unpinned.runtime_task_identity_linkage == "not_evaluated"
@@ -239,6 +247,61 @@ def test_request_digest_and_missing_artifact_block_import(tmp_path: Path):
         read_retained_run(prefix)
 
 
+def test_v2_protocol_rejects_legacy_model_call_without_request(tmp_path: Path):
+    prefix = tmp_path / "synthetic"
+    events = _events(_payload(), legacy=True)
+    _write_export(prefix, _metadata(), events)
+    audit = _audit(prefix, _metadata(), events)
+    assert audit.model_call_run_linkage == "verified"
+    assert audit.protocol_event_schema_consistency == "mismatch"
+    assert audit.request_artifact_integrity == "mismatch"
+    assert "protocol_v2_requires_model_call_schema_v2" in audit.issues
+    assert audit.production_request_parity == "not_evaluated"
+    assert audit.runtime_dispatch_parity == "not_evaluated"
+    with pytest.raises(ValueError, match="protocol_v2_requires_model_call_schema_v2"):
+        read_retained_run(prefix)
+
+
+def test_v2_protocol_rejects_mixed_model_call_schemas_with_valid_artifacts(tmp_path: Path):
+    prefix = tmp_path / "synthetic"
+    payload = _payload()
+    _write_request(prefix, payload)
+    legacy_call_id = UUID(int=5)
+    legacy_artifact_id = UUID(int=6)
+    _write_request(prefix, payload, call_id=legacy_call_id, artifact_id=legacy_artifact_id)
+    first = _events(payload)
+    legacy_start = _events(payload, legacy=True)[1].model_copy(
+        update={
+            "sequence_number": 4,
+            "call_id": legacy_call_id,
+            "request_artifact_id": legacy_artifact_id,
+            "request_sha256": payload_sha256(payload),
+        }
+    )
+    legacy_terminal = first[2].model_copy(
+        update={"event_id": UUID(int=7), "sequence_number": 5, "call_id": legacy_call_id}
+    )
+    events = (
+        first[0],
+        first[1],
+        first[2],
+        legacy_start,
+        legacy_terminal,
+        first[3].model_copy(update={"sequence_number": 6}),
+    )
+    metadata = _metadata()
+    _write_export(prefix, metadata, events)
+    audit = _audit(prefix, metadata, events)
+    assert audit.model_call_run_linkage == "verified"
+    assert audit.request_artifact_integrity == "verified"
+    assert audit.protocol_event_schema_consistency == "mismatch"
+    assert audit.request_artifacts_checked == 2
+    assert audit.production_request_parity == "not_evaluated"
+    assert audit.runtime_dispatch_parity == "not_evaluated"
+    with pytest.raises(ValueError, match="protocol_v2_requires_model_call_schema_v2"):
+        read_retained_run(prefix)
+
+
 def test_request_artifact_identity_and_binding_pin_are_checked(tmp_path: Path):
     prefix = tmp_path / "synthetic"
     payload = _payload()
@@ -307,6 +370,7 @@ def test_v1_legacy_without_artifact_remains_unqualified(tmp_path: Path):
     _metadata_row, record = read_retained_run(prefix)
     assert record.provenance_audit is not None
     assert record.provenance_audit.model_call_run_linkage == "verified"
+    assert record.provenance_audit.protocol_event_schema_consistency == "verified"
     assert record.provenance_audit.request_artifact_integrity == "not_evaluated"
     assert record.provenance_audit.runtime_task_identity_linkage == "not_evaluated"
     assert record.provenance_audit.scoped_task_parity == "not_evaluated"

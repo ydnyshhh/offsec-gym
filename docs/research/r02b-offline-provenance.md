@@ -27,10 +27,16 @@ hash remain declarations unless checked against an independent source.
 
 For a prefix such as `cell-42-vulnerable`, request artifacts are read from
 `cell-42-vulnerable.requests/<call UUID>.json` using the existing
-`ModelCallArtifacts` record shape. Version-2 model-call starts require these
-files; a missing file, altered payload, or contradictory ID blocks import.
-Legacy version-1 events without request references remain importable, with
-`request_artifact_integrity = not_evaluated`.
+`ModelCallArtifacts` record shape. The pilot protocol version is distinct
+from each event's schema version. An export declaring
+`r0-a1-model-pilot-v2` requires every model-call start (and every model-call
+completion, when present) to use schema version 2. Every start must reference
+a retained request artifact whose IDs and recomputed payload SHA-256 match.
+Legacy-only or mixed-schema calls, missing files, altered payloads, and
+contradictory IDs block import. An export declaring the historical
+`r0-a1-model-pilot-v1` can retain schema-version-1 calls without request
+references, with `request_artifact_integrity = not_evaluated`. No event or
+artifact is upgraded or synthesized during import.
 
 An optional `cell-42-vulnerable.binding.json` contains exactly
 `schema_version`, `benchmark_task_id`, `runtime_task_id`, and `run_id`.
@@ -44,6 +50,9 @@ not production qualification.
 ## Status boundaries
 
 - `benchmark_manifest_consistency` checks the frozen seed/variant task ID.
+- `protocol_event_schema_consistency` checks the declared pilot protocol
+  against retained model-call schema versions. For v2, a legacy or mixed
+  model-call trace is a mismatch even when its artifacts are intact.
 - `model_call_run_linkage` checks event sequence, run, call, runtime UUID,
   provider, and model consistency.
 - `request_artifact_integrity` checks exported request records against event

@@ -62,6 +62,7 @@ def read_retained_run(
     ):
         raise ValueError("model-call identity differs from retained run metadata")
     audit = audit_retained_provenance(
+        protocol_version=metadata.protocol_version,
         benchmark_task_id=metadata.task_id,
         seed=metadata.seed,
         variant=metadata.variant,

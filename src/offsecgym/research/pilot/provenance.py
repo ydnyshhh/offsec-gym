@@ -33,6 +33,7 @@ Status = Literal["verified", "mismatch", "not_evaluated"]
 class ProvenanceAudit(StrictModel):
     version: Literal["r02b-offline-provenance-v1"] = "r02b-offline-provenance-v1"
     benchmark_manifest_consistency: Status
+    protocol_event_schema_consistency: Status
     runtime_task_identity_linkage: Status
     model_call_run_linkage: Status
     request_artifact_integrity: Status
@@ -50,6 +51,7 @@ class ProvenanceAudit(StrictModel):
             getattr(self, field) == "mismatch"
             for field in (
                 "benchmark_manifest_consistency",
+                "protocol_event_schema_consistency",
                 "runtime_task_identity_linkage",
                 "model_call_run_linkage",
                 "request_artifact_integrity",
@@ -159,6 +161,7 @@ def _binding_status(
 
 def audit_retained_provenance(
     *,
+    protocol_version: Literal["r0-a1-model-pilot-v1", "r0-a1-model-pilot-v2"],
     benchmark_task_id: str,
     seed: int,
     variant: Literal["vulnerable", "patched"],
@@ -170,6 +173,8 @@ def audit_retained_provenance(
     independent_binding_sha256: str | None = None,
 ) -> ProvenanceAudit:
     """Check evidence relationships; only an external digest pin can bind task IDs."""
+    if protocol_version not in {"r0-a1-model-pilot-v1", "r0-a1-model-pilot-v2"}:
+        raise ValueError("unsupported pilot protocol version")
     issues: list[str] = []
     manifest = make_task_manifest("A1", task_mode="scoped_audit", seed=seed, variant=variant)
     manifest_status: Status = (
@@ -186,6 +191,23 @@ def audit_retained_provenance(
     terminals = [
         event for event in events if isinstance(event, (ModelCallCompleted, ModelCallFailed))
     ]
+    completed_calls = [event for event in terminals if isinstance(event, ModelCallCompleted)]
+    if protocol_version == "r0-a1-model-pilot-v2":
+        schema_status: Status = (
+            "verified"
+            if calls
+            and all(call.schema_version == "2" for call in calls)
+            and all(call.schema_version == "2" for call in completed_calls)
+            else "mismatch"
+        )
+        if schema_status == "mismatch":
+            issues.append("protocol_v2_requires_model_call_schema_v2")
+    else:
+        schema_status = (
+            "verified"
+            if calls and all(call.schema_version == "1" for call in calls)
+            else "not_evaluated"
+        )
     sequences = [event.sequence_number for event in events]
     call_ids = [event.call_id for event in calls]
     terminal_ids = [event.call_id for event in terminals]
@@ -235,9 +257,11 @@ def audit_retained_provenance(
     request_status: Status = "not_evaluated"
     for call in calls:
         if call.request_artifact_id is None or call.request_sha256 is None:
-            if (call.request_artifact_id is None) != (
-                call.request_sha256 is None
-            ) or call.schema_version == "2":
+            if (
+                (call.request_artifact_id is None) != (call.request_sha256 is None)
+                or call.schema_version == "2"
+                or protocol_version == "r0-a1-model-pilot-v2"
+            ):
                 request_status = "mismatch"
                 issues.append("missing_request_reference")
             continue
@@ -262,6 +286,7 @@ def audit_retained_provenance(
 
     return ProvenanceAudit(
         benchmark_manifest_consistency=manifest_status,
+        protocol_event_schema_consistency=schema_status,
         runtime_task_identity_linkage=binding_status,
         model_call_run_linkage=model_link_status,
         request_artifact_integrity=request_status,
