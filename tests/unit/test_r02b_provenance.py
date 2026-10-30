@@ -19,6 +19,7 @@ from offsecgym.research.pilot.reporting import (
     write_offline_reports,
 )
 from offsecgym.schemas.events import (
+    ModelCallCompleted,
     ModelCallFailed,
     ModelCallStarted,
     RunCompleted,
@@ -96,6 +97,29 @@ def _events(payload: dict[str, object], *, legacy: bool = False):
     )
 
 
+def _completed_events(payload: dict[str, object], *, completion_schema: str):
+    started = _events(payload)
+    return (
+        started[0],
+        started[1],
+        ModelCallCompleted(
+            schema_version=completion_schema,
+            run_id=RUN,
+            actor="controller",
+            sequence_number=3,
+            call_id=CALL,
+            task_id=TASK,
+            provider_status="synthetic_ok",
+            tool_call_count=0,
+            input_tokens=1,
+            output_tokens=1,
+            response_artifact_id=UUID(int=8),
+            response_sha256=payload_sha256({"output": "synthetic"}),
+        ),
+        RunCompleted(run_id=RUN, actor="controller", sequence_number=4, status="validation_failed"),
+    )
+
+
 def _write_request(
     prefix: Path,
     payload: dict[str, object],
@@ -142,7 +166,9 @@ def _audit(prefix: Path, metadata: RetainedRunMetadata, events, pin: str | None 
     )
 
 
-def _write_export(prefix: Path, metadata: RetainedRunMetadata, events) -> None:
+def _write_export(
+    prefix: Path, metadata: RetainedRunMetadata, events, *, status: str = "provider_failed"
+) -> None:
     prefix.with_suffix(".metadata.json").write_text(metadata.model_dump_json())
     prefix.with_suffix(".events.jsonl").write_text(
         "\n".join(event.model_dump_json() for event in events) + "\n"
@@ -150,7 +176,7 @@ def _write_export(prefix: Path, metadata: RetainedRunMetadata, events) -> None:
     prefix.with_suffix(".evaluation.json").write_text(
         json.dumps(
             {
-                "status": "provider_failed",
+                "status": status,
                 "score_valid": False,
                 "candidate_count": 0,
                 "validated_count": 0,
@@ -300,6 +326,46 @@ def test_v2_protocol_rejects_mixed_model_call_schemas_with_valid_artifacts(tmp_p
     assert audit.runtime_dispatch_parity == "not_evaluated"
     with pytest.raises(ValueError, match="protocol_v2_requires_model_call_schema_v2"):
         read_retained_run(prefix)
+
+
+def test_v2_protocol_rejects_legacy_completed_call_with_valid_request(tmp_path: Path):
+    prefix = tmp_path / "synthetic"
+    payload = _payload()
+    events = _completed_events(payload, completion_schema="1")
+    _write_request(prefix, payload)
+    metadata = _metadata()
+    _write_export(prefix, metadata, events, status="validation_failed")
+    audit = _audit(prefix, metadata, events)
+    assert audit.model_call_run_linkage == "verified"
+    assert audit.request_artifact_integrity == "verified"
+    assert audit.protocol_event_schema_consistency == "mismatch"
+    assert audit.production_request_parity == "not_evaluated"
+    assert audit.runtime_dispatch_parity == "not_evaluated"
+    with pytest.raises(ValueError, match="protocol_v2_requires_model_call_schema_v2"):
+        read_retained_run(prefix)
+
+
+def test_v2_protocol_accepts_versioned_completed_call_with_references(tmp_path: Path):
+    prefix = tmp_path / "synthetic"
+    payload = _payload()
+    events = _completed_events(payload, completion_schema="2")
+    _write_request(prefix, payload)
+    _write_export(prefix, _metadata(), events, status="validation_failed")
+    metadata, record = read_retained_run(prefix)
+    assert metadata.protocol_version == "r0-a1-model-pilot-v2"
+    assert events[1].request_artifact_id == ARTIFACT
+    assert events[1].request_sha256 == payload_sha256(payload)
+    assert events[2].response_artifact_id == UUID(int=8)
+    assert events[2].response_sha256 == payload_sha256({"output": "synthetic"})
+    audit = record.provenance_audit
+    assert audit is not None
+    assert audit.protocol_event_schema_consistency == "verified"
+    assert audit.model_call_run_linkage == "verified"
+    assert audit.request_artifact_integrity == "verified"
+    assert audit.runtime_task_identity_linkage == "not_evaluated"
+    assert audit.scoped_task_parity == "not_evaluated"
+    assert audit.production_request_parity == "not_evaluated"
+    assert audit.runtime_dispatch_parity == "not_evaluated"
 
 
 def test_request_artifact_identity_and_binding_pin_are_checked(tmp_path: Path):
