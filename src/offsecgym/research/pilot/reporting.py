@@ -15,6 +15,7 @@ from pydantic import Field
 from offsecgym.benchmark.manifests import make_task_manifest
 from offsecgym.evaluation import RunEvaluation
 from offsecgym.research.pilot.offline import OfflineRunRecord, analyze_run, empty_report
+from offsecgym.research.pilot.provenance import audit_retained_provenance
 from offsecgym.schemas.common import StrictModel
 from offsecgym.schemas.events import ModelCallStarted, parse_event
 from offsecgym.schemas.ground_truth import GroundTruthManifest
@@ -35,7 +36,9 @@ class RetainedRunMetadata(StrictModel):
     evaluation_version: str = Field(min_length=1)
 
 
-def read_retained_run(prefix: Path) -> tuple[RetainedRunMetadata, OfflineRunRecord]:
+def read_retained_run(
+    prefix: Path, *, independent_binding_sha256: str | None = None
+) -> tuple[RetainedRunMetadata, OfflineRunRecord]:
     """Read a three-file export; never call Docker, gateway, or a model provider."""
     metadata = RetainedRunMetadata.model_validate_json(
         prefix.with_suffix(".metadata.json").read_text()
@@ -58,6 +61,20 @@ def read_retained_run(prefix: Path) -> tuple[RetainedRunMetadata, OfflineRunReco
         if isinstance(row, ModelCallStarted)
     ):
         raise ValueError("model-call identity differs from retained run metadata")
+    audit = audit_retained_provenance(
+        protocol_version=metadata.protocol_version,
+        benchmark_task_id=metadata.task_id,
+        seed=metadata.seed,
+        variant=metadata.variant,
+        provider=metadata.provider,
+        model_id=metadata.model_id,
+        events=events,
+        request_dir=prefix.with_suffix(".requests"),
+        binding_path=prefix.with_suffix(".binding.json"),
+        independent_binding_sha256=independent_binding_sha256,
+    )
+    if audit.has_mismatch:
+        raise ValueError("retained provenance mismatch: " + ", ".join(audit.issues))
     evaluation = RunEvaluation.model_validate_json(
         prefix.with_suffix(".evaluation.json").read_text()
     )
@@ -80,7 +97,7 @@ def read_retained_run(prefix: Path) -> tuple[RetainedRunMetadata, OfflineRunReco
     )
     if record.integrity_issues:
         raise ValueError("retained trace has event integrity issues")
-    return metadata, record
+    return metadata, record.model_copy(update={"provenance_audit": audit})
 
 
 def paired_report(
@@ -145,6 +162,11 @@ def paired_report(
                         "actions": record.actions,
                         "validated_findings": record.validated_findings,
                         "rejected_findings": record.rejected_findings,
+                        "provenance_audit": (
+                            record.provenance_audit.model_dump(mode="json")
+                            if record.provenance_audit is not None
+                            else None
+                        ),
                     }
                     for meta, record in sorted(
                         entries, key=lambda pair: (pair[0].seed, pair[0].variant)
